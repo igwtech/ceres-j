@@ -1,0 +1,12 @@
+services:
+  irata:
+    build: .
+    container_name: neocron-server
+    stdin_open: true
+    tty: true
+    network_mode: host
+    volumes:
+      - ./irata.docker.cfg:/app/irata.cfg:ro
+      - ./data/database:/app/database
+      - ${NC2_CLIENT_PATH:-/home/javier/Neocron2}:/client:ro
+    restart: unless-stopped

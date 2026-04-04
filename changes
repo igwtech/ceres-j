@@ -1,0 +1,158 @@
+10.03.2008 r2d22k
+-fixed many small things, corrected stuff here and there, dont know if the following list is really complete
+-introduced the transaction id, 03xx1fxx2513 packets use it
+-added mapid where missing inside some packets
+-corrected some things during first sync but its not completely right yet
+-added a new helper server.tools.ExtendedByteArrayOutputStream
+-implemented a partial working inventory! it wont save items yet and you cant fully customize the items also
+ most checks are still missing and have to be implemented a command to spawn items in your inv has been added
+ its described in the readme file
+-added server.database.items.{Item, ItemContainer, ItemInfo, ItemInfoManager, ItemManager}
+ the ItemInfoManager reads the items.def file from your NC2 dir and stores the needed information in ItemInfo
+ objects. most of the information is not used yet
+ ItemManager coordinates itemcreation movement and all that stuff
+-added server.database.playerCharacter.inventory.{PlayerGogu, PlayerInventory, PlayerQB} the Gogu
+ is just a placeholder, but the Inventory and QB are at least partially implemented(especially checks are
+ still missing!)
+-added the following packets clientside: InsideF2InvMove, InventoryCombineItems, InventoryMove
+ the first one is used when the client move items in the f2 inv
+ the second one is used when the player tries to combine items
+ the third one is used when the player moves items between different parts of the inventory(qb f2) and when
+ the player tries to move an item in the qb
+-added following packets serverside: AddItem, InventoryMoveAck, InventoryMoveDenied
+ the first one is used to add a new item to the inv
+ the second one acknowledges itemmoves(seems like simple inventory moves in F2 inv dont have to be acked)
+ the third one denies an itemmove
+
+13.09.2007 r2d22k
+-a small bugfix release, to prevent deadlocks in player class
+
+06.08.2007 r2d22k
+-just a small update to correct some mistakes in the code
+
+29.07.2007 r2d22k
+-added a small gui, you can enable it via the option "GUI" in the irata.cfg file, currently its just
+ for development purposes
+-if you start the server via the gui and shut it down via the shutdown button in the gui, the database
+ will be saved correctly
+-changed PlayerCharacter class. added "orientation" "tilt" and "status" to the misclist and added the
+ corresponding static final ints, to represent the orientation(n-e-s-w), the tilt(up-mid-down) and the
+ status (running, walking, standing) of a player
+-modified the WorldManager so you wont get a nullpointer exception anymore if a wrong "int location" is given
+ to getWorldname
+-changed some thinks in ChatManager, but its still not working properly
+-the Gameserver now inits the ZoneManager and stops it
+-a class representing NPCs has been added
+-the player class now holds the mapId and it (un)registers correctly at zones
+-modified Zone class:
+	* players, items and NPCs are now represented by TreeMaps, to faciliate working with mapIds
+	* added a String representing the Worldname
+	* the ZoneId is also saved directly in the Zone
+	* a method getNPC has been added, so you can get NPCs via their worldId
+	* the localChat method now sends the messages to all the players in the Zone
+	* the registerplayer method checks for the first unused mapId
+	* addNPCtoZone adds a new NPC to the Zone
+	* sendNPCsinZone() sends all the NPCs currently in a Zone to the players currently in that Zone
+	* sendNPCsinZone(Player pl) sends all the NPCs currently in a Zone to one specific player pl
+	* sendNPCinZone sends the specified NPC to the specified player
+	* sendPlayersPosinZone(pl) sends the PlayerPositionUpdate of all the Players in the zone to pl 
+	* sendPlayersinZone(pl) sends the players currently in a Zone to one player
+	* sendnewPlayerinZone(pl) sends the new player pl to the others
+	* sendPlayerMovement(pl) sends the movement of pl to the others
+-many things were changed in the ZoneManager. it now takes care of initializing zones
+-the GamePacketReaderUDP has been modified, so it takes care of the new packets
+-after syncing to a Zone it looks like the player updates are send after the TimeSync,
+ so GetTimeSync calls pl.getZone().sendPlayersinZone(pl);  and  pl.getZone().sendnewPlayerinZone(pl);
+-LocalChat now sends the messages directly to the Zone and a new command has been added "npc"
+-Movement now saves the status, tilt and orientation of a player, too
+-RequesInfoAboutWorldID has been added. The client sends this one if it wants to know more about a NPC,
+ which has been sent before by SendPresentWorldID
+-RequestPlayerNamebyPlayerId, gets called when the player wants to know its own name
+-RequestShortPlayerInfo, requests the Name of a specific mapId
+-an event has been added in SyncUDP to take care of sending the NPCs when a player comes into a zone
+-the Location gets the locationstring directly from the zone
+-forcedZoning isnt working anymore, gonna have a look into that...
+-LocalChatMessage has got a new constructor. the new one also wants a mapId, so the client cant identify the
+ sender of the message
+-LongPlayerInfo has been added. it sends information(model, baserank, fraction, sl,...) about a
+ playercharacter to a player
+-PlayerPositionUpdate has to be send once before the LongPlayerInfo packet it sends some info about pos, tilt
+ and orientation of one playercharacter to another player
+-PositionUpdate has been modified, so the correct mapId is being sent
+-SendPlayerNamebyPlayerId is the answar to RequestPlayerNamebyPlayerId
+-SendPresentWorldID sends the position and the map ids of npcs to the players
+-ShortPlayerInfo is the answer to RequestShortPlayerInfo
+-SMovement sends the movement of a playercharacter to another player
+-SZoning1 has been modified, so the correct mapId is being sent
+-TestPack and TestPack03 are just for development purposes
+-UDPAlive has been modified to send the correct mapId
+-UpdateModel has been modified to send the correct mapId
+-WorldNPCInfo sends information about a specific NPC, is the answer to RequestInfoAboutWorldID
+
+16.07.2007 MrsNemo
+- enhanced ip auto detection 
+
+15.6.2007 r2d22k
+-changed some things in ChatManager(change the Listener methods, changed the NewMessage method a bit) but
+ still needs much work 
+-added a variable channels and two methods to handle it to Player class they are used to simplify checking of
+ changed channels
+-changed PlayerManager getPlayers Method to return a copy of the playerList
+-added 3 methods to GamePacketDecoderUDP to handle reading of Strings from a packet
+-added a new Packet ChangedChannels, which gets called when someone changes the custom channels he's
+ listening to
+-changed GlobalChat and LocalChat packets to make use of the new Methods from GamePacketDecoderUDP
+-removed the dooraccess again, till the zonemanager and zones works correctly
+-filled GlobalChat_TCP
+
+10.06.2007 MrsNemo
+-added shutdown hook, now ctrl-c shutdowns the server correctly
+-PriorityList is now based en Event to get rid of these warnings
+
+07.06.2007 MrsNemo
+-changed debug option packets to unknownpackets and added sendingpackets
+-GameServerEvent now has separate execute methods for the different callers
+-GameServerEventExecuter removed
+
+06.06.2007 MrsNemo
+-initial trunk checkin
+
+v0.5.0.1 02.06.2007 - r2d22k
+-this is mainly a release to fill the SVN for people interested in this project
+-added a chatmanager to handle the chat(not yet working, because its not completed), also added several packets
+ to handle the chat stuff(GlobalChat, LocalChat, Globalhat_TCP, LocalChatMessage)
+-several ingame commands have been implemented(LocalChat), for example a command to zone, have a look into
+ the readme for more information
+-if try to use a worlditem it will now tell you the ID and the pos, thanks to the LocalChat
+-zonemanager class has been added but not implemented yet
+-Item class has been added but also not yet implented
+-a packet to force zoning(needed for the igcommand to zone) has been added
+if something is missing plz tell either me(r2d22k) or MrsNemo
+
+v0.5 03.09.2006 - MrsNemo
+-thx amen for finding the database problem, but i removed the database and replaced it with csv files
+-added ip autodetection
+-switched to java standard 6
+-complete rework of the packet decoding and building classes.
+ this last point is the biggest point and interferes so many files, i cann´t tell if there are other changes, too.
+-door support was removed, maybe it will be added again next version
+-cleaned config and debug stuff
+
+v0.4 04.02.2006
+-removed bug in database (as i am to stupid to set up a mysql db, i cannt verify this)
+-changed some interpretations of values in the db. i recommend to clear the db
+-personal appearance should work now
+
+v0.3 27.01.2006
+-many bugfixes
+-add basic support for doors
+-useraccounts are saved lowercase now
+-experimental support for hair :)
+
+v0.2
+-added configoption WebServerPort
+-added configoption NC2ClientPath
+-zoneing works
+
+v0.1
+-initial release
