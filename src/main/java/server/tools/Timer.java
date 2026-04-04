@@ -27,6 +27,7 @@ public final class Timer extends Thread {
 					try {
 						instance.wait(100);
 					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
 					}
 				}
 			}
@@ -44,6 +45,7 @@ public final class Timer extends Thread {
 			try {
 				sleep(1);
 			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
 			}
 		}
 		synchronized (instance) {

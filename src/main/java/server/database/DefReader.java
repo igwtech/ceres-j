@@ -56,6 +56,7 @@ public class DefReader {
 				token = new String();
 			}
 		} catch (IOException e) {
+			// End of stream reached while tokenizing
 		}
 		if (token.length() > 0)
 			tokenlist.add(token);
@@ -92,6 +93,7 @@ public class DefReader {
 		try {
 			br.close();
 		} catch (IOException e) {
+			// Ignored; reader already closed
 		}
 	}
 

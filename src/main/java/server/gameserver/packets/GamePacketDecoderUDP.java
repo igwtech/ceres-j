@@ -43,7 +43,9 @@ public abstract class GamePacketDecoderUDP extends ByteArrayInputStream implemen
 	public int read(byte[] data) {
 		try {
 			return super.read(data);
-		} catch (IOException e) {}
+		} catch (IOException e) {
+			// ByteArrayInputStream read should not throw; return error
+		}
 		return -1;
 	}
 

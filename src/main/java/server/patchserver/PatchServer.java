@@ -46,7 +46,9 @@ public final class PatchServer extends Thread {
 				PatchServerConnection connection = new PatchServerConnection(socket);
 				connection.setDaemon(true);
 				connection.start();
-			} catch (IOException e) {}
+			} catch (IOException e) {
+				// Accept timeout or socket error; retry on next loop iteration
+			}
 		}
 		synchronized (instance) {
 			running = false;
@@ -63,6 +65,7 @@ public final class PatchServer extends Thread {
 					try {
 						instance.wait(100);
 					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
 					}
 				}
 				Out.writeln(Out.Info, "Patch Server stopped");

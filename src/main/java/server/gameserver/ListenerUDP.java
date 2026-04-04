@@ -38,7 +38,9 @@ public final class ListenerUDP extends Thread {
 				Out.writeln(Out.Info, "UDP received " + dp.getLength() + " bytes from " + dp.getAddress().getHostAddress() + ":" + dp.getPort()
 					+ " header=0x" + String.format("%02x", dp.getData()[0] & 0xFF));
 				giveUDPConnection(dp);
-			} catch (IOException e) {}
+			} catch (IOException e) {
+				// Receive timeout or socket error; retry on next loop iteration
+			}
 		}
 		synchronized (this) {
 			running = false;

@@ -44,7 +44,9 @@ public class AccountManager {
 			}
 
 			reader.close();
-		} catch (IOException e) {}
+		} catch (IOException e) {
+			// Failed to load accounts CSV; starting with empty list
+		}
 		Out.writeln(Out.Info, "Loaded " + accountList.size() + " Accounts");
 	}
 
@@ -76,7 +78,9 @@ public class AccountManager {
 			}
 			
 			writer.close();
-		} catch (IOException e) {}
+		} catch (IOException e) {
+			// Failed to save accounts CSV
+		}
 	}
 
 	private static void findaccountCounter() {

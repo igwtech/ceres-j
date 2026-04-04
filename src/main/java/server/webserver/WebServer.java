@@ -47,7 +47,9 @@ public final class WebServer extends Thread {
 				connection.setDaemon(true);
 				connection.setPriority(MIN_PRIORITY);
 				connection.start();
-			} catch (IOException e) {}
+			} catch (IOException e) {
+				// Accept timeout or socket error; retry on next loop iteration
+			}
 		}
 		synchronized (instance) {
 			running = false;
@@ -63,7 +65,9 @@ public final class WebServer extends Thread {
 				while (running) {
 					try {
 						instance.wait(100);
-					} catch (InterruptedException e) {}
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
+					}
 				}
 				Out.writeln(Out.Info, "HTTP Server stopped");
 			}

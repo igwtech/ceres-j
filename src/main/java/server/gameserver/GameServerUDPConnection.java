@@ -64,7 +64,9 @@ public class GameServerUDPConnection {
 				dp[i].setPort(clientport);
 				ListenerUDP.getSocket().send(dp[i]);
 			}
-		} catch (IOException e) {}
+		} catch (IOException e) {
+			// UDP send failed; packet dropped
+		}
 	}
 
 	public int getSessionCounter() {

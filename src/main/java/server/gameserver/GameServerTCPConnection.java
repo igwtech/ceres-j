@@ -48,7 +48,9 @@ public class GameServerTCPConnection extends Thread {
 		synchronized(socket){
 			try {
 				socket.getOutputStream().write(packet.getData(), 0, packet.size());
-			} catch (IOException e) {}
+			} catch (IOException e) {
+				// Socket write failed; connection likely closed by client
+			}
 		}
 	}
 
@@ -64,7 +66,9 @@ public class GameServerTCPConnection extends Thread {
 //		Thread.dumpStack();
 		try {
 			socket.close();
-		} catch (Exception e) {}
+		} catch (Exception e) {
+			// Ignored; socket already closing
+		}
 		exitThread = true;
 		// help gc
 		socket = null;

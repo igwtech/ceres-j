@@ -42,10 +42,12 @@ public final class WebServerConnection extends Thread {
 
 			nos.write(ANSWERTEXT.replaceAll("##ServerList##", getServerList()).getBytes());
 		} catch (IOException e) {
+			// Client disconnected during HTTP exchange
 		}
 		try {
 			socket.close();
 		} catch (IOException e) {
+			// Ignored; socket already closed
 		}
 
 	}

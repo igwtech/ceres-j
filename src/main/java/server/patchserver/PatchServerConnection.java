@@ -28,16 +28,22 @@ public final class PatchServerConnection extends Thread {
 					((PatchEvent)eventList.removeFirst()).execute(this);
 				}
 			}
-		} catch (IOException e) {}
+		} catch (IOException e) {
+			// Client disconnected during patch session
+		}
 		try {
 			socket.close();
-		} catch (IOException e) {}
+		} catch (IOException e) {
+			// Ignored; socket already closed
+		}
 	}
 
 	public void closeTCP() {
 		try {
 			socket.close();
-		} catch (IOException e) {}
+		} catch (IOException e) {
+			// Ignored; socket already closed
+		}
 		exitThread = true;
 	}
 
@@ -48,7 +54,9 @@ public final class PatchServerConnection extends Thread {
 	public void send(PacketBuilderTCP packet) {
 		try {
 			socket.getOutputStream().write(packet.getData(), 0, packet.size());
-		} catch (IOException e) {}
+		} catch (IOException e) {
+			// Socket write failed; connection likely closed by client
+		}
 	}
 
 	public void addEvent(PatchEvent event) {

@@ -150,7 +150,7 @@ public class ItemManager {
 	public static int getFreeContId(){
 		for(int i = 1; i < (int)2147483647; i++){
 			if(!ContainerIds.contains(i)){
-				ContainerIds.add(new Integer(i));
+				ContainerIds.add(Integer.valueOf(i));
 				return i;
 			}
 		}
@@ -164,7 +164,7 @@ public class ItemManager {
 	public static long getFreeItemId(){
 		for(long i = 1; i < 9223372036854775807L ; i++){
 			if(!ItemIds.contains(i)){
-				ItemIds.add(new Long(i));
+				ItemIds.add(Long.valueOf(i));
 				return i;
 			}
 		}

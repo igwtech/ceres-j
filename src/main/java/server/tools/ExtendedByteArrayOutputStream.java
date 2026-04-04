@@ -50,6 +50,7 @@ public class ExtendedByteArrayOutputStream extends ByteArrayOutputStream{
 		try {
 			super.write(data);
 		} catch (IOException e) {
+			// ByteArrayOutputStream.write(byte[]) should not throw
 		}
 	}
 

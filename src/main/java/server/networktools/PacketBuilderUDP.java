@@ -28,6 +28,7 @@ public class PacketBuilderUDP  extends ByteArrayOutputStream implements ServerUD
 		try {
 			super.write(data);
 		} catch (IOException e) {
+			// ByteArrayOutputStream.write(byte[]) should not throw
 		}
 	}
 

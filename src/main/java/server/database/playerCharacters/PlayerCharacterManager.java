@@ -68,7 +68,9 @@ public class PlayerCharacterManager {
 				pcList.add(pc);
 			}
 			reader.close();
-		} catch (IOException e) {}
+		} catch (IOException e) {
+			// Failed to load player characters CSV; starting with empty list
+		}
 		Out.writeln(Out.Info, "Loaded " + pcList.size() + " player characters");
 	}
 
@@ -127,9 +129,11 @@ public class PlayerCharacterManager {
 			}
 			
 			writer.close();
-		} catch (IOException e) {}
+		} catch (IOException e) {
+			// Failed to save player characters CSV
+		}
 	}
-	
+
 	private static void findpcCounter() {
 		int id = 0;
 		for ( Iterator<PlayerCharacter> i = pcList.iterator(); i.hasNext(); )
