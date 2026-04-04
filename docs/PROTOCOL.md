@@ -12,7 +12,14 @@ The game uses three network layers:
 | Game Server | TCP | 12000 | Login, character management, game data |
 | Game Server | UDP | 5000-5005 | Real-time gameplay (movement, combat, chat) |
 
-Retail server uses UDP port **5005**. The port is sent to the client via the `UDPServerData` TCP packet.
+Retail server uses UDP port **5005**. The port is sent to the client via the `UDPServerData` TCP packet. Ceres-J binds its game UDP listener to port **5000** by default (configurable via `GameServer.init`) and reports that port in its own `UDPServerData` replies.
+
+Retail pcap evidence (see `/tmp/retail_capture.pcapng`, zone
+pepper/pepper_p3, retail server `157.90.195.74:5005`): immediately after the
+3-way UDP handshake finishes the server sends ~15 large (~440 byte) 0x13
+packets containing world-entry state, culminating in a ZoningEnd terminator
+after which the client leaves the loading screen. See [World-Entry Packet
+Sequence](#world-entry-packet-sequence-post-handshake) for details.
 
 ## TCP Protocol
 
@@ -328,6 +335,96 @@ Use `network_mode: host` so Wine/Proton clients can reach UDP ports. Set `Server
 | `neocron.yaml` | Modern client settings |
 | `worlds/worlds.ini` | Zone/world definitions |
 
+## World-Entry Packet Sequence (post-handshake)
+
+After the 3-way UDP handshake completes, the NCE 2.5 client spins on a
+loading screen until the server pushes a burst of world-entry packets
+terminated by a `ZoningEnd` (`0x03 -> 0x08`). Retail captures of zone
+`pepper/pepper_p3` (see `/tmp/retail_capture.pcapng`) show ~15 large
+(~440 byte) `0x13` datagrams back-to-back in this phase.
+
+Ceres-J reproduces the burst via `server.gameserver.internalEvents.WorldEntryEvent`
+which is scheduled from `HandshakeUDP.HandshakeUDPAnswer2` once the handshake
+finishes. The event sends the following in order:
+
+| # | Packet | Wrapper | Purpose |
+|---|--------|---------|---------|
+| 1 | `UDPAlive` | raw `0x04` | Keepalive/ack before the burst |
+| 2 | `UpdateModel` | `0x13 -> 0x2f` | Player body model, hair, beard, textures |
+| 3 | `CharInfo` | `0x13 -> 0x03 -> 0x07` (multi-part) | Stats, skills, sympathies, inventory, money |
+| 4 | `TimeSync` | `0x13 -> 0x03 -> 0x0d` | Server time baseline |
+| 5 | `PositionUpdate` | `0x13 -> 0x03 -> 0x2c` | Start position (REL_START_POS) |
+| 6 | `WorldWeather` | `0x13 -> 0x03 -> 0x2e` | Zone weather state |
+| 7 | `LongPlayerInfo` (self) | `0x13 -> 0x03 -> 0x25` | Full info for own character, required so the client sees itself in its zone registry |
+| 8 | `ShortPlayerInfo` (self) | `0x13 -> 0x03 -> 0x30` | Brief name/ID echo |
+| 9 | `PlayerPositionUpdate` (self) | `0x13 -> 0x03 -> 0x1b` | Position broadcast |
+| 10 | Zone NPCs | `0x13 -> 0x1b` (`SendPresentWorldID`) | One per NPC in the zone |
+| 11 | Other players' `LongPlayerInfo` + `PlayerPositionUpdate` | `0x13 -> 0x03` | Only sent if zone has other players |
+| 12 | `ZoningEnd` | `0x13 -> 0x03 -> 0x08` | Terminator — releases the loading screen |
+
+Subsequent client 0x03 sync packets are handled by
+`client_udp.SyncUDP`, which re-broadcasts the relevant zone state plus a
+fresh `ZoningEnd`.
+
+### ZoningEnd (0x13 -> 0x03 -> 0x08)
+
+| Offset | Size | Description |
+|--------|------|-------------|
+| 0x00 | 1 | `0x13` gamedata header |
+| 0x01 | 2 | outer counter (LE) |
+| 0x03 | 2 | outer counter + sessionKey (LE) |
+| 0x05 | 1 | inner payload size (total - 6) |
+| 0x06 | 1 | `0x03` reliable wrapper |
+| 0x07 | 2 | reliable sequence counter (LE) |
+| 0x09 | 1 | `0x08` ZoningEnd sub-type |
+| 0x0A | 2 | mapId (LE) |
+| 0x0C | 1 | status flag (`0x00` = ok) |
+
+### WorldWeather (0x13 -> 0x03 -> 0x2e)
+
+| Offset | Size | Description |
+|--------|------|-------------|
+| 0x00..0x08 | 9 | outer 0x13 header + reliable wrapper |
+| 0x09 | 1 | `0x2e` Weather sub-type |
+| 0x0A | 2 | mapId (LE) |
+| 0x0C | 1 | weather id (0=clear, 1=rain, 2=fog, 3=storm) |
+| 0x0D | 1 | intensity (0x00..0xff) |
+| 0x0E | 4 | duration in seconds (LE) |
+
+## Server-to-Client Obfuscation (retail finding)
+
+Our current assumption was that the retail server sends UDP packets
+**unencrypted** because the NCE 2.5 client accepts plaintext during the
+handshake. That is half-right: the client DOES accept plaintext (Ceres-J
+exploits this), but **retail** actually obfuscates every outgoing UDP packet
+with a stream cipher derived from the per-session `ObfuscateStreamBuf` in
+`neocronclient.exe`.
+
+Evidence from `/tmp/retail_capture.pcapng` (retail server `157.90.195.74:5005`,
+zone pepper/pepper_p3):
+
+1. Every S→C packet has a first byte that is **not** one of the known plaintext
+   headers `{0x01, 0x03, 0x04, 0x08, 0x13}`. The per-packet XOR cipher from
+   `PacketObfuscator.java` (seed = `byte[0] XOR known_header`) does not
+   produce structurally valid inner sub-packet types when applied to these.
+2. Brute-forcing the `PacketObfuscator` seed space against a known-good
+   `0x13 -> 0x03` layout yielded no match for seeds in `0..255`, and 137
+   simultaneous matches across seeds in `0..65535` — evidence that the cipher
+   is stateful (running stream position) rather than per-packet.
+3. The Ghidra decompile of the `ObfuscateStreamBuf` class (see
+   `docs/obfuscate_decompiled.c`) confirms this: the class references a
+   global seed `DAT_00b05360` and a running `piVar1[3]` position counter
+   advanced on every write, i.e. a stream cipher with cumulative offsets.
+
+**Implications for Ceres-J**
+
+The Ceres-J server keeps sending unencrypted responses — this still works
+because the client tolerates plaintext during handshake and during normal
+gameplay. Full interoperability with retail-captured client binaries is not
+required for the emulator, but byte-exact replay of retail captures will
+require implementing the stream cipher. Adding that is tracked as a future
+enhancement; see `irata_protocol_gap.md` in the Claude memory index.
+
 ## Implementation Status (Ceres-J)
 
 | Feature | Status | Notes |
@@ -338,10 +435,11 @@ Use `network_mode: host` so Wine/Proton clients can reach UDP ports. Set `Server
 | Character CRUD | Working | Create, list, delete |
 | UDPServerData | Working | IP, port, session |
 | Location | Working | Zone name sent |
-| UDP Obfuscation | Working | PacketObfuscator.java |
+| UDP Obfuscation (C→S) | Working | Per-packet XOR via `PacketObfuscator.java` |
+| UDP Obfuscation (S→C) | Not implemented | Retail uses a cumulative stream cipher; Ceres-J sends plaintext (client accepts both) |
 | UDP Handshake | Working | 3-way handshake + UDPAlive |
-| Zone Loading | Not implemented | Needs ~7KB of world init data |
-| Movement | Not implemented | UDP 0x20 packets |
+| Zone Loading / World Entry | Working | `WorldEntryEvent` streams CharInfo, UpdateModel, PositionUpdate, LongPlayerInfo, weather, NPCs and ZoningEnd terminator |
+| Movement | Partially implemented | Inbound UDP 0x20 parsed, SMovement broadcast via `Zone.sendPlayerMovement` |
 | Combat | Not implemented | |
 | Chat | Partially implemented | Local + global chat |
 | Inventory | Partially implemented | Basic item moves |
