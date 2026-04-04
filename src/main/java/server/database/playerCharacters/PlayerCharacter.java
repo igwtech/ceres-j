@@ -183,8 +183,9 @@ public class PlayerCharacter {
 		F2InventoryContID 	= Contid[0];
 		GoguInventoryContID = Contid[1];
 		QBInventoryContID	= Contid[2];
-		
+
 		Inventory 			= new PlayerInventory(F2InventoryContID);
+		Gogu				= new PlayerGogu(GoguInventoryContID);
 		QB					= new PlayerQB(QBInventoryContID);
 	}
 

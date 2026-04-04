@@ -53,6 +53,11 @@ public final class Out {
 	 * @param string Text to be shown and logged 
 	 */
 	public static void writeln(int messageType, String s) {
+		if (sdf == null) {
+			// Not yet initialized — print to stdout only
+			System.out.println("[" + typeText[messageType] + "] " + s);
+			return;
+		}
 		String complete = format(typeText[messageType], s);
 		synchronized (lock) {
 			System.out.print(complete);
