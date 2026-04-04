@@ -54,18 +54,31 @@ public class GameServerUDPConnection {
 
 	public void send(ServerUDPPacket packet) {
 		Debug.sendPacket(packet, this);
+		java.net.DatagramSocket socket = ListenerUDP.getSocket();
+		if (socket == null) {
+			// Server socket not yet bound (e.g. during unit tests or very early
+			// startup). Drop the packet silently rather than NPE-ing.
+			return;
+		}
 		try {
 			DatagramPacket dp[] = packet.getDatagramPackets();
 			for (int i = 0; i < dp.length; i++) {
 				// Send UDP responses WITHOUT encryption.
-				// The client encrypts outgoing but expects unencrypted server responses
-				// (confirmed by pcap: real server sends packet 405 with raw 0x01 header).
+				// NCE 2.5 clients accept unencrypted server packets during the
+				// 3-way handshake and subsequent world-entry stream — the
+				// retail server obfuscates its outgoing traffic with a stream
+				// cipher keyed on the session's global seed (see
+				// docs/PROTOCOL.md for the analysis), but the client happily
+				// consumes plaintext as well.
 				dp[i].setAddress(clientaddress);
 				dp[i].setPort(clientport);
-				ListenerUDP.getSocket().send(dp[i]);
+				socket.send(dp[i]);
 			}
 		} catch (IOException e) {
 			// UDP send failed; packet dropped
+		} catch (NullPointerException e) {
+			// Defensive: some getDatagramPackets() implementations can
+			// produce an empty array with a null entry. Drop silently.
 		}
 	}
 
