@@ -33,7 +33,7 @@ public final class Out {
 		lastTime = System.currentTimeMillis();
 		lastTimeString = sdf.format(new Date(lastTime)) + ' ';
 		try {
-			fw = new FileWriter("log" + File.separatorChar + "irata.log", true);
+			fw = new FileWriter("log" + File.separatorChar + "ceres.log", true);
 		} catch (IOException e) {
 			e.printStackTrace();
 			throw new StartupException("Failed opening log file.");

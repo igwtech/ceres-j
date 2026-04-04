@@ -36,13 +36,13 @@ public final class Config {
 		properties = new Properties();
 		
 		try {
-			FileInputStream fis = new FileInputStream("irata.cfg");
+			FileInputStream fis = new FileInputStream("ceres.cfg");
 			properties.load(fis);
 			fis.close();
 			Out.writeln(Out.Info, "Configfile successfull read");
 						
 		} catch (IOException e) {
-			throw new StartupException("Failed reading irata.cfg");
+			throw new StartupException("Failed reading ceres.cfg");
 		}
 
 		// reading debugging orders

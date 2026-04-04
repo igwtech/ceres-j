@@ -1,0 +1,23 @@
+# Build output
+target/
+bin/
+*.jar
+
+# Docker
+data/
+
+# IDE
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+nbproject/
+
+# Logs
+log/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

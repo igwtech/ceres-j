@@ -328,7 +328,7 @@ Use `network_mode: host` so Wine/Proton clients can reach UDP ports. Set `Server
 | `neocron.yaml` | Modern client settings |
 | `worlds/worlds.ini` | Zone/world definitions |
 
-## Implementation Status (irata)
+## Implementation Status (Ceres-J)
 
 | Feature | Status | Notes |
 |---------|--------|-------|

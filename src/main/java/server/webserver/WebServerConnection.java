@@ -16,7 +16,7 @@ public final class WebServerConnection extends Thread {
 		+ "<HEAD>\n"
 		+ "</HEAD>\n"
 		+ "<BODY bgcolor=\"#000000\" text=\"#3388FF\">\n"
-		+ "<h1>Welcome to Irata III<h1>\n"
+		+ "<h1>Welcome to Ceres-J<h1>\n"
 		+ "</BODY>\n"
 		+ "<!-- SERVERLIST\n"
 		+ "##ServerList##"
@@ -55,6 +55,6 @@ public final class WebServerConnection extends Thread {
 	 */
 	private String getServerList() {
 		String ip = Config.getServerIP(socket);
-		return "1 " + ip + new String ("               ").substring(ip.length()) + " Irata III Server\n";
+		return "1 " + ip + new String ("               ").substring(ip.length()) + " Ceres-J Server\n";
 	}
 }
