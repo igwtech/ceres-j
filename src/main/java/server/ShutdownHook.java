@@ -8,7 +8,7 @@ import server.tools.Config;
 import server.tools.Debug;
 import server.tools.Out;
 import server.tools.Timer;
-import server.webserver.WebServer;
+import server.webserver.JettyWebServer;
 
 public class ShutdownHook extends Thread {
 
@@ -19,7 +19,7 @@ public class ShutdownHook extends Thread {
 	}
 
 	public void run() {
-		WebServer.stopServer();
+		JettyWebServer.stopServer();
 		PatchServer.stopServer();
 		InfoServer.stopServer();
 		GameServer.stopServer();

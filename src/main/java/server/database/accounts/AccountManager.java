@@ -112,6 +112,12 @@ public class AccountManager {
 		return ua;
 	}
 
+	public static LinkedList<Account> getAccounts() {
+		synchronized (accountList) {
+			return new LinkedList<>(accountList);
+		}
+	}
+
 	private static Account createAccount(String username, String password) {
 		Account ua = new Account(accountCounter);
 		ua.setUsername(username);

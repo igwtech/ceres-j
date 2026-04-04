@@ -12,7 +12,7 @@ import server.tools.Debug;
 import server.tools.Out;
 import server.tools.Timer;
 import server.gui.*;
-import server.webserver.WebServer;
+import server.webserver.JettyWebServer;
 /**
  * 
  * This class holds the main method, starts and initializes everything.<br>
@@ -48,7 +48,7 @@ public class Server {
 			GameServer.init();
 			InfoServer.init();
 			PatchServer.init();
-			WebServer.init();
+			JettyWebServer.init();
 			
 			ShutdownHook.init();
 			
