@@ -20,7 +20,7 @@ public class ModelTextureManager {
 			String[] tokens = dr.getTokens();
 			if ((tokens.length > 2) && (tokens[0].equals("setentry"))) {
 				ModelTexture ce = new ModelTexture(tokens);
-				mteList.put(new Integer(ce.getId()), ce);
+				mteList.put(Integer.valueOf(ce.getId()), ce);
 			} else {
 				if (dr.isEof())
 					break;
@@ -30,7 +30,7 @@ public class ModelTextureManager {
 	}
 
 	public static ModelTexture getEntry(int id) {
-		return (ModelTexture) mteList.get(new Integer(id));
+		return (ModelTexture) mteList.get(Integer.valueOf(id));
 	}
 
 }

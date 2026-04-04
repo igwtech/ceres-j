@@ -23,7 +23,9 @@ final class ListenerTCP extends Thread {
 			try {
 				Socket socket = serverSocket.accept();
 				new GameServerTCPConnection(socket).start();
-			} catch (IOException e) {}
+			} catch (IOException e) {
+				// Accept timeout or socket error; retry on next loop iteration
+			}
 		}
 		synchronized (this) {
 			running = false;

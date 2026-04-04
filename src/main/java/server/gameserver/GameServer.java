@@ -39,14 +39,18 @@ public final class GameServer {
 				while (instanceTCP.running) {
 					try {
 						instanceTCP.wait(100);
-					} catch (InterruptedException e) {}
-				}				
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
+					}
+				}
 			}
 			synchronized (instanceUDP) {
 				while (instanceUDP.running) {
 					try {
 						instanceUDP.wait(100);
-					} catch (InterruptedException e) {}
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
+					}
 				}				
 			}
 						

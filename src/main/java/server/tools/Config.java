@@ -118,6 +118,7 @@ public final class Config {
 					Out.writeln(Out.Info, infoText);
 				}
 			} catch (SocketException e) {
+				// Failed to enumerate network interfaces
 			}
 
 			if (localIp == null) {
@@ -163,7 +164,9 @@ public final class Config {
 		        	}
 		        }
 		        in.close();
-			} catch (IOException e) {}
+			} catch (IOException e) {
+				// WAN IP detection HTTP request failed
+			}
 			if (wanIp == null) {
 				Out.writeln(Out.Error, "WAN IP autodetection failed.");
 			} else {

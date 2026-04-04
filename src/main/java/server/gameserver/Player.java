@@ -46,6 +46,7 @@ public class Player extends Thread {
 				try {
 					eventList.wait(100);
 				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
 				}
 			}
 

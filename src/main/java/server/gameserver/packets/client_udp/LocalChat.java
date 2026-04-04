@@ -52,7 +52,7 @@ public class LocalChat extends GamePacketDecoderUDP{
 	    				}
 	    			}
 	    			catch(Exception e){
-	
+	    				// Invalid zone command arguments; ignored
 	    			}
 	    		}
 	    		if(message.substring(2,5).equalsIgnoreCase("npc")){
@@ -86,7 +86,7 @@ public class LocalChat extends GamePacketDecoderUDP{
 	    				pl.getZone().addNPCtoZone(x, y, z, hp, type, armor);
 	    			}
 	    			catch(Exception e){
-	    				
+	    				// Invalid NPC command arguments; ignored
 	    			}
 		    		// TODO: create new NPC
 		    	}
@@ -120,7 +120,7 @@ public class LocalChat extends GamePacketDecoderUDP{
 	    				pl.send(new AddItem(pl, ItemManager.createItem(pl.getCharacter().getContainer(PlayerCharacter.PLAYERCONTAINER_F2), -1, ItemID, tokens, Item.ITEMFLAG_SIMPLE, 0)));
 	    			}
 	    			catch(Exception e){
-	    				
+	    				// Invalid item command arguments; ignored
 	    			}
 		    		// TODO: create new NPC
 		    	}

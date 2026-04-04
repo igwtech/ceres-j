@@ -19,7 +19,9 @@ public class UDPServerData extends PacketBuilderTCP {
 		byte[] serverip = null;
 		try {
 			serverip = Inet4Address.getByName(ip).getAddress();
-		} catch (UnknownHostException e) {}
+		} catch (UnknownHostException e) {
+			// Failed to resolve server IP; serverip remains null
+		}
 
 		write(serverip);
 		writeShort(5000); //port

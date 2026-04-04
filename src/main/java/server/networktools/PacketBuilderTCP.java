@@ -37,9 +37,10 @@ public class PacketBuilderTCP extends ByteArrayOutputStream implements ServerTCP
 		try {
 			super.write(data);
 		} catch (IOException e) {
+			// ByteArrayOutputStream.write(byte[]) should not throw
 		}
 	}
-	
+
 	public byte[] getData() {
 		int datasize = count - 3;
 		buf[1] = (byte) datasize;

@@ -39,6 +39,7 @@ public final class InfoServer extends Thread {
 					try {
 						instance.wait(100);
 					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
 					}
 				}
 				Out.writeln(Out.Info, "Info Server stopped");
@@ -62,7 +63,9 @@ public final class InfoServer extends Thread {
 				InfoServerConnection connection = new InfoServerConnection(socket);
 				connection.setDaemon(true);
 				connection.start();
-			} catch (IOException e) {}
+			} catch (IOException e) {
+				// Accept timeout or socket error; retry on next loop iteration
+			}
 		}
 		synchronized (instance) {
 			running = false;

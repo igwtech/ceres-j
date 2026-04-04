@@ -46,11 +46,12 @@ public final class Out {
 		try {
 			fw.close();
 		} catch (IOException e) {
+			// Ignored; log file already closed
 		}
 	}
 
 	/**
-	 * @param string Text to be shown and logged 
+	 * @param string Text to be shown and logged
 	 */
 	public static void writeln(int messageType, String s) {
 		String complete = format(typeText[messageType], s);
@@ -59,6 +60,7 @@ public final class Out {
 			try {
 				fw.write(complete);
 			} catch (IOException e) {
+				// Log file write failed; output still goes to console
 			}
 		}
 	}
@@ -82,7 +84,8 @@ public final class Out {
 			try {
 				fw_debug.write(complete);
 			} catch (IOException e) {
+				// Debug log write failed; output still goes to console
 			}
 		}
-	}	
+	}
 }

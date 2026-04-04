@@ -24,6 +24,7 @@ public class VirtualFileSystem {
 			try {
 				return new FileInputStream(f);
 			} catch (FileNotFoundException e) {
+				// File not found despite canRead(); fall through to try compressed
 			}
 		}
 		
@@ -38,9 +39,10 @@ public class VirtualFileSystem {
 				fis.skip(16);
 				return new InflaterInputStream(fis);
 			} catch (IOException e) {
+				// Failed to read compressed single file; fall through to try archive
 			}
 		}
-		
+
 		//third try compressed archive
 		
 		String firstFolder = filename.substring(0, filename.indexOf("\\"));
@@ -74,6 +76,7 @@ public class VirtualFileSystem {
 					// this wont work for some sound files, which arent compressed, but we dont need them
 				}
 			} catch (IOException e) {
+				// Failed to read from compressed archive
 			}
 
 		}

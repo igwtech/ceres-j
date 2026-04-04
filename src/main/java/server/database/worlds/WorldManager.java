@@ -21,7 +21,7 @@ public class WorldManager {
 			String[] tokens = ir.getTokens();
 			if ((tokens.length > 2) && (tokens[0].equals("set"))) {
 				World we = new World(tokens);
-				weList.put(new Integer(we.getID()), we);
+				weList.put(Integer.valueOf(we.getID()), we);
 			} else {
 				if (ir.isEof())
 					break;
@@ -35,6 +35,6 @@ public class WorldManager {
 		if(weList.get(location) == null)
 			return null;
 		else
-			return weList.get(new Integer(location)).getName();
+			return weList.get(Integer.valueOf(location)).getName();
 	}
 }

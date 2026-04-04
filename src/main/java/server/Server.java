@@ -56,7 +56,9 @@ public class Server {
 			
 			try {
 				System.in.read();
-			} catch (IOException e) {}
+			} catch (IOException e) {
+				// Stdin read failed; proceeding to exit
+			}
 			System.exit(0);
 		} catch (StartupException e) {
 			Out.writeln(Out.Error, e.getMessage());

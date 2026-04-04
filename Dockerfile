@@ -1,4 +1,4 @@
-FROM maven:3.9-eclipse-temurin-11 AS build
+FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /build
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
@@ -6,7 +6,7 @@ COPY src/ src/
 RUN mvn clean test -B
 RUN mvn clean package -B -DskipTests
 
-FROM eclipse-temurin:11-jre
+FROM eclipse-temurin:21-jre
 WORKDIR /app
 
 COPY --from=build /build/bin/ceres-j-1.0-SNAPSHOT.jar /app/ceres.jar

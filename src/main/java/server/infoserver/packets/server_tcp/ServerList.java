@@ -14,7 +14,9 @@ public class ServerList extends PacketBuilderTCP {
 		byte[] serverip = new byte[4];
 		try {
 			serverip = Inet4Address.getByName(ip).getAddress();
-		} catch (UnknownHostException e) {}
+		} catch (UnknownHostException e) {
+			// Failed to resolve server IP; using default empty address
+		}
 		byte[] serverName = Config.getProperty("ServerName").getBytes();
 
 		write(0x83);// packet id

@@ -41,6 +41,7 @@ public final class Debug {
 			try {
 				Out.fw_debug.close();
 			} catch (IOException e) {
+				// Ignored; debug log file already closed
 			}
 			Out.writeln(Out.Info, "Debug logging stopped");
 		}
