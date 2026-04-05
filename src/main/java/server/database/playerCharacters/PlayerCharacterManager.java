@@ -70,6 +70,44 @@ public class PlayerCharacterManager {
 					}
 				}
 
+				// Load CharInfo fidelity fields (schema v1). If any column is
+				// missing (e.g. a pre-migration DB that somehow skipped the
+				// migration path) we catch per-character and keep the
+				// PlayerCharacter default values.
+				try {
+					pc.setHealth(rs.getInt("health"));
+					pc.setMaxHealth(rs.getInt("max_health"));
+					pc.setPsi(rs.getInt("psi_pool"));
+					pc.setMaxPsi(rs.getInt("max_psi_pool"));
+					pc.setStamina(rs.getInt("stamina"));
+					pc.setMaxStamina(rs.getInt("max_stamina"));
+					pc.setSynaptic(rs.getInt("synaptic"));
+					pc.setCash(rs.getInt("cash"));
+					pc.setRank(rs.getInt("rank"));
+
+					String symJson = rs.getString("faction_sympathies");
+					float[] parsed = parseFactionSympathies(symJson);
+					if (parsed != null) {
+						pc.setFactionSympathies(parsed);
+					}
+
+					// Per-skill xp/rate/max overrides — leave the sentinel in
+					// place so the getter falls back to class-based defaults.
+					for (int i = 1; i < PlayerCharacter.SKILLS.length; i++) {
+						String base = PlayerCharacter.SKILLS[i];
+						int xp = rs.getInt(base + "_xp");
+						if (xp != Integer.MIN_VALUE) pc.setSkillXP(i, xp);
+						int rate = rs.getInt(base + "_rate");
+						if (rate != Integer.MIN_VALUE) pc.setSkillRate(i, rate);
+						int max = rs.getInt(base + "_max");
+						if (max != Integer.MIN_VALUE) pc.setSkillMax(i, max);
+					}
+				} catch (SQLException fidelityErr) {
+					Out.writeln(Out.Warning,
+						"CharInfo fidelity columns missing for character '" + pc.getName()
+							+ "', using defaults: " + fidelityErr.getMessage());
+				}
+
 				int[] contId = new int[3];
 				contId[0] = rs.getInt("f2_inventory_cont_id");
 				contId[1] = rs.getInt("gogu_inventory_cont_id");
@@ -154,6 +192,11 @@ public class PlayerCharacterManager {
 			}
 		}
 
+		// CharInfo fidelity columns (schema v1) — same order as SqliteDatabase.FIDELITY_COLUMNS.
+		for (String[] col : SqliteDatabase.FIDELITY_COLUMNS) {
+			sql.append(", ").append(SqliteDatabase.q(col[0]));
+		}
+
 		sql.append(", f2_inventory_cont_id, gogu_inventory_cont_id, qb_inventory_cont_id");
 		sql.append(") VALUES (?");
 
@@ -177,6 +220,11 @@ public class PlayerCharacterManager {
 			if (PlayerCharacter.SUBSKILLS[i] != null) {
 				sql.append(", ?");
 			}
+		}
+
+		// Fidelity column placeholders
+		for (int i = 0; i < SqliteDatabase.FIDELITY_COLUMNS.length; i++) {
+			sql.append(", ?");
 		}
 
 		sql.append(", ?, ?, ?)");
@@ -210,6 +258,27 @@ public class PlayerCharacterManager {
 				}
 			}
 
+			// CharInfo fidelity fields — must stay in FIDELITY_COLUMNS order.
+			// For skill xp/rate/max we call the getters (not the raw fields) so
+			// sentinel-loaded characters get their class-based defaults
+			// concretized on first save. This is a one-way lossy transition
+			// that removes the "unset" marker from the DB going forward.
+			ps.setInt(paramIdx++, pc.getHealth());
+			ps.setInt(paramIdx++, pc.getMaxHealth());
+			ps.setInt(paramIdx++, pc.getPsi());
+			ps.setInt(paramIdx++, pc.getMaxPsi());
+			ps.setInt(paramIdx++, pc.getStamina());
+			ps.setInt(paramIdx++, pc.getMaxStamina());
+			ps.setInt(paramIdx++, pc.getSynaptic());
+			ps.setInt(paramIdx++, pc.getCash());
+			ps.setInt(paramIdx++, pc.getRank());
+			ps.setString(paramIdx++, formatFactionSympathies(pc.getFactionSympathies()));
+			for (int i = 1; i < PlayerCharacter.SKILLS.length; i++) {
+				ps.setInt(paramIdx++, pc.getSkillXP(i));
+				ps.setInt(paramIdx++, pc.getSkillRate(i));
+				ps.setInt(paramIdx++, pc.getSkillMax(i));
+			}
+
 			// Container IDs
 			ps.setInt(paramIdx++, pc.getContainer(PlayerCharacter.PLAYERCONTAINER_F2).getContainerID());
 			ps.setInt(paramIdx++, pc.getContainer(PlayerCharacter.PLAYERCONTAINER_GOGU).getContainerID());
@@ -217,6 +286,57 @@ public class PlayerCharacterManager {
 
 			ps.executeUpdate();
 		}
+	}
+
+	/**
+	 * Parse a faction sympathies JSON-like array string such as
+	 * {@code "[10000.0,10000.0,...,0.0]"}. Returns {@code null} when the input
+	 * is null, empty, malformed, or contains the wrong number of entries —
+	 * the caller leaves the {@link PlayerCharacter} defaults in place in that
+	 * case. Whitespace around values is tolerated.
+	 */
+	private static float[] parseFactionSympathies(String json) {
+		if (json == null) return null;
+		String trimmed = json.trim();
+		if (trimmed.isEmpty()) return null;
+		if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return null;
+		String inner = trimmed.substring(1, trimmed.length() - 1).trim();
+		if (inner.isEmpty()) return null;
+		String[] parts = inner.split(",");
+		if (parts.length != PlayerCharacter.FACTION_SYMPATHY_COUNT) return null;
+		float[] out = new float[parts.length];
+		for (int i = 0; i < parts.length; i++) {
+			try {
+				out[i] = Float.parseFloat(parts[i].trim());
+			} catch (NumberFormatException e) {
+				return null;
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * Serialize a faction sympathies array to the JSON-like string format
+	 * read by {@link #parseFactionSympathies(String)}. Never returns null —
+	 * a null or short input is padded to {@link PlayerCharacter#FACTION_SYMPATHY_COUNT}
+	 * with the legacy 10000.0f default so the round-trip stays stable.
+	 */
+	private static String formatFactionSympathies(float[] arr) {
+		int n = PlayerCharacter.FACTION_SYMPATHY_COUNT;
+		float[] padded = new float[n];
+		for (int i = 0; i < n; i++) padded[i] = 10000.0f;
+		if (arr != null) {
+			int len = Math.min(arr.length, n);
+			for (int i = 0; i < len; i++) padded[i] = arr[i];
+		}
+		StringBuilder sb = new StringBuilder();
+		sb.append('[');
+		for (int i = 0; i < n; i++) {
+			if (i > 0) sb.append(',');
+			sb.append(Float.toString(padded[i]));
+		}
+		sb.append(']');
+		return sb.toString();
 	}
 
 	private static void findpcCounter() {
