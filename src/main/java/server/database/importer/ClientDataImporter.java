@@ -54,7 +54,18 @@ public final class ClientDataImporter {
             return;
         }
 
-        InputStream in = VirtualFileSystem.getFileInputStream(WORLDS_INI_VFS_PATH);
+        InputStream in;
+        try {
+            in = VirtualFileSystem.getFileInputStream(WORLDS_INI_VFS_PATH);
+        } catch (RuntimeException e) {
+            // VirtualFileSystem reads Config.getProperty eagerly; if
+            // Config has not been initialised (test path, or fresh
+            // install with no ceres.cfg) treat it as no client mounted.
+            Out.writeln(Out.Warning,
+                "ClientDataImporter: VirtualFileSystem unavailable ("
+                + e.getClass().getSimpleName() + "); skipping world import");
+            return;
+        }
         if (in == null) {
             Out.writeln(Out.Warning,
                 "ClientDataImporter: " + WORLDS_INI_VFS_PATH

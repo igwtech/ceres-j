@@ -7,6 +7,16 @@ public class World {
 	private int id;
 	private String name;
 
+	/**
+	 * Direct constructor used by the SQLite-backed loader, where the
+	 * path has already been normalised (backslashes to forward slashes,
+	 * {@code .bsp} stripped).
+	 */
+	public World(int id, String path) {
+		this.id = id;
+		this.name = path;
+	}
+
 	public World(String[] tokens) {
 		int length = tokens.length;
 		if (tokens[length-1].equals("|"))
