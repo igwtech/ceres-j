@@ -10,8 +10,10 @@ import server.tools.VirtualFileSystem;
 
 public class ItemInfoManager {
 
+	// TODO: switch to SQLite-backed loading (schema v2 item_defs table)
+
 	private static TreeMap<Integer, ItemInfo> ItemInfoList = new TreeMap<Integer, ItemInfo>();
-		
+
 		public static void init() throws StartupException {
 			InputStream data = VirtualFileSystem.getFileInputStream("defs\\items.def");
 			if (data == null)
