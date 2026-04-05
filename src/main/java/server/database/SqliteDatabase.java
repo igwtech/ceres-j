@@ -17,6 +17,14 @@ import server.tools.Out;
 
 public final class SqliteDatabase {
 
+    /**
+     * Schema version owned by the client-data importer track.
+     * NOTE: version 1 is reserved for the parallel feature/charinfo-fidelity
+     * branch. This track uses version 2. When the two tracks merge, bump
+     * the constant and coordinate the migrations in order.
+     */
+    public static final int CURRENT_SCHEMA_VERSION = 2;
+
     private static Connection connection;
     private static final String DB_PATH = "database" + File.separator + "ceres.db";
 
@@ -145,6 +153,41 @@ public final class SqliteDatabase {
                 "  type INTEGER NOT NULL" +
                 ")"
             );
+
+            // --- Schema version 2: client-data importer tables ---
+            // Driven by PRAGMA user_version so future migrations can be conditional.
+            int userVersion = 0;
+            try (ResultSet rs = stmt.executeQuery("PRAGMA user_version")) {
+                if (rs.next()) {
+                    userVersion = rs.getInt(1);
+                }
+            }
+
+            // World definitions imported from NC2 client's worlds/worlds.ini
+            stmt.execute(
+                "CREATE TABLE IF NOT EXISTS world_defs (" +
+                "  id INTEGER PRIMARY KEY," +
+                "  path TEXT NOT NULL," +        // e.g. "plaza/plaza_p1"
+                "  bsp_name TEXT NOT NULL" +     // e.g. "plaza_p1.bsp"
+                ")"
+            );
+
+            // Item definitions imported from NC2 client's defs/pak_items.def
+            stmt.execute(
+                "CREATE TABLE IF NOT EXISTS item_defs (" +
+                "  id INTEGER PRIMARY KEY," +
+                "  name TEXT," +
+                "  type INTEGER," +
+                "  tech_level INTEGER," +
+                "  stats_json TEXT" +
+                ")"
+            );
+
+            // PRAGMA table_info is available for verifying column presence
+            // if a future migration needs to ALTER existing tables.
+            if (userVersion < CURRENT_SCHEMA_VERSION) {
+                stmt.execute("PRAGMA user_version = " + CURRENT_SCHEMA_VERSION);
+            }
         }
     }
 
