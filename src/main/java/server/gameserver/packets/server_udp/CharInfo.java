@@ -33,19 +33,19 @@ public class CharInfo extends PacketBuilderUDP130307 {
 		newSection(2); //pools
 		write(4);
 		write(4);
-		writeShort(100); //cur health
-		writeShort(100); //max health
-		writeShort(100); //cur psi
-		writeShort(100); //max psi
-		writeShort(100); //cur stamina
-		writeShort(100); //max stamina
-		writeShort(255); //cur unknown
-		writeShort(255); //max unknown
-		writeShort(101); //max health+1
-		writeShort(101); //max health+1
-		writeShort(101); //max health+1
-		write(100); //100 - synaptic impairment
-		write(128); //unknown
+		writeShort(pc.getHealth()); //cur health
+		writeShort(pc.getMaxHealth()); //max health
+		writeShort(pc.getPsi()); //cur psi
+		writeShort(pc.getMaxPsi()); //max psi
+		writeShort(pc.getStamina()); //cur stamina
+		writeShort(pc.getMaxStamina()); //max stamina
+		writeShort(255); //cur unknown — literal (out of scope)
+		writeShort(255); //max unknown — literal (out of scope)
+		writeShort(101); //max health+1 — literal (out of scope)
+		writeShort(101); //max health+1 — literal (out of scope)
+		writeShort(101); //max health+1 — literal (out of scope)
+		write(pc.getSynaptic()); //100 - synaptic impairment
+		write(128); //unknown — literal
 		write(0);
 		write(0);
 		
@@ -120,39 +120,25 @@ public class CharInfo extends PacketBuilderUDP130307 {
 		write(pc.getMisc(PlayerCharacter.TEXTURE_HEAD)); // seems to have no effect
 		write(pc.getMisc(PlayerCharacter.TEXTURE_TORSO)); // seems to have no effect
 		write(pc.getMisc(PlayerCharacter.TEXTURE_LEG)); // seems to have no effect
-		write(0);//rank
+		write(pc.getRank());//rank
 		writeInt(100002);//App
 		write(new byte[]{0x01, 0x00, 0x00, 0x00, 0x00});
 
 		newSection(9); // Section 9 - Faction Sympathies
-		writeShort(21); //21 fractions 
-		write(1); //current fraction;
+		writeShort(21); //21 fractions
+		write(pc.getMisc(PlayerCharacter.MISC_FACTION)); //current fraction;
 		write(0);
 		write(4);
-		writeFloat(10000); //sl
-		writeFloat(10000); //ca
-		writeFloat(10000); //dre
-		writeFloat(10000); //nxt
-		writeFloat(10000); //tt
-		writeFloat(10000); //bt
-		writeFloat(10000); //pp
-		writeFloat(10000); //tu
-		writeFloat(10000); //ts
-		writeFloat(10000); //bd
-		writeFloat(10000); //cs
-		writeFloat(10000); //cm
-		writeFloat(10000); //doy
-		writeFloat(10000); //ab
-		writeFloat(10000); //fa
-		writeFloat(10000); //tg
-		writeFloat(10000); //rl
-		writeFloat(10000); //rm
-		writeFloat(10000); //insects
-		writeFloat(10000); //monster
-		writeFloat(0); //lowsl
-		writeFloat(10000); // sl
-		writeFloat(0); // unknown
-		write(1); // current faction
+		// 20 named faction sympathy floats (sl, ca, dre, nxt, tt, bt, pp, tu,
+		// ts, bd, cs, cm, doy, ab, fa, tg, rl, rm, insects, monster) backed
+		// by PlayerCharacter.factionSympathies[0..19].
+		for (int i = 0; i < 20; i++) {
+			writeFloat(pc.getFactionSympathy(i));
+		}
+		writeFloat(pc.getFactionSympathy(20)); //lowsl (default 0.0f)
+		writeFloat(10000); // sl padding — literal (out of scope)
+		writeFloat(0); // unknown padding — literal (out of scope)
+		write(pc.getMisc(PlayerCharacter.MISC_FACTION)); // current faction
 		
 		newSection(0x0a); //clan data?
 
