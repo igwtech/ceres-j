@@ -11,6 +11,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import server.database.importer.ClientDataImporter;
 import server.database.playerCharacters.PlayerCharacter;
 import server.exceptions.StartupException;
 import server.tools.Out;
@@ -41,6 +42,18 @@ public final class SqliteDatabase {
             }
 
             createTables();
+
+            // Import client-derived resource defs (worlds.ini, etc.).
+            // Guarded so import failures never abort server startup — the
+            // server must boot on a fresh install even with no client
+            // mounted. ClientDataImporter already logs its own errors.
+            try {
+                ClientDataImporter.runIfNeeded(connection);
+            } catch (RuntimeException e) {
+                Out.writeln(Out.Error,
+                    "ClientDataImporter crashed, continuing startup: " + e.getMessage());
+            }
+
             migrateFromCsv();
 
             Out.writeln(Out.Info, "SQLite database initialized: " + DB_PATH);
