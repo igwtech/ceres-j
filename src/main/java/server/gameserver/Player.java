@@ -4,6 +4,9 @@ import java.util.Random;
 
 import server.database.accounts.Account;
 import server.database.playerCharacters.PlayerCharacter;
+import server.ecs.EcsRegistry;
+import server.ecs.PlayerCharacterBridge;
+import server.ecs.World;
 import server.interfaces.GameServerEvent;
 import server.interfaces.ServerTCPPacket;
 import server.interfaces.ServerUDPPacket;
@@ -18,6 +21,7 @@ public class Player extends Thread {
 	private GameServerTCPConnection tcpConnection;
 	private Account ua;
 	private PlayerCharacter pc;
+	private long ecsEntity = World.NULL;
 	private byte[] sessionId = new byte[8];
 	private GameServerUDPConnection udpConnection;
 	private Zone currentZone;
@@ -71,6 +75,10 @@ public class Player extends Thread {
 		PlayerManager.remove(this);
 		closeTCP();
 		closeUDP();
+		if (ecsEntity != World.NULL) {
+			EcsRegistry.world().destroyEntity(ecsEntity);
+			ecsEntity = World.NULL;
+		}
 		// TODO unregister at zone, chat, ...
 	}
 
@@ -123,6 +131,22 @@ public class Player extends Thread {
 			currentZone.unregisterPlayer(this);
 		currentZone = ZoneManager.getZone(pc.getMisc(PlayerCharacter.MISC_LOCATION));
 		currentZone.registerPlayer(this);
+
+		// Materialize the character into the ECS so systems that have been ported
+		// (currently: Movement) can read/write it via component arrays instead of
+		// going through PlayerCharacter directly.
+		if (ecsEntity == World.NULL) {
+			ecsEntity = EcsRegistry.world().createEntity();
+		}
+		PlayerCharacterBridge.materialize(EcsRegistry.components(), World.index(ecsEntity), pc);
+	}
+
+	/**
+	 * Returns the ECS entity handle associated with this player, or
+	 * {@link World#NULL} if no character has been attached yet.
+	 */
+	public long getEcsEntity() {
+		return ecsEntity;
 	}
 
 	public String getServerIP() {

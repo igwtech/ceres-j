@@ -220,9 +220,27 @@ public class PlayerCharacter {
 		//return 10;
 	}
 
+	/**
+	 * Returns the raw stored skill points value without the hardcoded override applied
+	 * by {@link #getSkillPts(int)}. Intended for persistence and ECS materialization
+	 * where round-tripping the actual stored value matters.
+	 */
+	public int getSkillPtsRaw(int i) {
+		return skillspts[i];
+	}
+
 	public int getSubskillLVL(int i) {
 		if(i == 3)
 			return 5;
+		return subskillslvl[i];
+	}
+
+	/**
+	 * Returns the raw stored subskill level without the hardcoded override applied
+	 * by {@link #getSubskillLVL(int)}. Intended for persistence and ECS
+	 * materialization where round-tripping the actual stored value matters.
+	 */
+	public int getSubskillLVLRaw(int i) {
 		return subskillslvl[i];
 	}
 
