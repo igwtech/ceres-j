@@ -301,6 +301,60 @@ Offset  Size  Description
 | 0x1f | SynapticImpairment | Synaptic impairment effect |
 | 0x25 | StopReload | Stop weapon reload |
 
+### CharInfo (0x22 0x02 0x01) — Login Character Data
+
+The `CharInfo` reliable sub-packet carries the complete per-character
+payload the server sends in response to the login `CharacterRequest`. It is
+assembled by `PacketBuilderUDP130307` as a series of length-prefixed
+sections. Each section is stored in the stream as
+`[section_id (u8), length (u16 LE), payload (length bytes)]`, with the
+exception of the 3-byte prelude `22 02 01` which is written before any
+section header.
+
+Historically most of these fields were emitted as hard-coded literals.
+Schema v1 and the `PlayerCharacter` fidelity fields back them with per-
+character state so a character that logs back in sees its real health,
+cash, rank, faction sympathies, and skill XP curve. Fields still emitted
+as literals are listed in the right-hand column.
+
+| Section | Contents | Source |
+|---------|----------|--------|
+| Prelude `22 02 01` | 3 magic bytes written before any section | literal |
+| 1 | `fa`, profession, transaction id, char id, u16(17) | `PlayerCharacter.MISC_PROFESSION`, `MISC_ID`, `Player.Transactionid` |
+| 2 pools | cur/max health, psi, stamina (u16 LE) | `PlayerCharacter.getHealth/MaxHealth/Psi/MaxPsi/Stamina/MaxStamina` (NEW v1) |
+| 2 pad | 2x u16(255), 3x u16(101), u8 synaptic, u8(128), 2x u8(0) | `getSynaptic` (NEW v1); remainder literal (out of scope) |
+| 3 skills | 6x `(u8 lvl, u16 pts, u32 xp, u8 rate, u8 max)` | `getSkillLVL/Pts/XP/Rate/Max` — XP/rate/max NEW v1 per-character via sentinel fallback |
+| 3 WoC | WoC lvl, WoC skill, 2x 0x00 | literal (out of scope) |
+| 4 subskills | `0x2e`, `0x02`, 46x `(u8 lvl, u8 pts/lvl)` | `getSubskillLVL/PtsPerLvl` |
+| 5 F2 inventory | u16 count + item blobs | F2 container (`PLAYERCONTAINER_F2`) |
+| 6 QB/implants/armor | u8 count + item blobs | QB container (`PLAYERCONTAINER_QB`) |
+| 7 | `0x00` | literal |
+| 0x0c gogu | u8(0) items count | literal (Gogu items are a future task) |
+| 8 cash/epic/rank | `0x0a`, u32 cash, 9 pad, u16 tid, 8 epic, class\*2, 0, 3 textures, u8 rank, u32 App, 5 tail | `getCash`, `getRank` (NEW v1); textures + epic status + App + tail literal |
+| 9 faction sympathies | u16(21), u8 current faction, 0, 4, 20x f32 named sympathies, f32 lowsl, f32 sl pad, f32 unknown pad, u8 current faction | `MISC_FACTION`, `getFactionSympathy(0..20)` (NEW v1); `sl pad` / `unknown pad` literal |
+| 0x0a clan | empty | literal |
+| 0x0b | `0x00` | literal |
+| 0x0d tail | `fa`, profession, tid, char id | `MISC_PROFESSION`, `Player.Transactionid`, `MISC_ID` |
+
+**Fields backed by `PlayerCharacter` (schema v1):**
+`health`, `maxHealth`, `psiPool`, `maxPsiPool`, `stamina`, `maxStamina`,
+`synaptic`, `cash`, `rank`, `factionSympathies[0..19]` (the 20 named
+factions), `factionSympathies[20]` (the `lowsl` slot, default `0.0f`),
+`MISC_FACTION` (the current-faction byte — appears twice in section 9),
+and per-skill `skillXP`/`skillRate`/`skillMax` (with
+`Integer.MIN_VALUE` sentinel fallback to class-based defaults).
+
+**Fields still emitted as literals (deliberately out of scope):**
+WoC level/skill bytes, section 2 `255`/`101`/`128` placeholders,
+8-byte epic status, `writeInt(100002)` App, section 8
+`{0x01,0x00,0x00,0x00,0x00}` tail, section 9 `sl pad` / `unknown pad`
+floats, section 0x0a clan, section 0x0b, `0x0c` gogu zero count,
+and the fixed `0xf0 0x03` WoC bytes.
+
+**Source:** `src/main/java/server/gameserver/packets/server_udp/CharInfo.java`.
+Schema migration: `src/main/java/server/database/SqliteDatabase.java`
+(`CURRENT_SCHEMA_VERSION = 1`, `FIDELITY_COLUMNS`, `migrateSchema()`).
+
 ## Server Configuration
 
 ### irata.cfg
