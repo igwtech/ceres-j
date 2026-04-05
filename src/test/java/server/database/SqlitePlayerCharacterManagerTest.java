@@ -380,4 +380,113 @@ public class SqlitePlayerCharacterManagerTest {
         }
         return sb.toString();
     }
+
+    // ---------- CharInfo fidelity / schema migration tests ----------
+
+    @Test
+    public void testSchemaMigrationDefaultsApplied() throws Exception {
+        // Insert a "legacy-style" row that only specifies the pre-v1 columns;
+        // SQLite will auto-fill the new columns with their DEFAULT values. On
+        // load(), PlayerCharacter should reflect those defaults.
+        insertTestCharacter(conn, 77, "LegacyChar", 2, 1, 1, 1,
+                3, 3, 3, 3, 1,
+                0, 0, 0, 0, 0,
+                70, 71, 72);
+
+        PlayerCharacterManager.load();
+        PlayerCharacter pc = PlayerCharacterManager.getCharacter(77);
+        assertNotNull(pc);
+
+        assertEquals(100, pc.getHealth());
+        assertEquals(100, pc.getMaxHealth());
+        assertEquals(100, pc.getPsi());
+        assertEquals(100, pc.getMaxPsi());
+        assertEquals(100, pc.getStamina());
+        assertEquals(100, pc.getMaxStamina());
+        assertEquals(100, pc.getSynaptic());
+        assertEquals(1001, pc.getCash());
+        assertEquals(0, pc.getRank());
+        // faction_sympathies column defaults to NULL; the loader parses null
+        // as "no override" so the class defaults stay in place. Index 0 is
+        // the legacy 10000.0f and index 20 is the 0.0f lowsl slot.
+        assertEquals(10000.0f, pc.getFactionSympathy(0), 0.0f);
+        assertEquals(0.0f, pc.getFactionSympathy(20), 0.0f);
+    }
+
+    @Test
+    public void testPoolsCashRankRoundTrip() throws Exception {
+        insertTestCharacter(conn, 78, "PoolsRoundTrip", 4, 2, 1, 1,
+                3, 3, 3, 3, 3,
+                0, 0, 0, 0, 0,
+                80, 81, 82);
+
+        PlayerCharacterManager.load();
+        PlayerCharacter pc = PlayerCharacterManager.getCharacter(78);
+        assertNotNull(pc);
+
+        pc.setHealth(321);
+        pc.setMaxHealth(456);
+        pc.setPsi(55);
+        pc.setMaxPsi(99);
+        pc.setStamina(12);
+        pc.setMaxStamina(34);
+        pc.setSynaptic(77);
+        pc.setCash(13579);
+        pc.setRank(9);
+
+        PlayerCharacterManager.saveCharacter(pc);
+        PlayerCharacterManager.load();
+        PlayerCharacter reloaded = PlayerCharacterManager.getCharacter(78);
+        assertNotNull(reloaded);
+
+        assertEquals(321, reloaded.getHealth());
+        assertEquals(456, reloaded.getMaxHealth());
+        assertEquals(55, reloaded.getPsi());
+        assertEquals(99, reloaded.getMaxPsi());
+        assertEquals(12, reloaded.getStamina());
+        assertEquals(34, reloaded.getMaxStamina());
+        assertEquals(77, reloaded.getSynaptic());
+        assertEquals(13579, reloaded.getCash());
+        assertEquals(9, reloaded.getRank());
+    }
+
+    @Test
+    public void testFactionSympathiesRoundTrip() throws Exception {
+        insertTestCharacter(conn, 79, "SympathiesRoundTrip", 2, 1, 1, 1,
+                3, 3, 3, 3, 1,
+                0, 0, 0, 0, 0,
+                90, 91, 92);
+
+        PlayerCharacterManager.load();
+        PlayerCharacter pc = PlayerCharacterManager.getCharacter(79);
+        assertNotNull(pc);
+
+        pc.setFactionSympathy(3, 5000.0f);
+        pc.setFactionSympathy(15, 250.5f);
+
+        PlayerCharacterManager.saveCharacter(pc);
+
+        // Inspect the raw column to confirm the hand-rolled serializer works.
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT faction_sympathies FROM player_characters WHERE id = ?")) {
+            ps.setInt(1, 79);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertTrue(rs.next());
+                String json = rs.getString(1);
+                assertNotNull(json);
+                assertTrue("json should contain 5000.0, got: " + json,
+                        json.contains("5000.0"));
+                assertTrue("json should contain 250.5, got: " + json,
+                        json.contains("250.5"));
+            }
+        }
+
+        PlayerCharacterManager.load();
+        PlayerCharacter reloaded = PlayerCharacterManager.getCharacter(79);
+        assertNotNull(reloaded);
+        assertEquals(5000.0f, reloaded.getFactionSympathy(3), 0.0f);
+        assertEquals(250.5f, reloaded.getFactionSympathy(15), 0.0f);
+        // Unmodified slot still defaults to 10000.0f
+        assertEquals(10000.0f, reloaded.getFactionSympathy(0), 0.0f);
+    }
 }
