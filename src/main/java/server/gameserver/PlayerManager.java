@@ -75,6 +75,41 @@ public class PlayerManager {
 		}
 	}
 
+	/**
+	 * Finds the player who is awaiting a UDP zone-handoff handshake from the
+	 * given source IP. This is the reconnect that the NC2 client performs
+	 * after it finishes loading a zone: it closes its login UDP socket and
+	 * opens a fresh one from a new ephemeral port. The source IP is stable,
+	 * but the source port changes.
+	 *
+	 * Multi-boxed clients can share a source IP, so this method filters to
+	 * players that have been explicitly marked as awaiting a handoff
+	 * ({@link Player#markHandoffPending()}, set at the end of
+	 * {@code WorldEntryEvent}) and returns the one with the EARLIEST handoff
+	 * timestamp — FIFO matches the order in which the clients finished
+	 * loading the zone.
+	 *
+	 * @return the matched player, or {@code null} if no player on that IP
+	 *         is currently awaiting a handoff.
+	 */
+	public static Player getPlayerByUdpAddress(java.net.InetAddress address) {
+		if (address == null) return null;
+		synchronized (playerList) {
+			Player best = null;
+			for (Iterator<Player> i = playerList.iterator(); i.hasNext();) {
+				Player pl = i.next();
+				if (!pl.isHandoffPending()) continue;
+				server.gameserver.GameServerUDPConnection con = pl.getUdpConnection();
+				if (con == null) continue;
+				if (!address.equals(con.getAddress())) continue;
+				if (best == null || pl.getHandoffPendingAt() < best.getHandoffPendingAt()) {
+					best = pl;
+				}
+			}
+			return best;
+		}
+	}
+
 	public static LinkedList<Player> getPlayers() {
 		synchronized (playerList) {
 			return new LinkedList<Player>(playerList);

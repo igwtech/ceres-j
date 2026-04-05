@@ -30,6 +30,18 @@ public class Player extends Thread {
 	private int MapID;
 	private boolean isloggedin;
 	private short Transactionid;
+	// Zone-handoff state: after the server finishes streaming the world-entry
+	// burst, the NC2 client closes its login UDP socket and opens a fresh
+	// socket from a new ephemeral port to the zone server. Source IP stays
+	// the same, port changes. Marking the player as "handoff pending" at the
+	// end of WorldEntryEvent lets the UDP listener disambiguate multi-boxed
+	// clients on the same source IP by picking the earliest handoff timestamp.
+	private boolean handoffPending = false;
+	private long handoffPendingAt = 0L;
+	// Per-session UDP listener: each login reserves its own server port,
+	// matching NC2 retail's session-per-port design. Null if the player
+	// falls back to the shared ListenerUDP (pool exhausted, bind failure).
+	private PlayerUdpListener udpListener;
 
 	public Player(Account ua) {
 		this.ua = ua;
@@ -75,6 +87,12 @@ public class Player extends Thread {
 		PlayerManager.remove(this);
 		closeTCP();
 		closeUDP();
+		if (udpListener != null) {
+			int releasedPort = udpListener.getPort();
+			udpListener.shutdown();
+			UdpPortPool.release(releasedPort);
+			udpListener = null;
+		}
 		if (ecsEntity != World.NULL) {
 			EcsRegistry.world().destroyEntity(ecsEntity);
 			ecsEntity = World.NULL;
@@ -222,5 +240,40 @@ public class Player extends Thread {
 	
 	public short getTransactionID(){
 		return Transactionid;
+	}
+
+	public boolean isHandoffPending() {
+		return handoffPending;
+	}
+
+	public long getHandoffPendingAt() {
+		return handoffPendingAt;
+	}
+
+	public void markHandoffPending() {
+		handoffPending = true;
+		handoffPendingAt = Timer.getRealtime();
+	}
+
+	public void clearHandoffPending() {
+		handoffPending = false;
+		handoffPendingAt = 0L;
+	}
+
+	public PlayerUdpListener getUdpListener() {
+		return udpListener;
+	}
+
+	public void setUdpListener(PlayerUdpListener l) {
+		this.udpListener = l;
+	}
+
+	/**
+	 * Per-session UDP port allocated for this player, or the shared
+	 * legacy port 5000 if no per-session listener was created. Used by
+	 * {@code UDPServerData} to tell the client where to send UDP traffic.
+	 */
+	public int getUdpPort() {
+		return udpListener != null ? udpListener.getPort() : 5000;
 	}
 }

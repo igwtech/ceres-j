@@ -125,6 +125,14 @@ public class WorldEntryEvent extends DummyEvent {
         // screen until its socket times out.
         safeSend(pl, () -> new ZoningEnd(pl), "ZoningEnd");
 
+        // Mark the player as waiting for a UDP zone-handoff handshake.
+        // Once the client finishes loading the zone descriptor it closes
+        // the login UDP socket and opens a fresh one from a new ephemeral
+        // port. ListenerUDP uses this flag (plus source IP match) to pair
+        // the incoming handshake with the right player, which is the only
+        // disambiguation we have for multi-boxed clients on the same IP.
+        pl.markHandoffPending();
+
         Out.writeln(Out.Info, "WorldEntryEvent: completed for " + pc.getName());
     }
 

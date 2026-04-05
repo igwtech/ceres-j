@@ -123,6 +123,28 @@ public final class ListenerUDP extends Thread {
 					}
 				}
 
+				// Strategy 6: zone handoff — after a successful zone load the
+				// NC2 client closes its login UDP socket and opens a fresh
+				// socket from a new ephemeral port. Source IP stays the same
+				// but the port changes, so neither the (addr,port) cache
+				// above nor getPlayerAwaitingUDP (player already has a
+				// udpConn) match. Resolve by source IP filtered by the
+				// handoff-pending flag that WorldEntryEvent sets on each
+				// player. Multi-boxed clients on the same IP are
+				// disambiguated FIFO by handoff timestamp.
+				if (pl == null) {
+					pl = PlayerManager.getPlayerByUdpAddress(dp.getAddress());
+					if (pl != null) {
+						GameServerUDPConnection stale = pl.getUdpConnection();
+						if (stale != null) {
+							connectionsList.remove(stale);
+						}
+						pl.clearHandoffPending();
+						sidOffset = -1;
+						Out.writeln(Out.Info, "UDP: matched player '" + pl.getAccount().getUsername() + "' by IP (zone handoff, new port " + dp.getPort() + ")");
+					}
+				}
+
 				if (pl == null) {
 					Out.writeln(Out.Info, "UDP: no player matched");
 					return;

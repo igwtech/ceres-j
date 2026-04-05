@@ -24,7 +24,9 @@ public class UDPServerData extends PacketBuilderTCP {
 		}
 
 		write(serverip);
-		writeShort(5000); //port
+		// Per-session UDP port allocated for this player (see AuthB +
+		// PlayerUdpListener). Falls back to 5000 if the pool was exhausted.
+		writeShort(pl.getUdpPort());
 		writeInt(0x0000FFFF); // protocol flags (must match real server behavior)
 		byte[] sid = pl.getSessionID();
 		write(127-sid[0]);//session id for udp

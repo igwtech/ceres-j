@@ -2,9 +2,13 @@ package server.gameserver.packets.client_tcp;
 
 import server.database.accounts.Account;
 import server.database.accounts.AccountManager;
+import java.net.SocketException;
+
 import server.gameserver.GameServerTCPConnection;
 import server.gameserver.Player;
 import server.gameserver.PlayerManager;
+import server.gameserver.PlayerUdpListener;
+import server.gameserver.UdpPortPool;
 import server.gameserver.packets.GamePacketDecoderTCP;
 import server.gameserver.packets.server_tcp.UDPServerData;
 import server.gameserver.packets.server_tcp.RequestFailed;
@@ -76,6 +80,30 @@ public class AuthB extends GamePacketDecoderTCP {
 						+ String.format("%02x %02x %02x %02x %02x %02x %02x %02x",
 							127-sid[0], 127-sid[1], 127-sid[2], 127-sid[3],
 							127-sid[4], 127-sid[5], 127-sid[6], 127-sid[7]) + ")");
+
+					// Allocate a dedicated UDP port for this session BEFORE
+					// building UDPServerData so the client is told the right
+					// port to connect to. Matches NC2 retail behaviour where
+					// each login gets its own server UDP port (the port IS
+					// the session identifier, which is how multi-boxed
+					// clients on the same source IP stay disambiguated).
+					if (pl.getUdpListener() == null) {
+						Integer assigned = UdpPortPool.allocate();
+						if (assigned == null) {
+							Out.writeln(Out.Error, "AuthB: UDP port pool exhausted, falling back to shared port 5000");
+						} else {
+							try {
+								PlayerUdpListener listener = new PlayerUdpListener(assigned, pl);
+								listener.start();
+								pl.setUdpListener(listener);
+								Out.writeln(Out.Info, "AuthB: allocated UDP port " + assigned + " for '" + username + "'");
+							} catch (SocketException e) {
+								Out.writeln(Out.Error, "AuthB: failed to bind UDP port " + assigned + ": " + e.getMessage() + " (falling back to shared 5000)");
+								UdpPortPool.release(assigned);
+							}
+						}
+					}
+
 					tcp.send(new UDPServerData(pl));
 				} else {
 					Out.writeln(Out.Error, "AuthB: player not found after activation");
