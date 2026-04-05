@@ -10,6 +10,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashSet;
+import java.util.Set;
 
 import server.database.importer.ClientDataImporter;
 import server.database.playerCharacters.PlayerCharacter;
@@ -23,8 +25,54 @@ public final class SqliteDatabase {
      * NOTE: version 1 is reserved for the parallel feature/charinfo-fidelity
      * branch. This track uses version 2. When the two tracks merge, bump
      * the constant and coordinate the migrations in order.
-     */
+
+     * Schema version for incremental migrations via {@code PRAGMA user_version}.
+     * <ul>
+     *   <li>0 — legacy pre-versioning schema (no extra columns beyond MISCLIST/SKILLS/SUBSKILLS).</li>
+     *   <li>1 — adds CharInfo fidelity columns: pools (health/psi/stamina), synaptic, cash, rank,
+     *           faction_sympathies (JSON) and per-skill xp/rate/max.</li>
+     * </ul>
+     */         
     public static final int CURRENT_SCHEMA_VERSION = 2;
+
+    /**
+     * CharInfo fidelity columns added in schema v1. Each entry is
+     * {@code {columnName, sqlType, defaultClause}} and is consumed by both
+     * {@link #createTables()} (appended to the CREATE TABLE SQL) and
+     * {@link #migrateSchema()} (used for {@code ALTER TABLE ADD COLUMN} on legacy DBs).
+     * Keeping a single source of truth guarantees fresh DBs and migrated DBs agree.
+     *
+     * <p>The per-skill xp/rate/max columns use {@link Integer#MIN_VALUE} as the
+     * "unset" sentinel so {@code PlayerCharacter.getSkillXP/Rate/Max} can fall
+     * back to class-based defaults for legacy data.
+     */
+    public static final String[][] FIDELITY_COLUMNS = new String[][] {
+        {"health",             "INTEGER", "DEFAULT 100"},
+        {"max_health",         "INTEGER", "DEFAULT 100"},
+        {"psi_pool",           "INTEGER", "DEFAULT 100"},
+        {"max_psi_pool",       "INTEGER", "DEFAULT 100"},
+        {"stamina",            "INTEGER", "DEFAULT 100"},
+        {"max_stamina",        "INTEGER", "DEFAULT 100"},
+        {"synaptic",           "INTEGER", "DEFAULT 100"},
+        {"cash",               "INTEGER", "DEFAULT 1001"},
+        {"rank",               "INTEGER", "DEFAULT 0"},
+        {"faction_sympathies", "TEXT",    "DEFAULT NULL"},
+        {"str_xp",             "INTEGER", "DEFAULT -2147483648"},
+        {"str_rate",           "INTEGER", "DEFAULT -2147483648"},
+        {"str_max",            "INTEGER", "DEFAULT -2147483648"},
+        {"dex_xp",             "INTEGER", "DEFAULT -2147483648"},
+        {"dex_rate",           "INTEGER", "DEFAULT -2147483648"},
+        {"dex_max",            "INTEGER", "DEFAULT -2147483648"},
+        {"con_xp",             "INTEGER", "DEFAULT -2147483648"},
+        {"con_rate",           "INTEGER", "DEFAULT -2147483648"},
+        {"con_max",            "INTEGER", "DEFAULT -2147483648"},
+        {"int_xp",             "INTEGER", "DEFAULT -2147483648"},
+        {"int_rate",           "INTEGER", "DEFAULT -2147483648"},
+        {"int_max",            "INTEGER", "DEFAULT -2147483648"},
+        {"psi_xp",             "INTEGER", "DEFAULT -2147483648"},
+        {"psi_rate",           "INTEGER", "DEFAULT -2147483648"},
+        {"psi_max",            "INTEGER", "DEFAULT -2147483648"},
+    };
 
     private static Connection connection;
     private static final String DB_PATH = "database" + File.separator + "ceres.db";
@@ -54,6 +102,7 @@ public final class SqliteDatabase {
                     "ClientDataImporter crashed, continuing startup: " + e.getMessage());
             }
 
+            migrateSchema();
             migrateFromCsv();
 
             Out.writeln(Out.Info, "SQLite database initialized: " + DB_PATH);
@@ -74,6 +123,7 @@ public final class SqliteDatabase {
             stmt.execute("PRAGMA foreign_keys=ON");
         }
         createTables();
+        migrateSchema();
     }
 
     public static Connection getConnection() {
@@ -140,6 +190,11 @@ public final class SqliteDatabase {
                 }
             }
 
+            // CharInfo fidelity columns (schema v1) — pools, cash/rank, sympathies, per-skill xp/rate/max
+            for (String[] col : FIDELITY_COLUMNS) {
+                pcSql.append("  ").append(q(col[0])).append(" ").append(col[1]).append(" ").append(col[2]).append(",");
+            }
+
             // Inventory container IDs
             pcSql.append("  f2_inventory_cont_id INTEGER DEFAULT 0,");
             pcSql.append("  gogu_inventory_cont_id INTEGER DEFAULT 0,");
@@ -202,6 +257,65 @@ public final class SqliteDatabase {
                 stmt.execute("PRAGMA user_version = " + CURRENT_SCHEMA_VERSION);
             }
         }
+    }
+
+    /**
+     * Apply incremental schema migrations based on {@code PRAGMA user_version}.
+     *
+     * <p>v0 → v1: add CharInfo fidelity columns (see {@link #FIDELITY_COLUMNS}) to
+     * the {@code player_characters} table if missing. Uses
+     * {@code PRAGMA table_info('player_characters')} to detect existing columns so
+     * the migration is idempotent — freshly-created tables already contain the
+     * columns via {@link #createTables()} and this method is a no-op for them.
+     *
+     * <p>The migration is one-way (no downgrade). On completion,
+     * {@code PRAGMA user_version} is bumped to {@link #CURRENT_SCHEMA_VERSION}.
+     */
+    private static void migrateSchema() throws SQLException {
+        int currentVersion;
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery("PRAGMA user_version")) {
+            currentVersion = rs.next() ? rs.getInt(1) : 0;
+        }
+
+        if (currentVersion >= CURRENT_SCHEMA_VERSION) {
+            return;
+        }
+
+        if (currentVersion < 1) {
+            Set<String> existing = getExistingColumns("player_characters");
+            try (Statement stmt = connection.createStatement()) {
+                for (String[] col : FIDELITY_COLUMNS) {
+                    if (!existing.contains(col[0])) {
+                        String ddl = "ALTER TABLE player_characters ADD COLUMN "
+                            + q(col[0]) + " " + col[1] + " " + col[2];
+                        stmt.execute(ddl);
+                    }
+                }
+            }
+        }
+
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute("PRAGMA user_version = " + CURRENT_SCHEMA_VERSION);
+        }
+
+        Out.writeln(Out.Info, "Schema migrated to version " + CURRENT_SCHEMA_VERSION);
+    }
+
+    /**
+     * Read the set of existing column names on a table via
+     * {@code PRAGMA table_info}. Column comparison is case-sensitive to match
+     * SQLite's default identifier handling with our double-quoted columns.
+     */
+    private static Set<String> getExistingColumns(String table) throws SQLException {
+        Set<String> cols = new HashSet<>();
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery("PRAGMA table_info(" + table + ")")) {
+            while (rs.next()) {
+                cols.add(rs.getString("name"));
+            }
+        }
+        return cols;
     }
 
     /**
