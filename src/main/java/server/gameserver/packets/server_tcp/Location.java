@@ -16,6 +16,12 @@ public class Location extends PacketBuilderTCP {
 			writeInt(1); //unknown
 		else
 			writeInt(0);
+		// Retail pcap (pepper_p3) shows a third 4-byte zero field before the
+		// zone name string. Without it the client reads the first 4 bytes of
+		// the name as a dummy field and the zone path is truncated by 4
+		// characters, producing a world-load failure like
+		// "Worldfile opening failed: .\worlds\a/plaza_p1.bsp".
+		writeInt(0);
 		if(location == 9999)
 			write(new String("apps/clean/plaza_app_4_c").getBytes());
 		else
