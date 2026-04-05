@@ -38,6 +38,12 @@ public class Player extends Thread {
 	// clients on the same source IP by picking the earliest handoff timestamp.
 	private boolean handoffPending = false;
 	private long handoffPendingAt = 0L;
+	// Debounce cooldown for HandshakeUDPAnswer2: the 3+ HandshakeUDPAnswer
+	// events can interleave in the event queue and schedule two Answer2
+	// events milliseconds apart. A 500 ms cooldown on this timestamp lets
+	// the second Answer2 skip re-scheduling WorldEntryEvent while still
+	// allowing a zone-handoff reconnect (seconds later) to re-run it.
+	private long lastWorldEntryAt = 0L;
 	// Per-session UDP listener: each login reserves its own server port,
 	// matching NC2 retail's session-per-port design. Null if the player
 	// falls back to the shared ListenerUDP (pool exhausted, bind failure).
@@ -258,6 +264,14 @@ public class Player extends Thread {
 	public void clearHandoffPending() {
 		handoffPending = false;
 		handoffPendingAt = 0L;
+	}
+
+	public long getLastWorldEntryAt() {
+		return lastWorldEntryAt;
+	}
+
+	public void setLastWorldEntryAt(long at) {
+		this.lastWorldEntryAt = at;
 	}
 
 	public PlayerUdpListener getUdpListener() {

@@ -37,6 +37,23 @@ public class GameServerUDPConnection {
 		return clientaddress;
 	}
 
+	/**
+	 * Rebind the client-side endpoint without resetting the session state
+	 * (counter, sessionkey). Used when the NC2 client performs a zone
+	 * handoff: it closes its login UDP socket and opens a fresh one from a
+	 * new ephemeral port. The session port on the server stays the same,
+	 * so packets arriving from the new (addr, port) belong to the same
+	 * logical session and the counter / sessionkey MUST NOT reset — the
+	 * client validates inbound packets against the counter it saw before
+	 * the reconnect and silently drops mismatches, which manifests as
+	 * "Receive 0 Buffer" polling and eventual "Connection to worldserver
+	 * failed" timeout.
+	 */
+	public void rebindClient(InetAddress address, int port) {
+		this.clientaddress = address;
+		this.clientport = port;
+	}
+
 	public Player getPlayer() {
 		return player;
 	}

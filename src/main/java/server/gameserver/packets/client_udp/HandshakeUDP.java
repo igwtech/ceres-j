@@ -65,6 +65,23 @@ public class HandshakeUDP extends GamePacketDecoderUDP {
         }
 
         public void execute(Player pl) {
+            // Cooldown guard: the 3 HandshakeUDPAnswer events and the
+            // Answer2 they schedule can interleave in the event queue such
+            // that a 4th HandshakeUDPAnswer sees handshakingState=false
+            // (just reset by a prior Answer2) and schedules a duplicate
+            // Answer2 milliseconds later. Without this we'd dispatch
+            // WorldEntryEvent twice back-to-back. The zone-handoff
+            // reconnect case, however, legitimately re-runs
+            // HandshakeUDPAnswer2 several seconds later and DOES need a
+            // fresh WorldEntryEvent (on the same connection, counters
+            // preserved via rebindClient). A 500 ms cooldown distinguishes
+            // the two cases cleanly.
+            long now = Timer.getRealtime();
+            if (now - pl.getLastWorldEntryAt() < 500) {
+                pl.getUdpConnection().setHandshakingState(false);
+                return;
+            }
+            pl.setLastWorldEntryAt(now);
             pl.getUdpConnection().setHandshakingState(false);
             pl.setloggedin();
             Out.writeln(Out.Info, "HandshakeUDPAnswer2: player logged in, scheduling world entry");
@@ -76,11 +93,7 @@ public class HandshakeUDP extends GamePacketDecoderUDP {
                 Out.writeln(Out.Error, "UDPAlive (final handshake ack) failed: " + e.getMessage());
             }
 
-            // Stream the full world-entry burst shortly after; this replaces
-            // the old scattered set of individual sends (UpdateModel / CharInfo
-            // / TimeSync / PositionUpdate) and adds the additional packets
-            // required by the modern client (self LongPlayerInfo,
-            // ShortPlayerInfo, PlayerPositionUpdate, weather, NPCs, ZoningEnd).
+            // Stream the full world-entry burst shortly after.
             pl.addEvent(new WorldEntryEvent());
         }
     }

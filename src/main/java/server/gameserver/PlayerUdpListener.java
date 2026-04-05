@@ -97,20 +97,26 @@ public final class PlayerUdpListener extends Thread {
 
 	private void handle(DatagramPacket dp) {
 		// Refresh or create the outgoing connection when the (address, port)
-		// we see on the wire differs from what we last stored. This naturally
-		// handles the zone-handoff case where the client closes its login
-		// UDP socket and reopens from a fresh ephemeral port — the server
-		// port is stable so we keep using this listener, we just remember
-		// the new client-side endpoint for sends.
+		// we see on the wire differs from what we last stored. The
+		// zone-handoff case (client closes login UDP socket and reopens
+		// from a fresh ephemeral port) must UPDATE the existing connection
+		// in-place so the session counter and sessionkey survive — the
+		// client validates incoming packets against the pre-handoff
+		// counter, and a reset triggers silent drops + eventual timeout.
 		GameServerUDPConnection con = player.getUdpConnection();
-		if (con == null
-			|| !con.getAddress().equals(dp.getAddress())
-			|| con.getPort() != dp.getPort()) {
+		if (con == null) {
 			con = new GameServerUDPConnection(dp.getAddress(), dp.getPort(), player);
 			player.setUdpConnection(con);
 			Out.writeln(Out.Info, "PlayerUdpListener[" + port + "]: bound client "
 				+ dp.getAddress().getHostAddress() + ":" + dp.getPort()
 				+ " (" + (player.getAccount() != null ? player.getAccount().getUsername() : "?") + ")");
+		} else if (!con.getAddress().equals(dp.getAddress()) || con.getPort() != dp.getPort()) {
+			int oldPort = con.getPort();
+			con.rebindClient(dp.getAddress(), dp.getPort());
+			Out.writeln(Out.Info, "PlayerUdpListener[" + port + "]: zone handoff for "
+				+ (player.getAccount() != null ? player.getAccount().getUsername() : "?")
+				+ " client port " + oldPort + " -> " + dp.getPort()
+				+ " (counter/sessionkey preserved)");
 		}
 		GamePacketReaderUDP.readPacket(dp, player);
 	}

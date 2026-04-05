@@ -82,11 +82,8 @@ public class AuthB extends GamePacketDecoderTCP {
 							127-sid[4], 127-sid[5], 127-sid[6], 127-sid[7]) + ")");
 
 					// Allocate a dedicated UDP port for this session BEFORE
-					// building UDPServerData so the client is told the right
-					// port to connect to. Matches NC2 retail behaviour where
-					// each login gets its own server UDP port (the port IS
-					// the session identifier, which is how multi-boxed
-					// clients on the same source IP stay disambiguated).
+					// the GetUDPConnection handler builds UDPServerData so
+					// the client is told the right port to connect to.
 					if (pl.getUdpListener() == null) {
 						Integer assigned = UdpPortPool.allocate();
 						if (assigned == null) {
@@ -104,7 +101,14 @@ public class AuthB extends GamePacketDecoderTCP {
 						}
 					}
 
-					tcp.send(new UDPServerData(pl));
+					// Retail does NOT respond to AuthB with UDPServerData.
+					// Only GetUDPConnection (0x87 0x3c) triggers the
+					// UDPServerData response. Sending it here too causes the
+					// modern client to initialise TWO UDP sessions back to
+					// back — the second one manifests as a "zone handoff"
+					// socket reopen that never finishes syncing, producing
+					// the long-standing "Connection to worldserver failed"
+					// crash after the client loads the zone BSP.
 				} else {
 					Out.writeln(Out.Error, "AuthB: player not found after activation");
 					tcp.send(new RequestFailed("ERROR"));
