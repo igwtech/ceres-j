@@ -222,14 +222,10 @@ public final class SqliteDatabase {
                 ")"
             );
 
-            // --- Schema version 2: client-data importer tables ---
-            // Driven by PRAGMA user_version so future migrations can be conditional.
-            int userVersion = 0;
-            try (ResultSet rs = stmt.executeQuery("PRAGMA user_version")) {
-                if (rs.next()) {
-                    userVersion = rs.getInt(1);
-                }
-            }
+            // Schema-v2 tables (client-data importer). Idempotent CREATE IF
+            // NOT EXISTS — no version gate here. The authoritative version
+            // bump lives in migrateSchema() so legacy DBs at version < 1 get
+            // their CharInfo columns ALTER-added before the version advances.
 
             // World definitions imported from NC2 client's worlds/worlds.ini
             stmt.execute(
@@ -250,12 +246,6 @@ public final class SqliteDatabase {
                 "  stats_json TEXT" +
                 ")"
             );
-
-            // PRAGMA table_info is available for verifying column presence
-            // if a future migration needs to ALTER existing tables.
-            if (userVersion < CURRENT_SCHEMA_VERSION) {
-                stmt.execute("PRAGMA user_version = " + CURRENT_SCHEMA_VERSION);
-            }
         }
     }
 

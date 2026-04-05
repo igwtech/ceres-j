@@ -75,16 +75,26 @@ public class GameServerUDPConnection {
 		try {
 			DatagramPacket dp[] = packet.getDatagramPackets();
 			for (int i = 0; i < dp.length; i++) {
-				// Send UDP responses WITHOUT encryption.
-				// NCE 2.5 clients accept unencrypted server packets during the
-				// 3-way handshake and subsequent world-entry stream — the
-				// retail server obfuscates its outgoing traffic with a stream
-				// cipher keyed on the session's global seed (see
-				// docs/PROTOCOL.md for the analysis), but the client happily
-				// consumes plaintext as well.
+				// Send UDP responses WITHOUT encryption. NCE 2.5 clients
+				// accept unencrypted server packets during the handshake and
+				// world-entry stream.
 				dp[i].setAddress(clientaddress);
 				dp[i].setPort(clientport);
 				socket.send(dp[i]);
+			}
+			// Trace every outgoing UDP datagram so we can correlate the
+			// server send path with the client's receive log. Format is
+			// "UDP send src=<local>:<lport> dst=<client>:<cport> len=<n>
+			// first=<hex> for=<user>" so a grep against docker logs makes it
+			// obvious if packets are going to the wrong destination or
+			// from the wrong source port.
+			if (dp.length > 0) {
+				int len = dp[0].getLength();
+				String first = len > 0 ? String.format("%02x", dp[0].getData()[0] & 0xFF) : "?";
+				Out.writeln(Out.Info, "UDP send src=" + socket.getLocalAddress().getHostAddress() + ":" + socket.getLocalPort()
+					+ " dst=" + clientaddress.getHostAddress() + ":" + clientport
+					+ " count=" + dp.length + " firstlen=" + len + " firstbyte=0x" + first
+					+ " for=" + (player != null && player.getAccount() != null ? player.getAccount().getUsername() : "?"));
 			}
 		} catch (IOException e) {
 			Out.writeln(Out.Error, "UDP send failed for "
