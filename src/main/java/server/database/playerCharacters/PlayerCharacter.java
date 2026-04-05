@@ -144,19 +144,61 @@ public class PlayerCharacter {
 	public static final int PLAYERCONTAINER_F2		= 3;
 	public static final int PLAYERCONTAINER_QB		= 2;
 
+	/** Number of faction sympathy floats tracked per character (see CharInfo section 9). */
+	public static final int FACTION_SYMPATHY_COUNT = 21;
+
+	/** Sentinel value meaning "no per-character override stored — fall back to class-based default". */
+	private static final int SKILL_DATA_UNSET = Integer.MIN_VALUE;
+
 	private String name = new String();
 	private int[] misc = new int[MISCLIST.length];
 	private int[] skillslvl = new int[SKILLS.length];
 	private int[] skillspts = new int[SKILLS.length];
 	private int[] subskillslvl = new int[SUBSKILLS.length];
-	
+
+	// Per-character pools / resource state — previously hard-coded literals in CharInfo.
+	private int health = 100;
+	private int maxHealth = 100;
+	private int psiPool = 100;
+	private int maxPsiPool = 100;
+	private int stamina = 100;
+	private int maxStamina = 100;
+	private int synaptic = 100;
+	private int cash = 1001;
+	private int rank = 0;
+
+	/** 21 faction sympathy floats, default to the legacy 10000.0f placeholder. */
+	private float[] factionSympathies = defaultFactionSympathies();
+
+	/**
+	 * Optional per-character skill XP / rate / max overrides.
+	 * When entries are {@link #SKILL_DATA_UNSET} the legacy class-based defaults apply
+	 * (keeps backward compatibility with characters loaded from legacy schemas).
+	 */
+	private int[] skillXP = filled(new int[SKILLS.length], SKILL_DATA_UNSET);
+	private int[] skillRate = filled(new int[SKILLS.length], SKILL_DATA_UNSET);
+	private int[] skillMax = filled(new int[SKILLS.length], SKILL_DATA_UNSET);
+
 	private int F2InventoryContID;
 	private int GoguInventoryContID;
 	private int QBInventoryContID;
-	
+
 	private PlayerInventory Inventory;
 	private PlayerQB		QB;
 	private PlayerGogu		Gogu;
+
+	private static float[] defaultFactionSympathies() {
+		float[] s = new float[FACTION_SYMPATHY_COUNT];
+		for (int i = 0; i < s.length; i++) s[i] = 10000.0f;
+		// Slot 20 is the "lowsl" sentinel in CharInfo section 9 — legacy wire value is 0.0f.
+		if (s.length > 20) s[20] = 0.0f;
+		return s;
+	}
+
+	private static int[] filled(int[] arr, int value) {
+		for (int i = 0; i < arr.length; i++) arr[i] = value;
+		return arr;
+	}
 
 	public String getName() {
 		return name;
@@ -227,22 +269,41 @@ public class PlayerCharacter {
 	}
 
 	public int getSkillXP(int i) {
-		switch(i){
-		case 1:
-			return 5880305;
-		case 2:
-			return 192224802;
-		case 3:
-			return 1322698;
-		case 4:
-			return 1639213255;
-		case 5:
-			return 42338;
+		if (i >= 0 && i < skillXP.length && skillXP[i] != SKILL_DATA_UNSET) {
+			return skillXP[i];
+		}
+		return defaultSkillXP(i);
+	}
+
+	/** Legacy class-agnostic XP defaults, kept so characters with no stored XP still look alive. */
+	private static int defaultSkillXP(int i) {
+		switch (i) {
+		case 1: return 5880305;
+		case 2: return 192224802;
+		case 3: return 1322698;
+		case 4: return 1639213255;
+		case 5: return 42338;
 		}
 		return 0;
 	}
 
+	public void setSkillXP(int i, int value) {
+		if (i >= 0 && i < skillXP.length) skillXP[i] = value;
+	}
+
 	public int getSkillRate(int i) {
+		if (i >= 0 && i < skillRate.length && skillRate[i] != SKILL_DATA_UNSET) {
+			return skillRate[i];
+		}
+		return defaultSkillRate(i);
+	}
+
+	public void setSkillRate(int i, int value) {
+		if (i >= 0 && i < skillRate.length) skillRate[i] = value;
+	}
+
+	/** Legacy class-based skill rate defaults. */
+	private int defaultSkillRate(int i) {
 		switch(this.getMisc(PlayerCharacter.MISC_CLASS) / 2) { // TODO alot here
 		case 0:{ //pe
 			if(i == PlayerCharacter.STR)
@@ -301,6 +362,18 @@ public class PlayerCharacter {
 	}
 
 	public int getSkillMax(int i) {
+		if (i >= 0 && i < skillMax.length && skillMax[i] != SKILL_DATA_UNSET) {
+			return skillMax[i];
+		}
+		return defaultSkillMax(i);
+	}
+
+	public void setSkillMax(int i, int value) {
+		if (i >= 0 && i < skillMax.length) skillMax[i] = value;
+	}
+
+	/** Legacy class-based skill max defaults. */
+	private int defaultSkillMax(int i) {
 		switch(this.getMisc(PlayerCharacter.MISC_CLASS) / 2) { // TODO alot here
 		case 0:{ //pe
 			if(i == PlayerCharacter.STR)
@@ -446,7 +519,100 @@ public class PlayerCharacter {
 	}
 	
 	public int getCash(){
-		return 1001;
+		return cash;
+	}
+
+	public void setCash(int value) {
+		this.cash = value;
+	}
+
+	public int getHealth() {
+		return health;
+	}
+
+	public void setHealth(int value) {
+		this.health = value;
+	}
+
+	public int getMaxHealth() {
+		return maxHealth;
+	}
+
+	public void setMaxHealth(int value) {
+		this.maxHealth = value;
+	}
+
+	public int getPsi() {
+		return psiPool;
+	}
+
+	public void setPsi(int value) {
+		this.psiPool = value;
+	}
+
+	public int getMaxPsi() {
+		return maxPsiPool;
+	}
+
+	public void setMaxPsi(int value) {
+		this.maxPsiPool = value;
+	}
+
+	public int getStamina() {
+		return stamina;
+	}
+
+	public void setStamina(int value) {
+		this.stamina = value;
+	}
+
+	public int getMaxStamina() {
+		return maxStamina;
+	}
+
+	public void setMaxStamina(int value) {
+		this.maxStamina = value;
+	}
+
+	public int getSynaptic() {
+		return synaptic;
+	}
+
+	public void setSynaptic(int value) {
+		this.synaptic = value;
+	}
+
+	public int getRank() {
+		return rank;
+	}
+
+	public void setRank(int value) {
+		this.rank = value;
+	}
+
+	/**
+	 * Returns the stored faction sympathy float for index i (0..20).
+	 * Out-of-range indices return the legacy 10000.0f default.
+	 * Index 20 is the "lowsl" slot which defaults to 0.0f to match the legacy wire value.
+	 */
+	public float getFactionSympathy(int i) {
+		if (i < 0 || i >= factionSympathies.length) return 10000.0f;
+		return factionSympathies[i];
+	}
+
+	public void setFactionSympathy(int i, float value) {
+		if (i < 0 || i >= factionSympathies.length) return;
+		factionSympathies[i] = value;
+	}
+
+	public float[] getFactionSympathies() {
+		return factionSympathies;
+	}
+
+	public void setFactionSympathies(float[] values) {
+		if (values == null) return;
+		int len = Math.min(values.length, factionSympathies.length);
+		for (int i = 0; i < len; i++) factionSympathies[i] = values[i];
 	}
 
 	public void deleteAll() {
