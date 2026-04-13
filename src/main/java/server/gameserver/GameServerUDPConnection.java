@@ -92,9 +92,14 @@ public class GameServerUDPConnection {
 		try {
 			DatagramPacket dp[] = packet.getDatagramPackets();
 			for (int i = 0; i < dp.length; i++) {
-				// Send UDP responses WITHOUT encryption. NCE 2.5 clients
-				// accept unencrypted server packets during the handshake and
-				// world-entry stream.
+				// Encrypt each outgoing UDP datagram with the per-packet
+				// LFSR cipher. The wire format prepends a 4-byte header:
+				// [seed_lo][seed_hi][enc_len_lo][enc_len_hi][enc_data...]
+				// See docs/PROTOCOL.md "UDP Wire Encryption" for details.
+				byte[] plain = dp[i].getData();
+				int plainLen = dp[i].getLength();
+				byte[] wire = server.networktools.WireEncrypt.encrypt(plain, 0, plainLen);
+				dp[i] = new DatagramPacket(wire, wire.length);
 				dp[i].setAddress(clientaddress);
 				dp[i].setPort(clientport);
 				socket.send(dp[i]);

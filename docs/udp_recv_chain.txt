@@ -1,0 +1,592 @@
+# UDP receive processing chain decompilations
+
+======================================================
+FUNCTION FUN_0055ec10 @ 0055ec10
+======================================================
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4
+FUN_0055ec10(void *param_1,undefined4 param_2,undefined4 param_3,byte *param_4,int param_5,
+            uint param_6,char *param_7)
+
+{
+  DWORD DVar1;
+  void *_Src;
+  undefined1 *_Memory;
+  int iVar2;
+  undefined4 uVar3;
+  int in_ECX;
+  void *local_1c;
+  undefined1 local_15;
+  undefined1 local_14;
+  char cStack_13;
+  undefined2 uStack_12;
+  undefined2 local_10;
+  undefined2 uStack_e;
+  undefined1 local_c;
+  undefined1 uStack_b;
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  local_1c = param_1;
+  if (0 < param_5) {
+    if (-1 < (int)param_1) {
+      DVar1 = timeGetTime();
+      *(DWORD *)(*(int *)(in_ECX + 0x48) + 0x10 + (int)local_1c * 0x14) = DVar1;
+      *(undefined1 *)(*(int *)(in_ECX + 0x48) + 0x16 + (int)local_1c * 0x14) = 0;
+    }
+    local_c = (undefined1)((uint)param_3 >> 0x10);
+    uStack_b = (undefined1)((uint)param_3 >> 0x18);
+    uStack_e = (undefined2)param_3;
+    uStack_12 = (undefined2)param_2;
+    local_10 = (undefined2)((uint)param_2 >> 0x10);
+    switch(*param_4) {
+    case 1:
+      if ((((param_6 & 1) != 0) && (*(char *)(in_ECX + 7) != '\0')) && (param_5 == 2)) {
+        if ((int)local_1c < 0) {
+          local_1c = (void *)thunk_FUN_0055ded0();
+          if ((int)local_1c < 1) {
+            return 0;
+          }
+          *(byte *)(*(int *)(in_ECX + 0x48) + 0xd + (int)local_1c * 0x14) = param_4[1];
+          *(undefined4 *)(*(int *)(in_ECX + 0x48) + 4 + (int)local_1c * 0x14) = param_2;
+          *(undefined4 *)(*(int *)(in_ECX + 0x48) + 8 + (int)local_1c * 0x14) = param_3;
+          *(undefined1 *)(*(int *)(in_ECX + 0x48) + 0xc + (int)local_1c * 0x14) = 1;
+        }
+        local_14 = 2;
+        *(byte *)(*(int *)(in_ECX + 0x48) + 0xd + (int)local_1c * 0x14) = param_4[1];
+        cStack_13 = param_4[1] * '\x02';
+        thunk_FUN_0055f840(param_2,param_3,&local_14,10,0);
+        return 1;
+      }
+      break;
+    case 2:
+      if (((param_6 & 2) == 0) || (param_5 != 2)) {
+        if ((param_6 & 1) == 0) {
+          return 0;
+        }
+        if (param_5 != 2) {
+          return 0;
+        }
+        if (param_4[1] == (byte)(*(char *)(*(int *)(in_ECX + 0x48) + 0x21) * '\x02')) {
+          if (1 < *(int *)(in_ECX + 0xc)) {
+            thunk_FUN_0055fd00(param_4[2]);
+          }
+          *(undefined1 *)(*(int *)(in_ECX + 0x48) + 0x20) = 2;
+          *param_4 = 3;
+          param_4[1] = param_4[1] * '\x02';
+          thunk_FUN_0055f840(param_2,param_3,param_4,2,0);
+          return 1;
+        }
+      }
+      else if (param_4[1] == (byte)(*param_7 * '\x02')) {
+        if (1 < *(int *)(in_ECX + 0xc)) {
+          thunk_FUN_0055fd00(param_4[2]);
+        }
+        *param_4 = 5;
+        thunk_FUN_0055f840(param_2,param_3,param_4,1,0);
+        return 1;
+      }
+      return 1;
+    case 3:
+      if ((((param_6 & 1) != 0) && (*(char *)(in_ECX + 7) != '\0')) && (param_5 == 2)) {
+        local_1c = (void *)thunk_FUN_0055e2f0(param_2,param_3);
+        if ((int)local_1c < 1) {
+          return 1;
+        }
+        iVar2 = *(int *)(in_ECX + 0x48) + (int)local_1c * 0x14;
+        if ((byte)(*(char *)(iVar2 + 0xd) << 2) != param_4[1]) {
+          return 1;
+        }
+        cStack_13 = (char)local_1c;
+        *(undefined1 *)(iVar2 + 0xc) = 2;
+        local_14 = 4;
+        thunk_FUN_0055f840(param_2,param_3,&local_14,10,0);
+        local_15 = SUB41(local_1c,0);
+        (**(code **)(**(int **)(in_ECX + 0x1060) + 4))(1,&local_15,1);
+        return 1;
+      }
+      break;
+    case 4:
+      if (((param_6 & 1) != 0) && (param_5 == 2)) {
+        if (*(char *)(*(int *)(in_ECX + 0x48) + 0x20) != '\x02') {
+          return 1;
+        }
+        *(undefined1 *)(in_ECX + 8) = 1;
+        *(byte *)(in_ECX + 0x38) = param_4[1];
+        (**(code **)(**(int **)(in_ECX + 0x1060) + 4))(3,0,0);
+        return 1;
+      }
+      break;
+    case 5:
+      if (((param_6 & 1) != 0) && (*(char *)(in_ECX + 7) != '\0')) {
+        _Src = (void *)(**(code **)**(undefined4 **)(in_ECX + 0x3c))(&local_1c,0);
+        _Memory = (undefined1 *)thunk_FUN_009ac153((int)local_1c + 1);
+        memcpy(_Memory + 1,_Src,(size_t)local_1c);
+        *_Memory = 6;
+        thunk_FUN_0055f840(param_2,param_3,_Memory,(int)local_1c + 1,0);
+        free(_Memory);
+        return 1;
+      }
+      break;
+    case 6:
+      if ((param_6 & 2) != 0) {
+        local_1c = operator_new(0x8c);
+        if (local_1c == (void *)0x0) {
+          uVar3 = 0;
+        }
+        else {
+          uVar3 = thunk_FUN_0055d450(param_4 + 1,param_5 + -1);
+        }
+        *(undefined4 *)(in_ECX + 0x3c) = uVar3;
+        thunk_FUN_0055fbc0(param_2,param_3);
+        return 1;
+      }
+      break;
+    default:
+      if (((0xe < *param_4) && (local_1c != (void *)0xffffffff)) && (*(int *)(in_ECX + 0x1060) != 0)
+         ) {
+        local_14 = (undefined1)param_5;
+        cStack_13 = (char)((uint)param_5 >> 8);
+        uStack_12 = (undefined2)((uint)param_5 >> 0x10);
+        *param_4 = *param_4 - 0xf;
+        local_c = SUB41(local_1c,0);
+        local_10 = SUB42(param_4,0);
+        uStack_e = (undefined2)((uint)param_4 >> 0x10);
+        uVar3 = (**(code **)**(undefined4 **)(in_ECX + 0x1060))((uint)local_1c & 0xff,&local_14);
+        return uVar3;
+      }
+      break;
+    case 8:
+      if ((param_6 & 1) != 0) {
+        if (*(char *)(in_ECX + 7) == '\0') {
+          (**(code **)(**(int **)(in_ECX + 0x1060) + 4))(4,0,0);
+          thunk_FUN_0055dda0();
+          *(undefined1 *)(in_ECX + 8) = 0;
+          *(undefined1 *)(*(int *)(in_ECX + 0x48) + 0xc + (int)local_1c * 0x14) = 3;
+          *(undefined4 *)(*(int *)(in_ECX + 0x48) + 4 + (int)local_1c * 0x14) = 0;
+          return 1;
+        }
+        iVar2 = thunk_FUN_0055e2f0(param_2,param_3);
+        if (iVar2 < 1) {
+          return 1;
+        }
+        *(undefined1 *)(*(int *)(in_ECX + 0x48) + 0xc + iVar2 * 0x14) = 3;
+        local_15 = (undefined1)iVar2;
+        (**(code **)(**(int **)(in_ECX + 0x1060) + 4))(2,&local_15,1);
+        *(undefined4 *)(*(int *)(in_ECX + 0x48) + 4 + iVar2 * 0x14) = 0;
+        return 1;
+      }
+      break;
+    case 9:
+      *param_4 = 10;
+      thunk_FUN_0055f840(param_2,param_3,param_4,1,0);
+      return 1;
+    case 10:
+      *(undefined1 *)(*(int *)(in_ECX + 0x48) + 0x16 + (int)local_1c * 0x14) = 0;
+      return 1;
+    }
+  }
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055e2f0 @ 0055e2f0
+======================================================
+
+int FUN_0055e2f0(int param_1,int param_2)
+
+{
+  int *piVar1;
+  int in_ECX;
+  int iVar2;
+  
+  iVar2 = 0;
+  if (0 < *(int *)(in_ECX + 0x44)) {
+    piVar1 = (int *)(*(int *)(in_ECX + 0x48) + 8);
+    do {
+      if ((piVar1[-1] == param_1) && (*piVar1 == param_2)) {
+        return iVar2;
+      }
+      iVar2 = iVar2 + 1;
+      piVar1 = piVar1 + 5;
+    } while (iVar2 < *(int *)(in_ECX + 0x44));
+  }
+  return -1;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055f260 @ 0055f260
+======================================================
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+int FUN_0055f260(undefined4 param_1,undefined4 param_2,undefined4 param_3,char param_4,int *param_5)
+
+{
+  int iVar1;
+  uint uVar2;
+  undefined4 uVar3;
+  int in_ECX;
+  uint uVar4;
+  int iVar5;
+  int iVar6;
+  undefined4 local_110;
+  uint local_10c;
+  int aiStack_108 [64];
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  iVar6 = *(int *)(in_ECX + 0xc);
+  local_110 = 0x10;
+  if (param_4 == '\0') {
+    iVar5 = 0;
+    if (0 < iVar6) {
+      iVar6 = 0x1b0;
+      do {
+        iVar1 = thunk_FUN_0055ff30(*(undefined4 *)(*(int *)(in_ECX + 0x4c) + iVar6),param_1,param_2,
+                                   0,param_3,&local_110);
+        if (param_5 != (int *)0x0) {
+          *param_5 = iVar5;
+        }
+        if (iVar1 != 0) {
+          return iVar1;
+        }
+        iVar5 = iVar5 + 1;
+        iVar6 = iVar6 + 4;
+      } while (iVar5 < *(int *)(in_ECX + 0xc));
+    }
+    iVar6 = 0;
+  }
+  else {
+    if (iVar6 != 1) {
+      thunk_FUN_004471c0("Receive from %i",iVar6);
+      do {
+        thunk_FUN_004471c0("Receive from %i",*(undefined4 *)(in_ECX + 0xc));
+        iVar6 = *(int *)(in_ECX + 0xc);
+        uVar4 = 0;
+        local_10c = 0;
+        if (0 < iVar6) {
+          iVar5 = 0x1b0;
+          do {
+            uVar2 = 0;
+            if (uVar4 != 0) {
+              do {
+                if (aiStack_108[uVar2] == *(int *)(iVar5 + *(int *)(in_ECX + 0x4c))) break;
+                uVar2 = uVar2 + 1;
+              } while (uVar2 < uVar4);
+            }
+            if ((uVar2 == uVar4) && (uVar4 < 0x40)) {
+              aiStack_108[uVar2] = *(int *)(iVar5 + *(int *)(in_ECX + 0x4c));
+              uVar4 = local_10c + 1;
+              local_10c = uVar4;
+            }
+            iVar5 = iVar5 + 4;
+            iVar6 = iVar6 + -1;
+          } while (iVar6 != 0);
+        }
+        iVar6 = Ordinal_18(0,&local_10c,0,0,0);
+        if (iVar6 < 1) {
+          if (iVar6 == -1) {
+            uVar3 = Ordinal_111();
+            thunk_FUN_0055e840(uVar3);
+            thunk_FUN_004471c0("WINSOCKMGR : select sockets failed!");
+          }
+          Sleep(100);
+        }
+        else {
+          thunk_FUN_004471c0("Received %i",iVar6);
+          iVar6 = 0;
+          if (0 < *(int *)(in_ECX + 0xc)) {
+            iVar5 = 0x1b0;
+            do {
+              iVar1 = Ordinal_151(*(undefined4 *)(iVar5 + *(int *)(in_ECX + 0x4c)),&local_10c);
+              if (iVar1 != 0) {
+                iVar1 = thunk_FUN_0055ff30(*(undefined4 *)(iVar5 + *(int *)(in_ECX + 0x4c)),param_1,
+                                           param_2,0,param_3,&local_110);
+                thunk_FUN_004471c0("Received Bytes %i",iVar1);
+                if (param_5 != (int *)0x0) {
+                  *param_5 = iVar6;
+                }
+                if (iVar1 != 0) {
+                  return iVar1;
+                }
+              }
+              iVar6 = iVar6 + 1;
+              iVar5 = iVar5 + 4;
+            } while (iVar6 < *(int *)(in_ECX + 0xc));
+          }
+        }
+      } while( true );
+    }
+    iVar6 = thunk_FUN_0055ff30(*(undefined4 *)(*(int *)(in_ECX + 0x4c) + 0x1b0),param_1,param_2,0,
+                               param_3,&local_110);
+    if (param_5 != (int *)0x0) {
+      *param_5 = 0;
+      return iVar6;
+    }
+  }
+  return iVar6;
+}
+
+
+
+======================================================
+FUNCTION FUN_00560090 @ 00560090
+======================================================
+
+int FUN_00560090(undefined4 param_1,int param_2,int param_3,undefined4 param_4,undefined4 param_5,
+                undefined4 param_6)
+
+{
+  byte bVar1;
+  byte bVar2;
+  undefined1 *_Memory;
+  int iVar3;
+  uint uStack_2c;
+  uint local_18;
+  undefined1 *local_14;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  puStack_c = &LAB_009c7830;
+  local_10 = ExceptionList;
+  uStack_2c = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  local_14 = (undefined1 *)&uStack_2c;
+  ExceptionList = &local_10;
+  local_8 = 0;
+  _Memory = (undefined1 *)thunk_FUN_009ac153(param_3 + 4);
+  local_18 = rand();
+  local_18 = local_18 & 0xffff;
+  *_Memory = (char)local_18;
+  _Memory[1] = (char)(local_18 >> 8);
+  bVar1 = thunk_FUN_004e36e0(&local_18,local_18 >> 8);
+  bVar1 = bVar1 ^ (byte)param_3;
+  _Memory[2] = bVar1;
+  bVar1 = thunk_FUN_004e36e0(&local_18,bVar1);
+  _Memory[3] = (byte)((uint)param_3 >> 8) ^ bVar1;
+  for (iVar3 = 0; iVar3 < param_3; iVar3 = iVar3 + 1) {
+    bVar1 = *(byte *)(iVar3 + param_2);
+    bVar2 = thunk_FUN_004e36e0(&local_18,_Memory[iVar3 + 3]);
+    _Memory[iVar3 + 4] = bVar2 ^ bVar1;
+  }
+  iVar3 = Ordinal_20(param_1,_Memory,param_3 + 4,param_4,param_5,param_6);
+  free(_Memory);
+  if (3 < iVar3) {
+    ExceptionList = local_10;
+    return iVar3 + -4;
+  }
+  ExceptionList = local_10;
+  return iVar3;
+}
+
+
+
+======================================================
+FUNCTION FUN_005602f0 @ 005602f0
+======================================================
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4 FUN_005602f0(int param_1,undefined4 *param_2,undefined4 param_3,ushort param_4)
+
+{
+  char cVar1;
+  char *pcVar2;
+  DWORD DVar3;
+  HANDLE pvVar4;
+  int *in_ECX;
+  DWORD DVar5;
+  int iVar6;
+  _SECURITY_ATTRIBUTES local_38;
+  DWORD local_2c;
+  int local_28;
+  undefined4 local_24;
+  undefined4 local_20;
+  undefined1 local_1c;
+  char local_1b;
+  char local_1a;
+  char local_19;
+  char local_18;
+  char local_17;
+  char local_16;
+  char local_15;
+  char local_14;
+  undefined1 local_12;
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  in_ECX[0x418] = param_1;
+  *(undefined1 *)((int)in_ECX + 7) = 0;
+  if (*(char *)((int)in_ECX + 5) != '\0') {
+    thunk_FUN_0055da80();
+  }
+  if (*(char *)((int)in_ECX + 6) != '\0') {
+    (**(code **)(*in_ECX + 0x1c))(0);
+  }
+  cVar1 = thunk_FUN_0055dc10(0);
+  if (cVar1 == '\0') {
+    return 0;
+  }
+  *(undefined1 *)(in_ECX + 0x414) = 0;
+  if ((param_4 & 2) != 0) {
+    *(undefined1 *)(in_ECX + 0x414) = 1;
+  }
+  cVar1 = thunk_FUN_0055d5f0(0,param_3);
+  if (cVar1 == '\0') {
+    return 0;
+  }
+  if (((param_4 & 1) == 0) || (cVar1 = thunk_FUN_0055fc20(0), cVar1 != '\0')) {
+    thunk_FUN_009ac142(in_ECX[0xf],0x8c);
+    in_ECX[0xf] = 0;
+    thunk_FUN_0055df00(&local_24,&local_20);
+    local_1c = 1;
+    local_28 = 0;
+    pcVar2 = (char *)(**(code **)*param_2)(&local_28,0);
+    if (pcVar2 == (char *)0x0) {
+      return 0;
+    }
+    if (local_28 < 8) {
+      return 0;
+    }
+    iVar6 = *(int *)(pcVar2 + 2);
+    in_ECX[0x41a] = iVar6;
+    *(char *)(in_ECX + 0x41a) = (char)iVar6 - *pcVar2;
+    *(char *)((int)in_ECX + 0x1069) = *(char *)((int)in_ECX + 0x1069) - pcVar2[1];
+    *(char *)((int)in_ECX + 0x106a) = *(char *)((int)in_ECX + 0x106a) - pcVar2[2];
+    *(char *)((int)in_ECX + 0x106b) = *(char *)((int)in_ECX + 0x106b) - pcVar2[3];
+    local_1b = '\x7f' - *pcVar2;
+    local_1a = '\x7f' - pcVar2[1];
+    local_19 = '\x7f' - pcVar2[2];
+    local_18 = '\x7f' - pcVar2[3];
+    local_17 = '\x7f' - pcVar2[4];
+    local_16 = '\x7f' - pcVar2[5];
+    local_15 = '\x7f' - pcVar2[6];
+    local_14 = '\x7f' - pcVar2[7];
+    local_12 = 0;
+    *(undefined1 *)(in_ECX[0x12] + 0x21) = 0;
+    *(undefined4 *)(in_ECX[0x12] + 0x18) = local_24;
+    *(undefined4 *)(in_ECX[0x12] + 0x1c) = local_20;
+    *(undefined1 *)(in_ECX[0x12] + 0x20) = 2;
+    if ((param_4 & 1) == 0) {
+      iVar6 = 3;
+      do {
+        thunk_FUN_0055f6d0(local_24,local_20,&local_1c,10,0);
+        iVar6 = iVar6 + -1;
+      } while (iVar6 != 0);
+    }
+    else {
+      DVar5 = 0;
+      local_2c = timeGetTime();
+      do {
+        DVar3 = timeGetTime();
+        if (200 < DVar3 - DVar5) {
+          thunk_FUN_0055f6d0(local_24,local_20,&local_1c,10,0);
+          DVar5 = timeGetTime();
+        }
+        thunk_FUN_005609a0(1,0);
+      } while (((char)in_ECX[2] == '\0') && (DVar3 = timeGetTime(), DVar3 - local_2c < 2000));
+      cVar1 = thunk_FUN_0055fc20(1);
+      if (cVar1 == '\0') {
+        pcVar2 = "@WWINSOCKMGR : Set back to blocking failed";
+        goto LAB_005604c9;
+      }
+      if ((char)in_ECX[2] == '\0') {
+        (**(code **)(*in_ECX + 0x1c))(0);
+        return 0;
+      }
+    }
+    *(undefined1 *)((int)in_ECX + 6) = 1;
+    if ((char)in_ECX[0x414] != '\0') {
+      local_38.nLength = 0xc;
+      local_38.lpSecurityDescriptor = (LPVOID)0x0;
+      local_38.bInheritHandle = 0;
+      pvVar4 = CreateThread(&local_38,0,(LPTHREAD_START_ROUTINE)&LAB_0041283c,in_ECX,0,
+                            (LPDWORD)(in_ECX + 0x416));
+      in_ECX[0x415] = (int)pvVar4;
+      if (pvVar4 == (HANDLE)0x0) {
+        DVar5 = GetLastError();
+        thunk_FUN_004471c0("@WGAMENETMGR : Thread Creation Failed : ErrorCode %i\n",DVar5);
+        return 0;
+      }
+      return 1;
+    }
+    cVar1 = thunk_FUN_0055fc20(0);
+    if (cVar1 != '\0') {
+      return 1;
+    }
+  }
+  pcVar2 = "@WWINSOCKMGR : Set to nonblocking failed";
+LAB_005604c9:
+  thunk_FUN_004471c0(pcVar2);
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_005609a0 @ 005609a0
+======================================================
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4 FUN_005609a0(undefined4 param_1,undefined4 param_2)
+
+{
+  int *piVar1;
+  int iVar2;
+  int iVar3;
+  int *in_ECX;
+  char *pcVar4;
+  undefined1 local_28 [4];
+  uint local_24;
+  undefined4 local_20;
+  undefined4 local_1c;
+  undefined1 local_18 [2];
+  undefined2 uStack_16;
+  undefined2 local_14;
+  undefined2 uStack_12;
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  local_20 = param_2;
+  piVar1 = in_ECX + 0x14;
+  iVar2 = thunk_FUN_0055f260(piVar1,0x1000,local_18,1,local_28);
+  if (iVar2 == -1) {
+    iVar2 = Ordinal_111();
+    if (iVar2 == 0x2733) {
+      return 0;
+    }
+    thunk_FUN_0055e840(iVar2);
+    pcVar4 = "@WWINSOCKMGR : Receive from failed";
+  }
+  else {
+    if (0 < iVar2) {
+      local_1c = CONCAT22(uStack_12,local_14);
+      local_24 = Ordinal_15(CONCAT22(local_14,uStack_16));
+      local_24 = local_24 & 0xffff;
+      iVar3 = thunk_FUN_0055e2f0(local_1c,local_24);
+      if (iVar3 == 0) {
+        thunk_FUN_004471c0("@WWINSOCKMGR : Message received for unknown station, %i",(char)*piVar1);
+        return 1;
+      }
+      (**(code **)(*in_ECX + 0x3c))(iVar3,local_1c,local_24,piVar1,iVar2,param_1,local_20);
+      return 1;
+    }
+    if (iVar2 < 0) {
+      return 1;
+    }
+    pcVar4 = "@WWINSOCKMGR : Receive 0 Buffer";
+  }
+  thunk_FUN_004471c0(pcVar4);
+  return 0;
+}
+
+
+

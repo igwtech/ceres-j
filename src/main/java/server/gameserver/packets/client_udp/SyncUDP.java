@@ -3,29 +3,30 @@ package server.gameserver.packets.client_udp;
 import java.net.DatagramPacket;
 
 import server.gameserver.Player;
-import server.gameserver.internalEvents.DummyEvent;
 import server.gameserver.packets.GamePacketDecoderUDP;
-import server.gameserver.packets.server_udp.UDPAlive;
-import server.gameserver.packets.server_udp.UpdateModel;
-import server.gameserver.packets.server_udp.ZoningEnd;
-import server.tools.Out;
-import server.tools.Timer;
 
 /**
  * Handles incoming 0x03 sync packets from the client.
  *
- * A bare 0x03 sync packet is sent by the NCE 2.5 client after it has finished
- * loading a zone and wants to notify the server it is ready to receive further
- * updates. The server's reply must include:
- * <ul>
- *   <li>A {@link UDPAlive} ack.</li>
- *   <li>Optionally re-broadcast zone-resident NPCs / players.</li>
- *   <li>A {@link ZoningEnd} terminator to release the loading screen.</li>
- * </ul>
+ * <p><b>Format (retail NCE 2.5.x, 8-byte plaintext):</b> a bare 0x03 packet
+ * is the client's ACK for a server-side reliable ({@code 0x13 -> 0x03}) packet
+ * it has just received. The payload identifies the sequence counter of the
+ * acknowledged reliable. The server's ONLY obligation is to advance its
+ * internal reliable-sent-but-unacked marker; there is NO wire reply.
  *
- * Historically (irata r19) this decoder did nothing, which is why the modern
- * client hangs on the loading screen after zoning. This version now performs
- * the minimum work required to unblock the client.
+ * <p><b>Why this is a no-op:</b> an earlier version of this handler replied
+ * to every sync with a full zone re-broadcast (UpdateModel + NPCs + players
+ * + ZoningEnd). Because each reliable packet the server sent produced a
+ * client sync ACK, and each sync ACK produced a new burst of reliable
+ * packets, the loop generated ~4500 syncs in a few seconds. The client
+ * stayed stuck on "SYNCHRONIZING INTO CITY ZONE" because we kept shoving it
+ * back into the load state with repeated {@code ZoningEnd} (which retail
+ * captures confirm retail NEVER sends — see
+ * {@code docs/retail_burst_analysis.md} §1).
+ *
+ * <p>The reliable-window bookkeeping still needs to be implemented so we
+ * stop retransmitting ACKed packets, but doing nothing here is strictly
+ * better than the feedback storm the previous version produced.
  */
 public class SyncUDP extends GamePacketDecoderUDP {
 
@@ -33,61 +34,15 @@ public class SyncUDP extends GamePacketDecoderUDP {
         super(dp);
     }
 
+    @Override
     public void execute(Player pl) {
-        if (pl == null || pl.getUdpConnection() == null) {
-            return;
-        }
-        Out.writeln(Out.Info, "SyncUDP received from " + (pl.getAccount() != null
-                ? pl.getAccount().getUsername() : "unknown")
-                + " — sending sync response");
-
-        // Immediate ack so the client stops its sync retransmit timer.
-        try {
-            pl.send(new UDPAlive(pl));
-        } catch (Exception e) {
-            Out.writeln(Out.Error, "SyncUDP: UDPAlive send failed: " + e.getMessage());
-        }
-
-        // Re-broadcast zone state shortly after; this gives any late zone
-        // registrations a chance to settle before we stream them.
-        pl.addEvent(new SyncZoneBroadcast());
-    }
-
-    /**
-     * Delayed broadcast of zone-resident NPCs/players plus a ZoningEnd
-     * terminator. Runs as its own event so the preceding UDPAlive actually
-     * leaves the socket before we start the flood.
-     */
-    static class SyncZoneBroadcast extends DummyEvent {
-        public SyncZoneBroadcast() {
-            eventTime = Timer.getRealtime() + 50;
-        }
-
-        @Override
-        public void execute(Player pl) {
-            if (pl == null || pl.getZone() == null) {
-                return;
-            }
-            try {
-                pl.send(new UpdateModel(pl));
-            } catch (Exception e) {
-                Out.writeln(Out.Error, "SyncZoneBroadcast: UpdateModel failed: " + e.getMessage());
-            }
-            try {
-                pl.getZone().sendNPCsinZone(pl);
-            } catch (Exception e) {
-                Out.writeln(Out.Error, "SyncZoneBroadcast: sendNPCsinZone failed: " + e.getMessage());
-            }
-            try {
-                pl.getZone().sendPlayersinZone(pl);
-            } catch (Exception e) {
-                Out.writeln(Out.Error, "SyncZoneBroadcast: sendPlayersinZone failed: " + e.getMessage());
-            }
-            try {
-                pl.send(new ZoningEnd(pl));
-            } catch (Exception e) {
-                Out.writeln(Out.Error, "SyncZoneBroadcast: ZoningEnd failed: " + e.getMessage());
-            }
-        }
+        // Intentionally a no-op at the wire level. The client does NOT wait
+        // for a reply to a 0x03 sync packet; replying triggers a feedback
+        // storm and re-delivers ZoningEnd, trapping the client on the
+        // "SYNCHRONIZING INTO CITY ZONE" overlay.
+        //
+        // TODO: parse the ACKed sequence counter out of the payload and
+        // advance GameServerUDPConnection's reliable-sent window so we stop
+        // retransmitting confirmed packets.
     }
 }

@@ -1,0 +1,907 @@
+# Functions referencing NetHost / world-change flow strings
+
+======================================================
+FUNCTION FUN_00558400 @ 00558400
+======================================================
+Why matched:
+  005585ab refs 'Create new world to change to' @ 00a26c84
+  0055847f refs 'Delete world for world change' @ 00a26c18
+  00558661 refs 'World changes successfull' @ 00a26cdc
+
+
+undefined4 FUN_00558400(undefined4 param_1)
+
+{
+  code *pcVar1;
+  uint uVar2;
+  int iVar3;
+  void *pvVar4;
+  int in_ECX;
+  int iVar5;
+  undefined4 uVar6;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009c74d7;
+  local_10 = ExceptionList;
+  uVar2 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\WorldClient.cpp"
+                     ,0x6a8);
+  if (*(int **)(in_ECX + 0x13c) != (int *)0x0) {
+    (**(code **)(**(int **)(in_ECX + 0x13c) + 0x14))(0x27d9,0,0,uVar2);
+  }
+  (**(code **)(**(int **)(in_ECX + 0x10c) + 8))(0x9c,0,0);
+  (**(code **)(**(int **)(in_ECX + 0x10c) + 0x10))();
+  thunk_FUN_00556020();
+  thunk_FUN_0045a280("Init.Log","WorldClient: Delete world for world change . . . ");
+  if (*(undefined4 **)(in_ECX + 0x30) != (undefined4 *)0x0) {
+    (**(code **)**(undefined4 **)(in_ECX + 0x30))(1);
+  }
+  *(undefined4 *)(in_ECX + 0x30) = 0;
+  *(undefined4 *)(*(int *)(in_ECX + 0x20) + 0xc) = 0;
+  (**(code **)(**(int **)(in_ECX + 0x308) + 0x2c))(1,0);
+  (**(code **)(**(int **)(in_ECX + 0x308) + 0x2c))(2,0);
+  thunk_FUN_0045a280("Init.Log","complete\n");
+  (**(code **)(**(int **)(in_ECX + 0x10c) + 8))(0x9f,4,in_ECX + 0x15c);
+  (**(code **)(**(int **)(in_ECX + 0x48) + 8))(*(int **)(in_ECX + 0x48),"Create world %s",param_1);
+  uVar6 = 0;
+  *(undefined4 *)(in_ECX + 0x34) = *(undefined4 *)(in_ECX + 0x154);
+  iVar5 = 0;
+  *(undefined4 *)(in_ECX + 0x38) = *(undefined4 *)(in_ECX + 0x158);
+  iVar3 = (**(code **)(**(int **)(in_ECX + 0x24) + 0x1c))(0x21);
+  if (iVar3 != 0) {
+    iVar5 = thunk_FUN_004b3820(*(undefined4 *)(in_ECX + 0x150));
+    if (iVar5 != 0) {
+      uVar6 = thunk_FUN_004b3780(2);
+    }
+  }
+  pvVar4 = operator_new(0x130);
+  local_8 = 0;
+  if (pvVar4 == (void *)0x0) {
+    uVar6 = 0;
+  }
+  else {
+    uVar6 = thunk_FUN_0053d040(in_ECX + 0x24,param_1,0,0,uVar6,iVar5);
+  }
+  *(undefined4 *)(in_ECX + 0x30) = uVar6;
+  local_8 = 0xffffffff;
+  *(undefined4 *)(*(int *)(in_ECX + 0x20) + 0xc) = uVar6;
+  if (*(int *)(in_ECX + 0x30) != 0) {
+    thunk_FUN_0045a280("Init.Log","WorldClient: Create new world to change to . . .\n");
+    (**(code **)(**(int **)(in_ECX + 0x10c) + 0xc))();
+    pcVar1 = *(code **)(**(int **)(in_ECX + 0x10c) + 8);
+    uVar6 = thunk_FUN_005412c0();
+    (*pcVar1)(0x9d,4,uVar6);
+    thunk_FUN_00555de0();
+    thunk_FUN_0045a280("Init.Log"," -> setting time . . .\n");
+    thunk_FUN_00545120(0);
+    *(undefined4 *)(in_ECX + 0x2c8) = 1;
+    thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\WorldClient.cpp"
+                       ,0x6ff);
+    if (*(int **)(in_ECX + 0x13c) != (int *)0x0) {
+      pcVar1 = *(code **)(**(int **)(in_ECX + 0x13c) + 0x14);
+      uVar6 = thunk_FUN_005412c0();
+      (*pcVar1)(0x27d9,4,uVar6);
+    }
+    thunk_FUN_0055ce20(0,1);
+    *(undefined4 *)(in_ECX + 0x18c) = *(undefined4 *)(in_ECX + 0x150);
+    thunk_FUN_0045a280("Init.Log","WorldClient: World changes successfull!\n");
+    if ((*(int *)(in_ECX + 0xac) - 1U & 1) != 0) {
+      thunk_FUN_005595d0();
+    }
+    ExceptionList = local_10;
+    return 1;
+  }
+                    /* WARNING: Subroutine does not return */
+  thunk_FUN_00559250("WorldMgr create failed");
+}
+
+
+
+======================================================
+FUNCTION FUN_005592d0 @ 005592d0
+======================================================
+Why matched:
+  005592f9 refs 'Connecting to NetHost' @ 00a26f70
+  00559444 refs 'succeed!' @ 00a26fb0
+
+
+undefined4 FUN_005592d0(void)
+
+{
+  char cVar1;
+  int iVar2;
+  undefined4 uVar3;
+  void *_Memory;
+  int in_ECX;
+  undefined1 local_24 [8];
+  undefined1 local_1c [4];
+  undefined4 local_18;
+  void *local_14;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009c7533;
+  local_10 = ExceptionList;
+  ExceptionList = &local_10;
+  thunk_FUN_0045a280("Init.Log","WorldClient: Connecting to NetHost . . . ",
+                     DAT_00b13e00 ^ (uint)&stack0xfffffffc);
+  local_14 = operator_new(0x58);
+  local_8 = 0;
+  if (local_14 == (void *)0x0) {
+    iVar2 = 0;
+  }
+  else {
+    iVar2 = thunk_FUN_005f1da0(*(undefined4 *)(in_ECX + 0x48));
+  }
+  local_8 = 0xffffffff;
+  *(int *)(in_ECX + 0x29c) = iVar2;
+  if (iVar2 == 0) {
+                    /* WARNING: Subroutine does not return */
+    thunk_FUN_00559250("WORLDCLIENT : netmgr creation failed");
+  }
+  cVar1 = thunk_FUN_005f2f70(0,"xfghsdkjskfdlgj",0,2);
+  if (cVar1 == '\0') {
+                    /* WARNING: Subroutine does not return */
+    thunk_FUN_00559250("WORLDCLIENT : netmgr init failed");
+  }
+  thunk_FUN_004471c0("@PWORLDHOST Connect to %i, %i",*(undefined4 *)(in_ECX + 0x268),
+                     *(undefined4 *)(in_ECX + 0x26c));
+  cVar1 = thunk_FUN_005f24c0(*(undefined4 *)(in_ECX + 0x268),*(undefined4 *)(in_ECX + 0x26c));
+  if (cVar1 != '\0') {
+    uVar3 = thunk_FUN_004c1190();
+    *(undefined4 *)(in_ECX + 0x2a0) = uVar3;
+    thunk_FUN_005f2e50(local_1c);
+    local_18 = *(undefined4 *)(in_ECX + 0x278);
+    _Memory = (void *)thunk_FUN_005587e0(local_1c,local_24);
+    (**(code **)(**(int **)(in_ECX + 0x29c) + 0xc))
+              (*(undefined4 *)(in_ECX + 0x268),*(undefined4 *)(in_ECX + 0x26c),local_24,0);
+    free(_Memory);
+    local_14 = operator_new(8);
+    local_8 = 1;
+    if (local_14 == (void *)0x0) {
+      uVar3 = 0;
+    }
+    else {
+      uVar3 = thunk_FUN_005f45a0(in_ECX + 0x24);
+    }
+    local_8 = 0xffffffff;
+    *(undefined4 *)(in_ECX + 0x264) = uVar3;
+    thunk_FUN_005f4680(*(undefined4 *)(in_ECX + 0x29c),*(undefined4 *)(in_ECX + 0x268),
+                       *(undefined4 *)(in_ECX + 0x26c));
+    thunk_FUN_005f4600();
+    thunk_FUN_0045a280("Init.Log","succeed!\n");
+    ExceptionList = local_10;
+    return 1;
+  }
+  thunk_FUN_0045a280("Init.Log","failed!\n");
+                    /* WARNING: Subroutine does not return */
+  thunk_FUN_00559250("WORLDCLIENT : connection to nethost failed");
+}
+
+
+
+======================================================
+FUNCTION FUN_00559520 @ 00559520
+======================================================
+Why matched:
+  00559522 refs 'WorldClient: Joining session' @ 00a26a34
+
+
+undefined4 FUN_00559520(void)
+
+{
+  char cVar1;
+  undefined4 uVar2;
+  int in_ECX;
+  
+  thunk_FUN_0045a280("Init.Log","WorldClient: Joining session . . .\n");
+  uVar2 = thunk_FUN_004c1190();
+  *(undefined4 *)(in_ECX + 0x2a0) = uVar2;
+  thunk_FUN_009ac142(*(undefined4 *)(in_ECX + 0x2e0),4);
+  *(undefined4 *)(in_ECX + 0x2e0) = 0;
+  cVar1 = (**(code **)(**(int **)(in_ECX + 0x3c) + 0x14))
+                    (-(uint)(in_ECX != 0) & in_ECX + 0x10U,*(undefined4 *)(in_ECX + 0x2d4),
+                     *(undefined4 *)(in_ECX + 0x2d8),*(undefined4 *)(in_ECX + 0x278),in_ECX + 0x2f0,
+                     8,0);
+  if (cVar1 != '\0') {
+    return 1;
+  }
+                    /* WARNING: Subroutine does not return */
+  thunk_FUN_00559250(
+                    "Another Neocron client is already running. Please restart your game client and specify a new local port in the Neocron Launcher configuration."
+                    );
+}
+
+
+
+======================================================
+FUNCTION FUN_0055a5e0 @ 0055a5e0
+======================================================
+Why matched:
+  0055a61d refs 'Connecting to NetHost' @ 00a2672c
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+void FUN_0055a5e0(void)
+
+{
+  ushort uVar1;
+  char cVar2;
+  int iVar3;
+  undefined4 uVar4;
+  void *_Memory;
+  int iVar5;
+  int in_ECX;
+  char *pcVar6;
+  char *pcVar7;
+  undefined1 local_1c0 [8];
+  void *local_1b8;
+  undefined1 local_1b4 [4];
+  undefined4 local_1b0;
+  ushort local_1ac [2];
+  char *local_1a8;
+  undefined1 local_1a4 [400];
+  uint local_14;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009c7637;
+  local_10 = ExceptionList;
+  local_14 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  if (*(int *)(in_ECX + 0x29c) == 0) {
+    thunk_FUN_0045a280("Init.Log","WorldClient: Connecting to NetHost . . .\n",local_14);
+    local_1b8 = operator_new(0x58);
+    local_8 = 0;
+    if (local_1b8 == (void *)0x0) {
+      iVar3 = 0;
+    }
+    else {
+      iVar3 = thunk_FUN_005f1da0(*(undefined4 *)(in_ECX + 0x48));
+    }
+    local_8 = 0xffffffff;
+    *(int *)(in_ECX + 0x29c) = iVar3;
+    if (iVar3 == 0) {
+                    /* WARNING: Subroutine does not return */
+      thunk_FUN_00559250("WORLDCLIENT : netmgr creation failed");
+    }
+    cVar2 = thunk_FUN_005f2f70(9000,"xfghsdkjskfdlgj",0,2);
+    if (cVar2 == '\0') {
+                    /* WARNING: Subroutine does not return */
+      thunk_FUN_00559250("WORLDCLIENT : netmgr init failed");
+    }
+    thunk_FUN_004471c0("@PWORLDHOST Connect to %i, %i",*(undefined4 *)(in_ECX + 0x268),
+                       *(undefined4 *)(in_ECX + 0x26c));
+    cVar2 = thunk_FUN_005f24c0(*(undefined4 *)(in_ECX + 0x268),*(undefined4 *)(in_ECX + 0x26c));
+    if (cVar2 == '\0') {
+      thunk_FUN_0045a280("Init.Log","WorldClient: Can\'t connect to NetHost!\n");
+                    /* WARNING: Subroutine does not return */
+      thunk_FUN_00559250("WORLDCLIENT : connection to nethost failed");
+    }
+    uVar4 = thunk_FUN_004c1190();
+    *(undefined4 *)(in_ECX + 0x2a0) = uVar4;
+    thunk_FUN_005f2e50(local_1b4);
+    local_1b0 = *(undefined4 *)(in_ECX + 0x278);
+    _Memory = (void *)thunk_FUN_005587e0(local_1b4,local_1ac);
+    (**(code **)(**(int **)(in_ECX + 0x29c) + 0xc))
+              (*(undefined4 *)(in_ECX + 0x268),*(undefined4 *)(in_ECX + 0x26c),local_1ac,0);
+    free(_Memory);
+  }
+  cVar2 = thunk_FUN_005f3160(*(undefined4 *)(in_ECX + 0x268),*(undefined4 *)(in_ECX + 0x26c));
+  if (cVar2 == '\0') {
+    thunk_FUN_0045a280("Init.Log","WorldClient: Lost connection to NetHost!\n");
+                    /* WARNING: Subroutine does not return */
+    thunk_FUN_00559250("WORLDCLIENT : connection to nethost lost");
+  }
+  iVar3 = *(int *)(in_ECX + 0x2a0);
+  iVar5 = thunk_FUN_004c1190();
+  if (20000 < (uint)(iVar5 - iVar3)) {
+    thunk_FUN_0045a280("Init.Log","WorldClient: Establishing a connection to NetHost timed out!\n");
+                    /* WARNING: Subroutine does not return */
+    thunk_FUN_00559250("WORLDCLIENT : connect to nethost failed");
+  }
+  cVar2 = (**(code **)(**(int **)(in_ECX + 0x29c) + 8))(local_1c0,local_1ac,0);
+  uVar1 = local_1ac[0];
+  pcVar7 = local_1a8;
+  do {
+    if (cVar2 == '\0') {
+      ExceptionList = local_10;
+      return;
+    }
+    local_1ac[0] = uVar1;
+    local_1a8 = pcVar7;
+    (**(code **)(**(int **)(in_ECX + 0x48) + 8))(*(int **)(in_ECX + 0x48),"Msg Recv");
+    cVar2 = *pcVar7;
+    if (cVar2 == -0x7d) {
+      if (1 < uVar1) {
+        cVar2 = pcVar7[1];
+        if (cVar2 == '\x03') {
+          if ((pcVar7[2] == '\x01') ||
+             (pcVar6 = "WorldClient: Connection rejected by nethost : %s!\n", pcVar7[2] == '\x03'))
+          {
+            pcVar6 = "Report this ASAP to the NST STAFF! %s!\n";
+          }
+          thunk_FUN_00447e80(local_1a4,400,pcVar6,pcVar7 + 3);
+          thunk_FUN_0045a280("Init.Log",local_1a4);
+                    /* WARNING: Subroutine does not return */
+          thunk_FUN_00559250(local_1a4);
+        }
+        if (cVar2 == '\x05') {
+          uVar4 = *(undefined4 *)(pcVar7 + 0xe);
+          *(undefined4 *)(in_ECX + 0x2cc) = *(undefined4 *)(pcVar7 + 10);
+          *(undefined4 *)(in_ECX + 0x2d0) = uVar4;
+          uVar4 = *(undefined4 *)(pcVar7 + 0x18);
+          *(undefined4 *)(in_ECX + 0x2b8) = *(undefined4 *)(pcVar7 + 0x14);
+          *(undefined4 *)(in_ECX + 700) = uVar4;
+          uVar4 = *(undefined4 *)(pcVar7 + 2);
+          *(undefined4 *)(in_ECX + 0x2b0) = uVar4;
+          *(undefined4 *)(in_ECX + 0x2b4) = *(undefined4 *)(pcVar7 + 6);
+          (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                    (*(int **)(in_ECX + 0x48),"WORLDCLIENT : Client accepted %i",uVar4);
+          *(undefined4 *)(in_ECX + 0x2a8) = 2;
+          *(undefined2 *)(in_ECX + 0x2ac) = 1;
+          ExceptionList = local_10;
+          return;
+        }
+        if (cVar2 != -0x71) {
+          pcVar7 = "@WWORLDCLIENT : Unknown NetHost Message Type: %i";
+          goto LAB_0055a7e5;
+        }
+      }
+    }
+    else {
+      pcVar7 = "@WWORLDCLIENT : Unknown Message Type: %i";
+LAB_0055a7e5:
+      thunk_FUN_004471c0(pcVar7,cVar2);
+    }
+    cVar2 = (**(code **)(**(int **)(in_ECX + 0x29c) + 8))(local_1c0,local_1ac,0);
+    uVar1 = local_1ac[0];
+    pcVar7 = local_1a8;
+  } while( true );
+}
+
+
+
+======================================================
+FUNCTION FUN_0055aa30 @ 0055aa30
+======================================================
+Why matched:
+  0055b25c refs 'Connecting to NetHost' @ 00a26fbc
+  0055b27a refs 'Connecting to NetHost' @ 00a26ff8
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4 FUN_0055aa30(void)
+
+{
+  byte bVar1;
+  size_t _Size;
+  ushort uVar2;
+  char cVar3;
+  short sVar4;
+  short sVar5;
+  int iVar6;
+  undefined1 *puVar7;
+  int in_ECX;
+  char *pcVar8;
+  char *pcVar9;
+  char *pcVar10;
+  int iVar11;
+  bool bVar12;
+  undefined4 uVar13;
+  undefined1 local_4a4 [8];
+  undefined4 local_49c;
+  undefined4 local_498;
+  undefined1 *local_494;
+  undefined2 local_490 [2];
+  undefined4 local_48c;
+  int local_488;
+  ushort local_484 [2];
+  char *local_480;
+  undefined4 local_47c;
+  undefined4 local_478;
+  uint local_474;
+  undefined1 *local_470;
+  undefined1 *local_46c;
+  undefined2 local_460 [2];
+  uint local_45c;
+  int local_458;
+  int *local_454;
+  int *local_44c;
+  int local_448 [154];
+  undefined1 auStack_1e0 [8];
+  undefined1 local_1d8 [400];
+  undefined1 local_48 [64];
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  if (*(int *)(in_ECX + 0x29c) == 0) {
+    return 0;
+  }
+  cVar3 = thunk_FUN_005f3160(*(undefined4 *)(in_ECX + 0x268),*(undefined4 *)(in_ECX + 0x26c));
+  if (cVar3 == '\0') {
+    thunk_FUN_0045a280("Init.Log","WorldClient: Lost connection to NetHost!\n");
+                    /* WARNING: Subroutine does not return */
+    thunk_FUN_00559250("WORLDCLIENT : connection to nethost lost");
+  }
+  if ((*(short *)(in_ECX + 0x2a8) == 1) &&
+     (iVar11 = *(int *)(in_ECX + 0x2a0), iVar6 = thunk_FUN_004c1190(),
+     20000 < (uint)(iVar6 - iVar11))) {
+    thunk_FUN_0045a280("Init.Log","WorldClient: Connecting to NetHost timed out!\n");
+                    /* WARNING: Subroutine does not return */
+    thunk_FUN_00559250("WORLDCLIENT : connect to nethost failed");
+  }
+  if ((*(short *)(in_ECX + 0x2a8) == 6) &&
+     (iVar11 = *(int *)(in_ECX + 0x2a0), iVar6 = thunk_FUN_004c1190(),
+     320000 < (uint)(iVar6 - iVar11))) {
+    thunk_FUN_0045a280("Init.Log","WorldClient: Connecting to NetHost - maximum of tries reached!\n"
+                      );
+                    /* WARNING: Subroutine does not return */
+    thunk_FUN_00559250("WORLDCLIENT : connect to nethost failed");
+  }
+  do {
+    do {
+      while( true ) {
+        cVar3 = (**(code **)(**(int **)(in_ECX + 0x29c) + 8))(local_4a4,local_484,0);
+        pcVar9 = local_480;
+        uVar2 = local_484[0];
+        if (cVar3 == '\0') {
+          return 1;
+        }
+        cVar3 = *local_480;
+        if (cVar3 == -0x7d) break;
+        if (cVar3 == -0x79) {
+          OutputDebugStringA("NETMSG_GAMEMASTERTOOL:\n");
+          thunk_FUN_005f45d0(local_484);
+        }
+        else {
+          thunk_FUN_004471c0("@WWORLDCLIENT : Unknown Message Type: %i",cVar3);
+        }
+      }
+    } while (local_484[0] < 2);
+    switch(local_480[1]) {
+    case '\x03':
+      if ((local_480[2] == '\x01') ||
+         (pcVar9 = "WorldClient: Connection rejected by nethost : %s!\n", local_480[2] == '\x03')) {
+        pcVar9 = "Report this ASAP to the NST STAFF! %s!\n";
+      }
+      thunk_FUN_00447e80(local_1d8,400,pcVar9,local_480 + 3);
+      thunk_FUN_0045a280("Init.Log",local_1d8);
+                    /* WARNING: Subroutine does not return */
+      thunk_FUN_00559250(local_1d8);
+    default:
+      thunk_FUN_004471c0("@WWORLDCLIENT : Unknown NetHost Message Type: %i",local_480[1]);
+      break;
+    case '\x05':
+      uVar13 = *(undefined4 *)(local_480 + 0xe);
+      *(undefined4 *)(in_ECX + 0x2cc) = *(undefined4 *)(local_480 + 10);
+      *(undefined4 *)(in_ECX + 0x2d0) = uVar13;
+      uVar13 = *(undefined4 *)(local_480 + 0x18);
+      *(undefined4 *)(in_ECX + 0x2b8) = *(undefined4 *)(local_480 + 0x14);
+      *(undefined4 *)(in_ECX + 700) = uVar13;
+      uVar13 = *(undefined4 *)(local_480 + 2);
+      *(undefined4 *)(in_ECX + 0x2b0) = uVar13;
+      *(undefined4 *)(in_ECX + 0x2b4) = *(undefined4 *)(local_480 + 6);
+      (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                (*(int **)(in_ECX + 0x48),"Client %i accepted CharID %i",uVar13,
+                 *(undefined4 *)(local_480 + 6));
+      uVar13 = *(undefined4 *)(local_480 + 0xe);
+      *(undefined4 *)(in_ECX + 0x2d4) = *(undefined4 *)(local_480 + 10);
+      *(undefined4 *)(in_ECX + 0x2d8) = uVar13;
+      uVar13 = *(undefined4 *)(local_480 + 0x18);
+      *(undefined4 *)(in_ECX + 0x2f0) = *(undefined4 *)(local_480 + 0x14);
+      *(undefined4 *)(in_ECX + 0x2f4) = uVar13;
+      *(undefined4 *)(in_ECX + 0x2a8) = 2;
+      *(undefined2 *)(in_ECX + 0x2ac) = 1;
+      return 1;
+    case '\f':
+      pcVar10 = local_480 + 0xe;
+      pcVar8 = local_480 + 0xf;
+      do {
+        cVar3 = *pcVar10;
+        pcVar10 = pcVar10 + 1;
+      } while (cVar3 != '\0');
+      if (0x7f < (uint)((int)pcVar10 - (int)pcVar8)) {
+                    /* WARNING: Subroutine does not return */
+        thunk_FUN_00559250("WORLDCLIENT : corrupted Worldname");
+      }
+      free(*(void **)(in_ECX + 0x2c0));
+      iVar11 = ((int)pcVar10 - (int)pcVar8) + 0x14;
+      uVar13 = thunk_FUN_009ac153(iVar11);
+      *(undefined4 *)(in_ECX + 0x2c0) = uVar13;
+      pcVar10 = strstr(pcVar9 + 0xe,"terrain/");
+      pcVar8 = ".\\worlds\\%s.bsp";
+      if (pcVar10 == pcVar9 + 0xe) {
+        pcVar8 = ".\\%s.bsp";
+      }
+      thunk_FUN_00447e80(*(undefined4 *)(in_ECX + 0x2c0),iVar11,pcVar8,pcVar9 + 0xe);
+      *(undefined4 *)(in_ECX + 0x150) = *(undefined4 *)(pcVar9 + 2);
+      *(undefined4 *)(in_ECX + 0x154) = *(undefined4 *)(pcVar9 + 6);
+      *(undefined4 *)(in_ECX + 0x158) = *(undefined4 *)(pcVar9 + 10);
+      thunk_FUN_004d23b0(0x3f3,0,0);
+      *(undefined2 *)(in_ECX + 0x2c4) = 0x101;
+      *(undefined4 *)(in_ECX + 0x2a8) = 2;
+      *(undefined2 *)(in_ECX + 0x2ac) = 5;
+      if ((*(char *)(in_ECX + 0x144) != '\0') && (*(char *)(in_ECX + 0x145) != '\0')) {
+        *(undefined1 *)(in_ECX + 0x147) = 1;
+      }
+      uVar13 = thunk_FUN_004c1190();
+      *(undefined4 *)(in_ECX + 0x2a0) = uVar13;
+      (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                (*(int **)(in_ECX + 0x48),"WORLDCLIENT : new world name received %s %i",
+                 *(undefined4 *)(in_ECX + 0x2c0),*(undefined1 *)(in_ECX + 0x2e5));
+      break;
+    case '\r':
+      (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                (*(int **)(in_ECX + 0x48)," connecting ... please wait...");
+      thunk_FUN_004d23b0(0x3f2,0,0);
+      *(undefined2 *)(in_ECX + 0x2a8) = 6;
+      uVar13 = thunk_FUN_004c1190();
+      *(undefined4 *)(in_ECX + 0x2a0) = uVar13;
+      thunk_FUN_00559040();
+      break;
+    case '\x17':
+      if ((9 < local_484[0]) && ((byte)local_480[6] < 0x65)) {
+        local_44c = (int *)(uint)(byte)local_480[6];
+        memcpy(local_1d8,local_480 + 9,(size_t)local_44c);
+        if ((int *)0x18f < local_44c) {
+LAB_0055b2a4:
+                    /* WARNING: Subroutine does not return */
+          thunk_FUN_009ad475();
+        }
+        iVar11 = (uint)uVar2 - (int)local_44c;
+        local_1d8[(int)local_44c] = 0;
+        memcpy(local_1d8 + 1 + (int)local_44c,pcVar9 + 9 + (int)local_44c,iVar11 - 9);
+        puVar7 = (undefined1 *)((int)local_44c + iVar11 + -8);
+        if ((undefined1 *)0x18f < puVar7) goto LAB_0055b2a4;
+        local_1d8[(int)puVar7] = 0;
+        local_47c = *(undefined4 *)(pcVar9 + 2);
+        bVar1 = pcVar9[7];
+        local_474 = 0xffffffff;
+        if (bVar1 < 0x81) {
+          if (bVar1 == 0x80) {
+            local_478 = 5;
+            local_474 = 0;
+          }
+          else {
+            switch(bVar1) {
+            case 0:
+              local_478 = 0;
+              break;
+            case 1:
+              local_478 = 1;
+              break;
+            case 2:
+              local_478 = 2;
+              break;
+            case 3:
+              local_478 = 3;
+              break;
+            case 4:
+              local_478 = 4;
+              break;
+            case 5:
+              local_474 = (uint)(byte)pcVar9[8];
+              local_478 = 5;
+            }
+          }
+        }
+        else {
+          switch(bVar1) {
+          case 0x81:
+          case 0x82:
+            local_460[0] = 0x65;
+            local_45c = 0;
+            if (*(int **)(in_ECX + 0x10c) != (int *)0x0) {
+              cVar3 = (**(code **)(**(int **)(in_ECX + 0x10c) + 8))(0x6c,8,local_460);
+              if (cVar3 == '\0') {
+                local_44c = (int *)0x0;
+                cVar3 = (**(code **)(**(int **)(in_ECX + 0x10c) + 8))(0x1f5a,4,&local_44c);
+                if (((cVar3 == '\0') || (local_44c == (int *)0x0)) ||
+                   (cVar3 = (**(code **)(*local_44c + 0x28))(0x6c,8,local_460), cVar3 == '\0'))
+                break;
+              }
+              if (99 < (int)local_45c) {
+                local_45c = 1;
+              }
+              if (pcVar9[7] == -0x7f) {
+                if (local_45c == (byte)pcVar9[8]) {
+                  local_478 = 5;
+                  local_474 = 1;
+                }
+              }
+              else if (((local_45c != 7) && (local_45c != 0xb)) &&
+                      ((local_45c != 0xd &&
+                       ((local_45c != 0x14 &&
+                        (local_44c = (int *)(**(code **)(**(int **)(in_ECX + 0x24) + 0x44))(0xc,0),
+                        local_44c != (int *)0x0)))))) {
+                sVar4 = thunk_FUN_004da260(pcVar9[8],1);
+                sVar5 = thunk_FUN_004da260(local_45c,1);
+                if (((-0.99 <= (float)(int)sVar4) && (-0.99 <= (float)(int)sVar5)) ||
+                   (((float)(int)sVar4 < -31.99 && ((float)(int)sVar5 < -31.99)))) {
+                  local_478 = 5;
+                  local_474 = 2;
+                }
+              }
+            }
+            break;
+          case 0xfd:
+            local_478 = 0xfd;
+            break;
+          case 0xfe:
+            local_478 = 0xfe;
+            break;
+          case 0xff:
+            local_478 = 0xff;
+          }
+        }
+        cVar3 = pcVar9[7];
+        if (cVar3 == -0x80) {
+          bVar12 = *(char *)(in_ECX + 0x304) == '\0';
+LAB_0055afba:
+          if (bVar12) break;
+        }
+        else {
+          if ((cVar3 == -0x7f) && (local_474 == 0xffffffff)) break;
+          if (cVar3 == -0x7e) {
+            bVar12 = local_474 == 0xffffffff;
+            goto LAB_0055afba;
+          }
+        }
+        local_470 = local_1d8;
+        local_46c = local_1d8 + (byte)pcVar9[6] + 1;
+        (*(code *)**(undefined4 **)(in_ECX + 0x1c))(0xfa8,0x1c,&local_47c);
+        break;
+      }
+      break;
+    case '\x18':
+      if (local_480[2] == '\x01') {
+        local_48c = *(undefined4 *)(local_480 + 3);
+        local_490[0] = 0xaa;
+        local_488 = 0;
+        (**(code **)(**(int **)(in_ECX + 0x58) + 0x28))(0x6c,0xc,local_490);
+        if (local_488 == 0) {
+          uVar13 = 0xcd;
+        }
+        else {
+          uVar13 = 0xca;
+        }
+        uVar13 = (**(code **)(**(int **)(in_ECX + 0x6c) + 0x40))(uVar13,6);
+        thunk_FUN_00447e80(local_48,0x40,uVar13,local_488);
+        local_494 = local_48;
+        local_49c = 0xfac;
+        local_498 = 0;
+        (**(code **)(**(int **)(in_ECX + 0x58) + 0x28))(0xca,0xc,&local_49c);
+      }
+      break;
+    case -0x78:
+      if (0xe < local_484[0]) {
+        if (*(int *)(local_480 + 10) + 4 < 0x401) {
+          local_454 = local_448;
+        }
+        else {
+          local_454 = (int *)thunk_FUN_009ac153(*(int *)(local_480 + 10) + 3);
+        }
+        *(undefined1 *)local_454 = 0x15;
+        *(ushort *)((int)local_454 + 1) = *(ushort *)(*(int *)(in_ECX + 0x58) + 8) & 0x3ff;
+        *(char *)((int)local_454 + 3) = pcVar9[6];
+        _Size = *(size_t *)(pcVar9 + 10);
+        local_458 = 4;
+        local_44c = local_454;
+        memcpy(local_454 + 1,pcVar9 + 0xe,_Size);
+        local_458 = local_458 + _Size;
+        (**(code **)(**(int **)(in_ECX + 0x58) + 0x18))(&local_458);
+        if (0x400 < *(int *)(pcVar9 + 10) + 4) {
+          free(local_44c);
+        }
+      }
+      break;
+    case -0x71:
+      break;
+    }
+  } while( true );
+}
+
+
+
+======================================================
+FUNCTION FUN_0055bdc0 @ 0055bdc0
+======================================================
+Why matched:
+  0055bdef refs 'WorldClient: Joining session' @ 00a26a34
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+void FUN_0055bdc0(void)
+
+{
+  uint uVar1;
+  undefined4 uVar2;
+  int iVar3;
+  int iVar4;
+  int in_ECX;
+  int iStack_90;
+  undefined1 *puStack_8c;
+  undefined1 uStack_84;
+  undefined2 uStack_83;
+  undefined1 uStack_1c;
+  undefined4 uStack_1b;
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  switch(*(undefined2 *)(in_ECX + 0x2ac)) {
+  case 1:
+    thunk_FUN_0045a280("Init.Log","WorldClient: Joining session . . .\n");
+    uVar2 = thunk_FUN_004c1190();
+    *(undefined4 *)(in_ECX + 0x2a0) = uVar2;
+    thunk_FUN_009ac142(*(undefined4 *)(in_ECX + 0x2e0),4);
+    *(undefined4 *)(in_ECX + 0x2e0) = 0;
+    iVar4 = thunk_FUN_004cf960(*(undefined4 *)(in_ECX + 0x2cc),*(undefined4 *)(in_ECX + 0x2d0));
+    *(int *)(in_ECX + 0x2e0) = iVar4;
+    if (iVar4 == 0) {
+                    /* WARNING: Subroutine does not return */
+      thunk_FUN_00559250("WORLDCLIENT : Session create failed");
+    }
+    (**(code **)(**(int **)(in_ECX + 0x3c) + 0x10))
+              (-(uint)(in_ECX != 0) & in_ECX + 0x10U,iVar4,*(undefined4 *)(in_ECX + 0x278),0);
+    *(short *)(in_ECX + 0x2aa) = *(short *)(in_ECX + 0x2aa) + 1;
+    *(undefined2 *)(in_ECX + 0x2ac) = 2;
+    if (*(char *)(in_ECX + 0x2c4) == '\0') {
+      return;
+    }
+    thunk_FUN_00558950();
+    *(undefined1 *)(in_ECX + 0x2c4) = 0;
+    return;
+  case 2:
+    iVar4 = *(int *)(in_ECX + 0x2a0);
+    iVar3 = thunk_FUN_004c1190();
+    if (15000 < (uint)(iVar3 - iVar4)) {
+      (**(code **)(**(int **)(in_ECX + 0x3c) + 0x1c))();
+      *(undefined1 *)(in_ECX + 0x2ae) = 0xc;
+      thunk_FUN_00559040();
+      *(undefined2 *)(in_ECX + 0x2ac) = 1;
+      thunk_FUN_0045a280("Init.Log",
+                         "WorldClient: Connecting to worldserver failed, timeout occured!\n");
+                    /* WARNING: Subroutine does not return */
+      thunk_FUN_00559250("WORLDCLIENT : Connection to worldserver failed, timeout occured");
+    }
+    break;
+  case 3:
+    if (*(char *)(in_ECX + 0x2e4) == '\0') {
+      iVar4 = (**(code **)(**(int **)(in_ECX + 0x10c) + 0x20))(3,0);
+      if (iVar4 != 0) {
+        (**(code **)(**(int **)(in_ECX + 0x10c) + 0x10))();
+        uVar1 = (**(code **)(**(int **)(in_ECX + 0x3c) + 0x30))();
+        *(uint *)(iVar4 + 8) = uVar1 & 0xff;
+        (**(code **)(**(int **)(in_ECX + 0x10c) + 0xc))();
+      }
+      puStack_8c = &uStack_1c;
+      uStack_1b = *(undefined4 *)(in_ECX + 0x2b0);
+      uStack_1c = 0x20;
+      iStack_90 = 5;
+      (**(code **)(**(int **)(in_ECX + 0x3c) + 0x28))(0xff,&iStack_90,0xff,1);
+      (**(code **)(**(int **)(in_ECX + 0x48) + 8))(*(int **)(in_ECX + 0x48),"Sync req send");
+      uStack_1c = 2;
+      puStack_8c = &uStack_1c;
+      iStack_90 = 1;
+      uVar2 = thunk_FUN_004c1190();
+      *(undefined4 *)(puStack_8c + iStack_90) = uVar2;
+      iStack_90 = iStack_90 + 4;
+      (**(code **)(**(int **)(in_ECX + 0x3c) + 0x28))(0xff,&iStack_90,0xff,3);
+      *(undefined1 *)(in_ECX + 0x2e4) = 1;
+    }
+    if (*(char *)(in_ECX + 0x2e8) != '\0') {
+      uStack_84 = 0x18;
+      uStack_83 = 0x11;
+      puStack_8c = &uStack_84;
+      iStack_90 = 3;
+      (**(code **)(**(int **)(in_ECX + 0x3c) + 0x28))(0xff,&iStack_90,0xff,6);
+      *(undefined1 *)(in_ECX + 0x2e8) = 0;
+    }
+    iVar4 = *(int *)(in_ECX + 0x2a0);
+    iVar3 = thunk_FUN_004c1190();
+    if (8000 < (uint)(iVar3 - iVar4)) {
+      puStack_8c = &uStack_1c;
+      uStack_1b = *(undefined4 *)(in_ECX + 0x2b0);
+      uStack_1c = 0x20;
+      iStack_90 = 5;
+      (**(code **)(**(int **)(in_ECX + 0x3c) + 0x28))(0xff,&iStack_90,0xff,1);
+      (**(code **)(**(int **)(in_ECX + 0x48) + 8))(*(int **)(in_ECX + 0x48),"Sync req send");
+      uStack_1c = 2;
+      puStack_8c = &uStack_1c;
+      iStack_90 = 1;
+      uVar2 = thunk_FUN_004c1190();
+      *(undefined4 *)(puStack_8c + iStack_90) = uVar2;
+      iStack_90 = iStack_90 + 4;
+      (**(code **)(**(int **)(in_ECX + 0x3c) + 0x28))(0xff,&iStack_90,0xff,3);
+      uVar2 = thunk_FUN_004c1190();
+      *(short *)(in_ECX + 0x2aa) = *(short *)(in_ECX + 0x2aa) + 1;
+      *(undefined4 *)(in_ECX + 0x2a0) = uVar2;
+      if (4 < *(ushort *)(in_ECX + 0x2aa)) {
+        thunk_FUN_0045a280("Init.Log","WorldClient: Synchronization with worldserver failed!\n");
+                    /* WARNING: Subroutine does not return */
+        thunk_FUN_00559250("WORLDCLIENT : sync to worldserver failed");
+      }
+    }
+    break;
+  case 4:
+    if ((*(byte *)(in_ECX + 0x2ae) & 0xf) != 0xf) {
+      OutputDebugStringA(
+                        "Some Sync data is missing while in state normal in ProcessWorldServerConnect\n"
+                        );
+    }
+  }
+  iVar4 = thunk_FUN_004c1190();
+  if (iVar4 != *(int *)(in_ECX + 0xd0)) {
+    thunk_FUN_004b8fb0(iVar4);
+  }
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055dc10 @ 0055dc10
+======================================================
+Why matched:
+  0055dc32 refs 'HostName : %s' @ 00a274d0
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+uint FUN_0055dc10(undefined4 param_1)
+
+{
+  int iVar1;
+  undefined4 uVar2;
+  uint uVar3;
+  int in_ECX;
+  undefined1 local_48 [64];
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  if (*(char *)(in_ECX + 5) == '\0') {
+    thunk_FUN_004471c0("HostName : %s",local_48);
+    *(undefined4 *)(in_ECX + 0xc) = 0;
+    thunk_FUN_004471c0("WINSOCKMGR : Socket created on %i",param_1);
+    *(undefined4 *)(in_ECX + 0x10 + *(int *)(in_ECX + 0xc) * 4) = param_1;
+    thunk_FUN_004e32a0(param_1,local_48,0x40);
+    thunk_FUN_004471c0("Std HostIP : %s",local_48);
+    uVar2 = Ordinal_23(2,2,0);
+    *(undefined4 *)(*(int *)(in_ECX + 0x4c) + 400 + *(int *)(in_ECX + 0xc) * 4) = uVar2;
+    if (*(int *)(*(int *)(in_ECX + 0x4c) + 400 + *(int *)(in_ECX + 0xc) * 4) != -1) {
+      uVar2 = Ordinal_23(2,2,0);
+      *(undefined4 *)(*(int *)(in_ECX + 0x4c) + 0x1b0 + *(int *)(in_ECX + 0xc) * 4) = uVar2;
+      if (*(int *)(*(int *)(in_ECX + 0x4c) + 0x1b0 + *(int *)(in_ECX + 0xc) * 4) == -1) {
+        uVar2 = Ordinal_111();
+        thunk_FUN_0055e840(uVar2);
+        Ordinal_116();
+        uVar3 = thunk_FUN_004471c0("WINSOCKMGR : Init receive socket failed");
+        return uVar3 & 0xffffff00;
+      }
+      iVar1 = *(int *)(in_ECX + 0xc) + 1;
+      *(undefined1 *)(in_ECX + 5) = 1;
+      *(int *)(in_ECX + 0xc) = iVar1;
+      return CONCAT31((int3)((uint)iVar1 >> 8),1);
+    }
+    uVar2 = Ordinal_111();
+    thunk_FUN_0055e840(uVar2);
+    Ordinal_116();
+    local_8 = thunk_FUN_004471c0("WINSOCKMGR : Init send socket failed");
+  }
+  return local_8 & 0xffffff00;
+}
+
+
+

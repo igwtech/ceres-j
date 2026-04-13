@@ -149,34 +149,218 @@ Offset  Size  Description
 
 ## UDP Protocol
 
-### Obfuscation (NCE 2.5.x)
+### UDP Wire Encryption (NCE 2.5.x)
 
-The modern client applies per-packet obfuscation to **outgoing UDP packets**. Server responses are sent **unencrypted**.
+**Both** directions (C→S and S→C) are encrypted using the same
+per-packet LFSR cipher. The encryption layer lives in the WinSockMGR
+module (`src/nclib/nclib/net/WinSockMGR.cpp` per Ghidra path strings),
+wrapping the raw `sendto` and `recvfrom` calls. Each UDP datagram is
+independently encrypted with its own random 16-bit seed.
 
-**Algorithm** (reverse-engineered from `ObfuscateStreamBuf` in neocronclient.exe):
+**Confirmed 2026-04-12** by decrypting 88/88 retail S→C packets from 4
+independent session captures. Prior documentation claiming
+ObfuscateStreamBuf was the wire cipher was incorrect —
+ObfuscateStreamBuf is a `VFile`/streambuf subclass for file I/O, not
+network traffic.
+
+#### Wire Packet Format
+
+Each UDP datagram on the wire has a 4-byte encryption header prepended
+to the plaintext data:
 
 ```
-Encryption (client → server):
-  seed = random byte (0-255)
-  for each byte at position i (0-based):
-    s = (i + 1) * seed
-    encrypted[i] = plaintext[i] ^ (s >> 16 & 0xFF) ^ (s & 0xFF)
-
-  Result: encrypted[0] = plaintext[0] ^ seed
-          (since (1 * seed) >> 16 = 0 for seed < 256)
-
-Decryption (server receives):
-  seed = encrypted[0] ^ expected_first_byte
-  For handshake packets: seed = encrypted[0] ^ 0x01
-  Apply same XOR formula to decrypt remaining bytes.
+Offset  Size  Description
+0x00    2     Seed (16-bit LE, unencrypted)
+0x02    2     Encrypted data length (16-bit, see below)
+0x04    N     Encrypted data payload
 ```
 
-The first plaintext byte is always a known packet type (0x01, 0x03, 0x04, 0x08, or 0x13), allowing the seed to be recovered.
+Total wire size = plaintext_data_length + 4 bytes.
 
-**Source:** `ObfuscateStreamBuf` class at vtable 0x00a1fd1c in neocronclient.exe. Decompiled methods:
-- vtable[3] (overflow/write): `FUN_004dff90` — encrypts outgoing bytes
-- vtable[6] (underflow/peek): `FUN_004e02a0` — decrypts without advancing
-- vtable[7] (underflow/read): `FUN_004e0220` — decrypts and advances position
+The seed in bytes 0–1 is sent in the CLEAR. Bytes 2+ are encrypted
+using the LFSR PRNG in cipher-feedback (CFB) mode.
+
+#### LFSR PRNG (`FUN_004e36e0`)
+
+The core key-generation function is a 16-bit Linear Feedback Shift
+Register with data feedback. It takes a running 16-bit state and an
+8-bit input byte, produces an 8-bit output byte, and updates the state
+in place. Called once per byte to encrypt/decrypt.
+
+```
+function lfsr_byte(state: u16, input: u8) -> (output: u8, new_state: u16):
+    output = 0
+    for bit = 0 to 7:
+        hi = (state >> 8) & 0xFF
+        lo = state & 0xFF
+        data_bit = (input >> bit) & 1
+        feedback = ((hi >> 6) ^ (hi >> 5) ^ (hi >> 3) ^ lo ^ data_bit) & 1
+        state = ((state << 1) | feedback) & 0xFFFF
+        output |= (feedback << (7 - bit))     // MSB-first output
+    return (output, state)
+```
+
+**Tap polynomial**: bits 13, 12, 10 of the 16-bit state (corresponding
+to `hi >> 6`, `hi >> 5`, `hi >> 3` on the high byte), XOR'd with the
+full low byte and one bit of the input data. This is a Galois-style
+LFSR with external data injection for cipher-feedback.
+
+**Ghidra source**: `FUN_004e36e0` at address `004e36e0` in
+`neocronclient.exe`.
+
+#### Encryption Flow (`FUN_00560090`)
+
+Called by WinSockMGR before every `sendto`:
+
+```
+function encrypt_packet(plaintext: bytes, length: int) -> bytes:
+    // 1. Generate random per-packet seed
+    seed = rand() & 0xFFFF
+    state = seed
+
+    // 2. Write seed in the clear
+    wire[0] = seed & 0xFF          // seed low byte
+    wire[1] = (seed >> 8) & 0xFF   // seed high byte
+
+    // 3. Encrypt the 2-byte length field
+    key, state = lfsr_byte(state, wire[1])      // input = seed high byte
+    wire[2] = key ^ (length & 0xFF)              // encrypted length low
+
+    key, state = lfsr_byte(state, wire[2])      // input = previous CIPHER byte (CFB)
+    wire[3] = key ^ ((length >> 8) & 0xFF)       // encrypted length high
+
+    // 4. Encrypt each data byte (cipher-feedback mode)
+    prev_cipher = wire[3]
+    for i = 0 to length-1:
+        key, state = lfsr_byte(state, prev_cipher)   // CFB: prev cipher byte
+        wire[4 + i] = key ^ plaintext[i]
+        prev_cipher = wire[4 + i]                     // update for next iteration
+
+    return wire[0 .. length+3]                        // total = length + 4
+```
+
+**Ghidra source**: `FUN_00560090` at address `00560090` in
+`neocronclient.exe`. Ordinal_20 is `sendto`.
+
+#### Decryption Flow (`FUN_0055ff30`)
+
+Called by WinSockMGR after every `recvfrom`:
+
+```
+function decrypt_packet(wire: bytes, wire_length: int) -> bytes:
+    if wire_length < 4: return error
+
+    // 1. Read seed from first 2 bytes (unencrypted)
+    seed = wire[0] | (wire[1] << 8)
+    state = seed
+
+    // 2. Decrypt the 2-byte length
+    key, state = lfsr_byte(state, wire[1])      // input = seed high byte
+    length_lo = key ^ wire[2]
+
+    key, state = lfsr_byte(state, wire[2])      // CFB: prev cipher byte
+    length_hi = key ^ wire[3]
+
+    data_length = (length_hi << 8) | length_lo
+
+    // 3. Decrypt each data byte
+    plaintext = []
+    prev_cipher = wire[3]
+    for i = 0 to data_length-1:
+        cipher_byte = wire[4 + i]
+        key, state = lfsr_byte(state, prev_cipher)
+        plaintext[i] = key ^ cipher_byte
+        prev_cipher = cipher_byte
+
+    return plaintext[0 .. data_length-1]
+```
+
+**Ghidra source**: `FUN_0055ff30` at address `0055ff30` in
+`neocronclient.exe`. Ordinal_17 is `recvfrom`. Note: this function
+handles multiple encrypted sub-packets within a single UDP datagram
+(each with its own 4-byte header), looping until all bytes are consumed.
+
+#### WinSockMGR Dispatch (`FUN_0055ec10`)
+
+After decryption, `FUN_0055ec10` dispatches on the FIRST byte of the
+plaintext data. Low values (1–10) are session-management commands;
+values above 14 (0x0E) are game data with the first byte decremented
+by 15 (0x0F) before dispatch to the game layer:
+
+```
+switch (plaintext[0]):
+    case 1:  session handshake step 1 (nonce exchange)
+    case 2:  session handshake step 2 (nonce verification)
+    case 3:  session handshake step 3 (confirmation)
+    case 4:  session handshake complete
+    case 5:  server info request
+    case 6:  server info response
+    case 8:  session abort
+    case 9:  keepalive request → responds with 10
+    case 10: keepalive response
+    default:
+        if plaintext[0] > 0x0E:
+            plaintext[0] -= 0x0F    // strip session-layer offset
+            dispatch to game layer via WorldClient vtable
+```
+
+This means the game-layer packet types are offset by +0x0F on the wire
+BEFORE encryption:
+
+| Plaintext byte 0 | After −0x0F | Game-layer meaning |
+|---|---|---|
+| 0x10 | 0x01 | UDP handshake |
+| 0x12 | 0x03 | Sync / reliable delivery |
+| 0x13 | 0x04 | Keepalive |
+| 0x17 | 0x08 | Abort |
+| 0x22 | 0x13 | Gamedata |
+
+**Ghidra source**: `FUN_0055ec10` at address `0055ec10`.
+
+#### Ceres-J Implementation (2026-04-12)
+
+The cipher is fully implemented on outgoing server packets:
+
+- **`server.networktools.WireEncrypt`** — Java port of the LFSR CFB cipher.
+  - `lfsrByte(state, input) -> key_byte` — the PRNG inner loop
+  - `encrypt(plaintext, offset, length) -> wire_bytes` — full packet encrypt
+- **`GameServerUDPConnection.sendPacket()`** — calls
+  `WireEncrypt.encrypt()` on every outgoing datagram before
+  `socket.send()`, wrapping the plaintext in the 4-byte cipher header.
+
+Earlier assumption that "the client accepts plaintext" was MISLEADING:
+while the client doesn't crash on plaintext, it misroutes the bytes.
+With no 4-byte header, byte 0 of the packet hits the WinSockMGR
+session-layer switch directly — plaintext `0x13` gamedata gets the
+`-0x0F` subtraction and routes to case 4 (handshake complete) instead
+of the game-layer dispatcher. That misrouting was the ultimate cause
+of the state machine never advancing. Encrypting the packets gives the
+client the proper framing header it needs to correctly peel off the
+cipher layer and deliver the plaintext to the game-layer dispatcher.
+
+#### Historical note: ObfuscateStreamBuf
+
+The `ObfuscateStreamBuf` class (vtable at `0x00a1fd1c`) was initially
+suspected to be the wire cipher. Analysis confirmed it is a
+`std::streambuf` subclass in the `VFile` hierarchy (alongside
+`VFilePak`, `VFilePakUncompressed`, etc.) used for file I/O
+obfuscation, NOT network traffic. Its cipher formula
+`key = seed * (position + 1)` with global seed `DAT_00b05360 = 0x3039`
+and cumulative position was mathematically proven NOT to match retail
+UDP traffic (16-bit brute-force across 65536 seeds returned 0 candidates
+in both per-packet and cumulative modes).
+
+#### Decryption tool
+
+`ceres-j/tools/decrypt-retail.py` — Python implementation of the LFSR
+cipher. Usage:
+
+```bash
+python3 tools/decrypt-retail.py --input strace/nc2_strace_RETAIL_ACC1_CHAR1.log --dump 88
+```
+
+Decrypted retail login burst saved at
+`ceres-j/docs/retail_decoded_burst.txt`.
 
 ### UDP Packet Types
 
@@ -445,39 +629,70 @@ fresh `ZoningEnd`.
 | 0x0D | 1 | intensity (0x00..0xff) |
 | 0x0E | 4 | duration in seconds (LE) |
 
-## Server-to-Client Obfuscation (retail finding)
+## Cipher Discovery Timeline
 
-Our current assumption was that the retail server sends UDP packets
-**unencrypted** because the NCE 2.5 client accepts plaintext during the
-handshake. That is half-right: the client DOES accept plaintext (Ceres-J
-exploits this), but **retail** actually obfuscates every outgoing UDP packet
-with a stream cipher derived from the per-session `ObfuscateStreamBuf` in
-`neocronclient.exe`.
+This section documents the investigation path for future reference.
 
-Evidence from `/tmp/retail_capture.pcapng` (retail server `157.90.195.74:5005`,
-zone pepper/pepper_p3):
+1. **Initial hypothesis** (2026-04-10): `ObfuscateStreamBuf` is the wire
+   cipher. Based on Ghidra decompile of vtable at `0x00a1fd1c` showing
+   XOR-based encryption with seed `DAT_00b05360 = 0x3039`.
 
-1. Every S→C packet has a first byte that is **not** one of the known plaintext
-   headers `{0x01, 0x03, 0x04, 0x08, 0x13}`. The per-packet XOR cipher from
-   `PacketObfuscator.java` (seed = `byte[0] XOR known_header`) does not
-   produce structurally valid inner sub-packet types when applied to these.
-2. Brute-forcing the `PacketObfuscator` seed space against a known-good
-   `0x13 -> 0x03` layout yielded no match for seeds in `0..255`, and 137
-   simultaneous matches across seeds in `0..65535` — evidence that the cipher
-   is stateful (running stream position) rather than per-packet.
-3. The Ghidra decompile of the `ObfuscateStreamBuf` class (see
-   `docs/obfuscate_decompiled.c`) confirms this: the class references a
-   global seed `DAT_00b05360` and a running `piVar1[3]` position counter
-   advanced on every write, i.e. a stream cipher with cumulative offsets.
+2. **Entropy analysis** (2026-04-11): retail S→C UDP confirmed encrypted
+   at ~7.99 bits/byte across 4 captures. `PacketObfuscator.java`'s
+   per-packet XOR disproven (entropy unchanged after decode attempt).
 
-**Implications for Ceres-J**
+3. **ObfuscateStreamBuf disproven** (2026-04-12): 16-bit brute-force
+   across 65536 seeds returned 0 candidates in both per-packet and
+   cumulative modes. Mathematically proven incompatible with retail data
+   (best single key_byte matched only 6/88 packets, expected ~1.7 by
+   chance).
 
-The Ceres-J server keeps sending unencrypted responses — this still works
-because the client tolerates plaintext during handshake and during normal
-gameplay. Full interoperability with retail-captured client binaries is not
-required for the emulator, but byte-exact replay of retail captures will
-require implementing the stream cipher. Adding that is tracked as a future
-enhancement; see `irata_protocol_gap.md` in the Claude memory index.
+4. **Real cipher found** (2026-04-12): Ghidra trace of WinSock callers
+   via `FindUDPCipher.java` → `FUN_0055f5a0` (recv handler logging
+   "Receive 0 Buffer") → `FUN_0055ec10` (session dispatcher) →
+   `FUN_0055ff30` (recvfrom decrypt wrapper) and `FUN_00560090` (sendto
+   encrypt wrapper) → `FUN_004e36e0` (LFSR PRNG).
+
+5. **Validation**: 88/88 retail S→C packets decrypted successfully.
+   All decode to `0x13` gamedata with sequential counters (14→107+).
+   Decoded entropy drops to 6.08 with 23.9% null bytes (plaintext
+   structure). Cross-validated against known Ceres-J plaintext
+   structure.
+
+6. **Burst comparison** (2026-04-12): parsed and diffed retail vs
+   Ceres-J sub-packet streams. Key retail findings:
+   - Sub-packet lengths are **2 bytes LE** in retail (Ceres-J uses 1).
+   - Retail does **NOT** send ZoningEnd (`0x03→0x08`) during login.
+   - Retail sends InfoResponse (`0x03→0x23`) × 2 and ChatList
+     (`0x03→0x33`) that Ceres-J never sent.
+   - 10 CharInfo multipart fragments (vs our 3).
+   - An undocumented `0x02` sub-wrapper (like `0x03` reliable but type
+     0x02) carries UpdateModel, Weather, TimeSync, InfoResponse
+     sub-types.
+   - None of our experimental packets (`0x19/0x04`, `0x19/0x07`,
+     `0x03` SyncResponse) appear in retail.
+
+7. **Cipher implemented** (2026-04-12): `WireEncrypt.java` ported from
+   the Ghidra decompile. Wired into `GameServerUDPConnection.sendPacket()`
+   so every outgoing UDP datagram is encrypted with the correct 4-byte
+   header. This fixes the plaintext misrouting where `0x13` was being
+   stripped to `0x04` by the WinSockMGR `-0x0F` offset.
+
+8. **Retail-matching burst applied** (2026-04-12): WorldEntryEvent
+   updated to mirror retail:
+   - Removed ZoningEnd, CommandIdAck, SyncResponse.
+   - Added `InfoResponse.zoneInfo()` (0x23, 6B) after CharInfo.
+   - Added `ChatList` (0x33, 2B) and `InfoResponse.sessionInfo()`
+     (0x23, 10B) in the zone-data phase.
+   - Reordered phases: CharInfo → InfoResp+TimeSync → ChatList+InfoResp+zone → UpdateModel → NPCs.
+   - Kept 1-byte sub-packet lengths for now; switching to 2-byte is
+     still a future enhancement (client accepts both).
+
+Tools used: `tools/ghidra/FindUDPCipher.java`,
+`tools/ghidra/DecompileAddr.java`, `tools/decrypt-retail.py`,
+`tools/parse-burst.py`.
+
+Detailed analysis: `docs/retail_burst_analysis.md`.
 
 ## Implementation Status (Ceres-J)
 
@@ -489,8 +704,9 @@ enhancement; see `irata_protocol_gap.md` in the Claude memory index.
 | Character CRUD | Working | Create, list, delete |
 | UDPServerData | Working | IP, port, session |
 | Location | Working | Zone name sent |
-| UDP Obfuscation (C→S) | Working | Per-packet XOR via `PacketObfuscator.java` |
-| UDP Obfuscation (S→C) | Not implemented | Retail uses a cumulative stream cipher; Ceres-J sends plaintext (client accepts both) |
+| UDP Encryption (C→S) | Complete | `WireEncrypt.decrypt()` decodes the LFSR CFB wire format on the receive side. `PlayerUdpListener` and `ListenerUDP` both decrypt every incoming datagram before dispatch. Confirmed against 72/72 retail C→S packets via `tools/decrypt-retail.py -d send`. Legacy `PacketObfuscator` kept only for the old handshake path and has been decoupled from the UDP listeners. |
+| UDP Encryption (S→C) | **Working** | LFSR CFB cipher implemented in `WireEncrypt.java`. All outgoing UDP datagrams are encrypted with per-packet random 16-bit seed. Wire format: `[seed_lo][seed_hi][enc_len_lo][enc_len_hi][enc_data...]`. Applied in `GameServerUDPConnection.sendPacket()`. |
+| UDP Cipher Cracked | **Yes** | 88/88 retail packets decrypted. LFSR PRNG at `FUN_004e36e0`, encrypt at `FUN_00560090`, decrypt at `FUN_0055ff30`. |
 | UDP Handshake | Working | 3-way handshake + UDPAlive |
 | Zone Loading / World Entry | Working | `WorldEntryEvent` streams CharInfo, UpdateModel, PositionUpdate, LongPlayerInfo, weather, NPCs and ZoningEnd terminator |
 | Movement | Partially implemented | Inbound UDP 0x20 parsed, SMovement broadcast via `Zone.sendPlayerMovement` |

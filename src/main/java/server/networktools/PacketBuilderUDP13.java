@@ -15,7 +15,7 @@ public class PacketBuilderUDP13 extends PacketBuilderUDP {
 		writeShort(0); //Counter
 		writeShort(0); //Counter + (udp)sessionkey
 		sizeposition = count;
-		write(0);	//size of data
+		writeShort(0);	// sub-packet length (2 bytes LE — retail format)
 		isFinished = false;
 		this.pl = pl;
 	}
@@ -29,7 +29,7 @@ public class PacketBuilderUDP13 extends PacketBuilderUDP {
 			writeShort(udpSessionCounter);
 			writeShort(udpSessionCounter + sessionkey);
 			count = sizeposition;
-			write(tmp_count - sizeposition -1);
+			writeShort(tmp_count - sizeposition - 2);  // 2-byte LE sub-packet length
 			count = tmp_count;
 			isFinished = true;
 		}
@@ -42,9 +42,9 @@ public class PacketBuilderUDP13 extends PacketBuilderUDP {
 	public void newSubPacket() {
 		int tmp_count = count;
 		count = sizeposition;
-		write(tmp_count - sizeposition -1);
+		writeShort(tmp_count - sizeposition - 2);  // 2-byte LE sub-packet length
 		count = tmp_count;
 		sizeposition = count;
-		write(0);	//size of data
+		writeShort(0);	// next sub-packet length placeholder (2 bytes LE)
 	}
 }

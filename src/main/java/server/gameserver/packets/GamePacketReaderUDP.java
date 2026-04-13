@@ -11,12 +11,40 @@ public final class GamePacketReaderUDP {
 	public static void readPacket(DatagramPacket dp, Player pl) {
 		GamePacketDecoderUDP pd = new UnknownClientUDPPacket(dp);
 		if (pd.read() == 0x13) {
-			pd.skip(4); //packet counter // big TODO check this !!!
+			// Outer 0x13 header: [counter LE][counter+sessionkey LE] = 4 bytes.
+			pd.skip(4);
+			// Sub-packet size is 2-byte LE (retail format). The legacy
+			// emulator read a single byte here; the modern client always
+			// sends two bytes (see PacketBuilderUDP13.java and the 2-byte
+			// LE decision documented in docs/retail_burst_analysis.md).
+			// Reading one byte here misaligns the parser on the very
+			// first sub-packet and routes every subsequent event to
+			// UnknownClientUDPPacket, stalling the zone sync state.
 			int datasize;
-			while ((datasize = pd.read()) > 0) {
+			while (pd.available() >= 2 && (datasize = pd.readShort()) > 0) {
+				if (datasize > pd.available()) {
+					// Stated size exceeds remaining bytes — malformed
+					// packet. Drop the rest rather than read garbage.
+					break;
+				}
 				byte[] subPacket = new byte[datasize];
 				pd.read(subPacket);
-				pl.addEvent(decodesub13(subPacket));
+				// Debug: log the first two bytes of every sub-packet so
+				// we can see exactly which sub-types the client is
+				// sending (0x03 reliable wrapper, 0x0b CPing, 0x20
+				// Movement, etc.). Helps identify missing decoders.
+				if (subPacket.length >= 1) {
+					int t0 = subPacket[0] & 0xFF;
+					int t1 = subPacket.length >= 4 ? subPacket[3] & 0xFF : -1;
+					server.tools.Out.writeln(server.tools.Out.Info,
+						"UDP sub-packet size=" + datasize
+						+ " type=0x" + String.format("%02x", t0)
+						+ (t0 == 0x03 ? " sub=0x" + String.format("%02x", t1) : ""));
+				}
+				server.interfaces.GameServerEvent ev = decodesub13(subPacket);
+				if (ev != null) {
+					pl.addEvent(ev);
+				}
 			}
 		} else {
 			pl.addEvent(decode(dp, pl));
@@ -96,6 +124,12 @@ public final class GamePacketReaderUDP {
 					pd.reset();
 					return pd;
 				}
+			case 0x24:
+				// "Ready for world state" — client has processed the
+				// initial burst and is asking the server to populate the
+				// zone. Response: zone-population burst (see
+				// ReadyForWorldState for the retail-matched content).
+				return new ReadyForWorldState(subPacket);
 			case 0x27:
 				return new RequestInfoAboutWordlID(subPacket);
 			case 0x31:

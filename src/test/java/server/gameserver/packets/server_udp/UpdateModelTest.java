@@ -56,20 +56,20 @@ public class UpdateModelTest {
 
         assertEquals("outer header", 0x13, b[0] & 0xFF);
 
-        // Reliable wrapper at offset 6.
-        assertEquals("0x03 reliable wrapper", 0x03, b[6] & 0xFF);
+        // Reliable wrapper at offset 7 (after 2-byte sub-packet length).
+        assertEquals("0x03 reliable wrapper", 0x03, b[7] & 0xFF);
 
-        // REL_UPDATE_MODEL sub-type is at offset 9 (after 0x13 + 4B counters
-        // + 1B size + 0x03 + 2B seq counter).
-        assertEquals("REL_UPDATE_MODEL sub-type", 0x2f, b[9] & 0xFF);
+        // REL_UPDATE_MODEL sub-type is at offset 10 (after 0x13 + 4B counters
+        // + 2B size + 0x03 + 2B seq counter).
+        assertEquals("REL_UPDATE_MODEL sub-type", 0x2f, b[10] & 0xFF);
 
-        // mapId little-endian at offset 10..11 (value 0x010a).
-        assertEquals(0x0a, b[10] & 0xFF);
-        assertEquals(0x01, b[11] & 0xFF);
+        // mapId little-endian at offset 11..12 (value 0x010a).
+        assertEquals(0x0a, b[11] & 0xFF);
+        assertEquals(0x01, b[12] & 0xFF);
 
-        // size byte at 5 must equal count - 6.
-        int innerSize = b[5] & 0xFF;
-        assertEquals(b.length - 6, innerSize);
+        // 2-byte LE size at offsets 5-6 must equal count - 7.
+        int innerSize = (b[5] & 0xFF) | ((b[6] & 0xFF) << 8);
+        assertEquals(b.length - 7, innerSize);
     }
 
     @Test

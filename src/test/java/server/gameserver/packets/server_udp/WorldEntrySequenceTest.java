@@ -98,20 +98,20 @@ public class WorldEntrySequenceTest {
                 dps.length >= 2);
 
         // Every fragment must be framed as 0x13 + 0x03 reliable + 0x07 multipart.
+        // Offsets shifted +1 due to 2-byte LE sub-packet length at offset 5-6.
         for (DatagramPacket dp : dps) {
             byte[] data = dp.getData();
             assertEquals(0x13, data[0] & 0xFF);
-            assertEquals("reliable wrapper at offset 6", 0x03, data[6] & 0xFF);
-            // 0x07 multipart sub-type lives at offset 9 (after
-            // 0x13+counter+counter+size+0x03+seq = 9 bytes).
-            assertEquals("multipart sub-type at offset 9", 0x07, data[9] & 0xFF);
+            assertEquals("reliable wrapper at offset 7", 0x03, data[7] & 0xFF);
+            // 0x07 multipart sub-type lives at offset 10 (after
+            // 0x13+counter+counter+2B_size+0x03+seq = 10 bytes).
+            assertEquals("multipart sub-type at offset 10", 0x07, data[10] & 0xFF);
         }
 
-        // Fragment index / total in multipart header are at offsets 10..13.
-        // The last fragment should have fragIdx + 1 == total.
+        // Fragment index / total in multipart header are at offsets 11..14.
         byte[] last = dps[dps.length - 1].getData();
-        int fragIdx = (last[10] & 0xFF) | ((last[11] & 0xFF) << 8);
-        int total   = (last[12] & 0xFF) | ((last[13] & 0xFF) << 8);
+        int fragIdx = (last[11] & 0xFF) | ((last[12] & 0xFF) << 8);
+        int total   = (last[13] & 0xFF) | ((last[14] & 0xFF) << 8);
         assertEquals("last fragment index must equal total - 1",
                 total - 1, fragIdx);
     }

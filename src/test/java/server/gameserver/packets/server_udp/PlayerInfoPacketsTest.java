@@ -18,10 +18,9 @@ import server.gameserver.Player;
  *   <li>{@link PlayerPositionUpdate} — movement broadcast (sub-type 0x1b)</li>
  * </ul>
  *
- * These tests lock down the outer reliable wrapper structure and a handful of
- * payload invariants. They're specifically needed because retail NCE clients
- * refuse to leave the login loading screen until the server sends a
- * LongPlayerInfo for the local player's own mapId.
+ * <p>Offsets reflect the 2-byte LE sub-packet length added at offset 5–6
+ * (retail format). All payload offsets are therefore shifted +1 relative
+ * to the old 1-byte-length layout.
  */
 public class PlayerInfoPacketsTest {
 
@@ -37,30 +36,30 @@ public class PlayerInfoPacketsTest {
 
         // Outer header
         assertEquals(0x13, b[0] & 0xFF);
-        assertEquals(0x03, b[6] & 0xFF);
-        // Sub-type 0x30 (REL_SHORT_PLAYER) at offset 9
-        assertEquals(0x30, b[9] & 0xFF);
+        assertEquals(0x03, b[7] & 0xFF);
+        // Sub-type 0x30 (REL_SHORT_PLAYER) at offset 10
+        assertEquals(0x30, b[10] & 0xFF);
 
-        // mapId LE at [10..11] = 5
-        assertEquals(5, b[10] & 0xFF);
-        assertEquals(0, b[11] & 0xFF);
-
-        // Two zero bytes of padding at [12..13]
+        // mapId LE at [11..12] = 5
+        assertEquals(5, b[11] & 0xFF);
         assertEquals(0, b[12] & 0xFF);
+
+        // Two zero bytes of padding at [13..14]
         assertEquals(0, b[13] & 0xFF);
+        assertEquals(0, b[14] & 0xFF);
 
-        // Player ID LE at [14..17] = 0x01020304
-        assertEquals(0x04, b[14] & 0xFF);
-        assertEquals(0x03, b[15] & 0xFF);
-        assertEquals(0x02, b[16] & 0xFF);
-        assertEquals(0x01, b[17] & 0xFF);
+        // Player ID LE at [15..18] = 0x01020304
+        assertEquals(0x04, b[15] & 0xFF);
+        assertEquals(0x03, b[16] & 0xFF);
+        assertEquals(0x02, b[17] & 0xFF);
+        assertEquals(0x01, b[18] & 0xFF);
 
-        // Name "Runner" begins at [18] and is null-terminated
+        // Name "Runner" begins at [19] and is null-terminated
         byte[] name = "Runner".getBytes();
         for (int i = 0; i < name.length; i++) {
-            assertEquals("name byte " + i, name[i] & 0xFF, b[18 + i] & 0xFF);
+            assertEquals("name byte " + i, name[i] & 0xFF, b[19 + i] & 0xFF);
         }
-        assertEquals("null terminator", 0, b[18 + name.length] & 0xFF);
+        assertEquals("null terminator", 0, b[19 + name.length] & 0xFF);
     }
 
     @Test
@@ -74,30 +73,27 @@ public class PlayerInfoPacketsTest {
         byte[] b = new byte[dps[0].getLength()];
         System.arraycopy(dps[0].getData(), 0, b, 0, b.length);
 
-        // Outer 0x13 + 0x03 reliable wrapper
+        // Outer 0x13 + 0x03 reliable wrapper (offset +1 due to 2-byte length)
         assertEquals(0x13, b[0] & 0xFF);
-        assertEquals(0x03, b[6] & 0xFF);
+        assertEquals(0x03, b[7] & 0xFF);
         // Sub-type 0x25 (REL_PLAYER_INFO)
-        assertEquals(0x25, b[9] & 0xFF);
+        assertEquals(0x25, b[10] & 0xFF);
 
         // mapId LE = 1
-        assertEquals(1, b[10] & 0xFF);
-        assertEquals(0, b[11] & 0xFF);
+        assertEquals(1, b[11] & 0xFF);
+        assertEquals(0, b[12] & 0xFF);
 
-        // Player ID LE at [12..15]
-        assertEquals(0xef, b[12] & 0xFF);
-        assertEquals(0xbe, b[13] & 0xFF);
-        assertEquals(0xad, b[14] & 0xFF);
-        assertEquals(0xde, b[15] & 0xFF);
+        // Player ID LE at [13..16]
+        assertEquals(0xef, b[13] & 0xFF);
+        assertEquals(0xbe, b[14] & 0xFF);
+        assertEquals(0xad, b[15] & 0xFF);
+        assertEquals(0xde, b[16] & 0xFF);
 
-        // Faction byte is embedded further along; confirm 3 appears in the
-        // expected slot (offset 0x16 + fixed header constants — the packet
-        // writes nine bytes before the faction slot).
-        // Locate faction by looking for the fraction-slot constants from
-        // LongPlayerInfo: 0x00 0x08 0x09 0x6c 0x02 0x40 0x40 0xc4 0x3c 0x00
-        // immediately precede 0x00 then faction.
+        // Locate faction by looking for the fixed marker from LongPlayerInfo:
+        // 0x00 0x08 0x09 0x6c 0x02 0x40 0x40 0xc4 0x3c 0x00 immediately
+        // precede the faction byte.
         int markerIdx = -1;
-        for (int i = 16; i < b.length - 10; i++) {
+        for (int i = 17; i < b.length - 10; i++) {
             if ((b[i] & 0xFF) == 0x00 && (b[i+1] & 0xFF) == 0x08
              && (b[i+2] & 0xFF) == 0x09 && (b[i+3] & 0xFF) == 0x6c
              && (b[i+4] & 0xFF) == 0x02 && (b[i+5] & 0xFF) == 0x40
@@ -127,24 +123,24 @@ public class PlayerInfoPacketsTest {
         System.arraycopy(dps[0].getData(), 0, b, 0, b.length);
 
         assertEquals(0x13, b[0] & 0xFF);
-        assertEquals(0x03, b[6] & 0xFF);
-        assertEquals("REL sub-type", 0x1b, b[9] & 0xFF);
+        assertEquals(0x03, b[7] & 0xFF);
+        assertEquals("REL sub-type", 0x1b, b[10] & 0xFF);
 
-        // mapId at [10..11] = 2
-        assertEquals(2, b[10] & 0xFF);
-        assertEquals(0, b[11] & 0xFF);
-
-        // Two zero padding bytes + subPacketType 0x03 at [14]
+        // mapId at [11..12] = 2
+        assertEquals(2, b[11] & 0xFF);
         assertEquals(0, b[12] & 0xFF);
+
+        // Two zero padding bytes + subPacketType 0x03 at [15]
         assertEquals(0, b[13] & 0xFF);
-        assertEquals(0x03, b[14] & 0xFF);
+        assertEquals(0, b[14] & 0xFF);
+        assertEquals(0x03, b[15] & 0xFF);
 
         // Position is written as signed short (value + 32000), little-endian:
-        //   Y = 0x200 + 32000 = 0x7f00, Z = 0x300 + 32000 = 0x8000 (wraps into signed)
+        //   Y = 0x200 + 32000 = 0x7f00, Z = 0x300 + 32000 = 0x8000
         //   X = 0x100 + 32000 = 0x7e00
-        int y = (b[15] & 0xFF) | ((b[16] & 0xFF) << 8);
-        int z = (b[17] & 0xFF) | ((b[18] & 0xFF) << 8);
-        int x = (b[19] & 0xFF) | ((b[20] & 0xFF) << 8);
+        int y = (b[16] & 0xFF) | ((b[17] & 0xFF) << 8);
+        int z = (b[18] & 0xFF) | ((b[19] & 0xFF) << 8);
+        int x = (b[20] & 0xFF) | ((b[21] & 0xFF) << 8);
         assertEquals(0x200 + 32000, y);
         assertEquals(0x300 + 32000, z);
         assertEquals(0x100 + 32000, x);

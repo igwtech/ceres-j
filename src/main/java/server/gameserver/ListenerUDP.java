@@ -9,7 +9,7 @@ import java.util.ListIterator;
 
 import server.gameserver.packets.GamePacketReaderUDP;
 import server.gameserver.packets.server_udp.UDPAlive;
-import server.networktools.PacketObfuscator;
+import server.networktools.WireEncrypt;
 import server.tools.Out;
 
 public final class ListenerUDP extends Thread {
@@ -30,13 +30,19 @@ public final class ListenerUDP extends Thread {
 			try {
 				DatagramPacket dp = new DatagramPacket(new byte[1500], 1500);
 				serverSocket.receive(dp);
-				// Decrypt the UDP packet
-				byte[] decrypted = PacketObfuscator.decrypt(dp.getData(), dp.getLength());
-				if (decrypted != null) {
-					dp.setData(decrypted, 0, decrypted.length);
+				// Decrypt the wire-encrypted UDP datagram. Retail C→S
+				// traffic uses the same LFSR CFB cipher as S→C (see
+				// WireEncrypt and docs/PROTOCOL.md). Malformed packets
+				// (too short, bogus length field) are silently dropped.
+				byte[] decrypted = WireEncrypt.decrypt(dp.getData(), 0, dp.getLength());
+				if (decrypted == null || decrypted.length == 0) {
+					Out.writeln(Out.Info, "UDP drop malformed " + dp.getLength()
+						+ "B from " + dp.getAddress().getHostAddress() + ":" + dp.getPort());
+					continue;
 				}
-				Out.writeln(Out.Info, "UDP received " + dp.getLength() + " bytes from " + dp.getAddress().getHostAddress() + ":" + dp.getPort()
-					+ " header=0x" + String.format("%02x", dp.getData()[0] & 0xFF));
+				dp.setData(decrypted, 0, decrypted.length);
+				Out.writeln(Out.Info, "UDP received " + decrypted.length + " bytes from " + dp.getAddress().getHostAddress() + ":" + dp.getPort()
+					+ " header=0x" + String.format("%02x", decrypted[0] & 0xFF));
 				giveUDPConnection(dp);
 			} catch (IOException e) {
 				// Receive timeout or socket error; retry on next loop iteration

@@ -4,6 +4,9 @@ import server.database.playerCharacters.PlayerCharacter;
 import server.gameserver.Player;
 import server.gameserver.Zone;
 import server.gameserver.packets.server_udp.CharInfo;
+import server.gameserver.packets.server_udp.CharInfoV1;
+import server.gameserver.packets.server_udp.ChatList;
+import server.gameserver.packets.server_udp.InfoResponse;
 import server.gameserver.packets.server_udp.LongPlayerInfo;
 import server.gameserver.packets.server_udp.PlayerPositionUpdate;
 import server.gameserver.packets.server_udp.PositionUpdate;
@@ -12,7 +15,6 @@ import server.gameserver.packets.server_udp.TimeSync;
 import server.gameserver.packets.server_udp.UDPAlive;
 import server.gameserver.packets.server_udp.UpdateModel;
 import server.gameserver.packets.server_udp.WorldWeather;
-import server.gameserver.packets.server_udp.ZoningEnd;
 import server.tools.Out;
 import server.tools.Timer;
 
@@ -64,42 +66,45 @@ public class WorldEntryEvent extends DummyEvent {
         Out.writeln(Out.Info, "WorldEntryEvent: streaming world state for "
                 + pc.getName() + " mapId=" + mapId);
 
-        // Keepalive to confirm the session is still live before flooding the
-        // client with state.
+        // ── Keepalive ─────────────────────────────────────────────────
         safeSend(pl, () -> new UDPAlive(pl), "UDPAlive (pre-stream)");
 
-        // Model / appearance for the player character. Must be sent before the
-        // bulk CharInfo packet because the client references the model when
-        // parsing the inventory section.
-        safeSend(pl, () -> new UpdateModel(pl), "UpdateModel");
+        // ── Phase 1: CharInfo multipart (retail sends this first) ────
+        // CharInfoV1 (0x22 0x01) sets sync bit 0.
+        safeSend(pl, () -> new CharInfoV1(pl), "CharInfoV1 (sync bit 0)");
 
-        // Core CharInfo: stats, skills, faction sympathies, inventory, QB,
-        // GoGo, money, faction, epics. This is the biggest packet in the
-        // sequence (multi-part 0x13 -> 0x03 -> 0x07 chained). Retail fragments
-        // this across ~8 UDP datagrams.
-        safeSend(pl, () -> new CharInfo(pl), "CharInfo");
+        // CharInfo / CharsysInfo (0x22 0x02 0x01) sets sync bit 1.
+        // Fragmented via 0x13 → 0x03 → 0x07 multi-part wrapper.
+        safeSend(pl, () -> new CharInfo(pl), "CharInfo / CharsysInfo (sync bit 1)");
 
-        // Initial server time. Sent with clienttime=0 because the client has
-        // not sent a GetTimeSync yet; it will request an authoritative time
-        // sync once it processes this packet.
+        // ── Phase 2: InfoResponse + TimeSync (retail pkt #11) ────────
+        // InfoResponse zone variant (0x03→0x23): 20 00 10 00 00 00
+        // Observed in retail right after CharInfo multipart completes.
+        safeSend(pl, () -> InfoResponse.zoneInfo(pl), "InfoResponse (zone info)");
+
+        // TimeSync — server time baseline.
         safeSend(pl, () -> new TimeSync(pl, 0), "TimeSync");
 
-        // StartPosition: tells the client where to place the character in the
-        // world. Wrapped as REL_START_POS (0x2c).
-        safeSend(pl, () -> new PositionUpdate(pl), "PositionUpdate (start pos)");
+        // ── Phase 3: ChatList + InfoResponse + zone data (retail pkt #12) ──
+        // ChatList (0x03→0x33): ff 00 — chat channel list.
+        safeSend(pl, () -> new ChatList(pl), "ChatList");
 
-        // Weather: retail sends this during world entry even for zones with
-        // indoor-only layouts. Default to clear weather.
+        // InfoResponse session variant (0x03→0x23): 0e 00 ... 01 00
+        safeSend(pl, () -> InfoResponse.sessionInfo(pl), "InfoResponse (session info)");
+
+        // Player position / zone entry data.
+        safeSend(pl, () -> new PositionUpdate(pl), "PositionUpdate (start pos)");
         safeSend(pl, () -> new WorldWeather(pl), "WorldWeather");
 
-        // The player's own long/short info. The client keeps a separate zone
-        // registry keyed by mapId; it expects to see itself in that registry
-        // before the ZoningEnd terminator fires.
+        // The player's own long/short info + position.
         safeSend(pl, () -> new LongPlayerInfo(pl, pc, mapId), "LongPlayerInfo (self)");
         safeSend(pl, () -> new ShortPlayerInfo(pl, pc, mapId), "ShortPlayerInfo (self)");
         safeSend(pl, () -> new PlayerPositionUpdate(pl, pc, mapId), "PlayerPositionUpdate (self)");
 
-        // Other players already in the zone.
+        // ── Phase 4: UpdateModel (retail sends via 0x02 wrapper, we use 0x03) ──
+        safeSend(pl, () -> new UpdateModel(pl), "UpdateModel");
+
+        // ── Phase 5: Zone population (other players, NPCs) ──────────
         Zone zone = pl.getZone();
         if (zone != null) {
             try {
@@ -112,7 +117,6 @@ public class WorldEntryEvent extends DummyEvent {
             } catch (Exception e) {
                 Out.writeln(Out.Error, "WorldEntryEvent: sendNPCsinZone failed: " + e.getMessage());
             }
-            // Announce the new player to everybody else already in the zone.
             try {
                 zone.sendnewPlayerinZone(pl);
             } catch (Exception e) {
@@ -120,10 +124,17 @@ public class WorldEntryEvent extends DummyEvent {
             }
         }
 
-        // Terminator: ZoningEnd tells the client we're done streaming the
-        // world-entry burst. Without this the client stays on the loading
-        // screen until its socket times out.
-        safeSend(pl, () -> new ZoningEnd(pl), "ZoningEnd");
+        // ── NO ZoningEnd ────────────────────────────────────────────
+        // Retail does NOT send ZoningEnd (0x03→0x08) during login.
+        // Our previous ZoningEnd may have been confusing the client's
+        // state machine. Removed to match retail behavior.
+
+        // ── Start the S→C TimeSync heartbeat (0x13 → 0x03 → 0x1f) ──
+        // Retail streams this at ~1 Hz throughout the session and the
+        // modern client appears to gate its "SYNCHRONIZING INTO CITY
+        // ZONE" clear on seeing the stream, not on any single packet in
+        // the initial burst. See docs/retail_burst_analysis.md §5.
+        pl.addEvent(new TimeSyncHeartbeatEvent());
 
         // Mark the player as waiting for a UDP zone-handoff handshake.
         // Once the client finishes loading the zone descriptor it closes

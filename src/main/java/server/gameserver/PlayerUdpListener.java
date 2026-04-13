@@ -7,7 +7,7 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 
 import server.gameserver.packets.GamePacketReaderUDP;
-import server.networktools.PacketObfuscator;
+import server.networktools.WireEncrypt;
 import server.tools.Out;
 
 /**
@@ -70,14 +70,22 @@ public final class PlayerUdpListener extends Thread {
 				DatagramPacket dp = new DatagramPacket(new byte[1500], 1500);
 				socket.receive(dp);
 
-				byte[] decrypted = PacketObfuscator.decrypt(dp.getData(), dp.getLength());
-				if (decrypted != null) {
-					dp.setData(decrypted, 0, decrypted.length);
+				// Decrypt the wire-encrypted UDP datagram. NC2 retail
+				// encrypts BOTH directions with the same LFSR CFB cipher
+				// (FUN_00560090 = encrypt/sendto, FUN_0055ff30 =
+				// decrypt/recvfrom). See WireEncrypt and
+				// docs/PROTOCOL.md "UDP Wire Encryption".
+				byte[] decrypted = WireEncrypt.decrypt(dp.getData(), 0, dp.getLength());
+				if (decrypted == null || decrypted.length == 0) {
+					Out.writeln(Out.Info, "UDP[" + port + "] drop malformed " + dp.getLength()
+						+ "B from " + dp.getAddress().getHostAddress() + ":" + dp.getPort());
+					continue;
 				}
+				dp.setData(decrypted, 0, decrypted.length);
 
-				Out.writeln(Out.Info, "UDP[" + port + "] received " + dp.getLength() + " bytes from "
+				Out.writeln(Out.Info, "UDP[" + port + "] received " + decrypted.length + " bytes from "
 					+ dp.getAddress().getHostAddress() + ":" + dp.getPort()
-					+ " header=0x" + String.format("%02x", dp.getData()[0] & 0xFF));
+					+ " header=0x" + String.format("%02x", decrypted[0] & 0xFF));
 
 				handle(dp);
 			} catch (SocketTimeoutException e) {

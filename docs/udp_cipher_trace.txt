@@ -1,0 +1,2449 @@
+# UDP cipher trace — finding the REAL wire encryption
+# ObfuscateStreamBuf was proven NOT the UDP cipher.
+# This script traces WinSock send/recv callers and
+# searches for crypto-related string references.
+
+== Phase 1: WinSock imports ==
+
+== Phase 2: Crypto-related string references ==
+
+STRING 'WINSOCKMGR' @ 00a0e99c
+  ref from FUN_004776a0 @ 004776a0
+  ref from FUN_00476030 @ 00476030
+
+STRING 'WINSOCKMGR' @ 00a0e9e8
+  ref from FUN_0055e380 @ 0055e380
+  ref from FUN_00476890 @ 00476890
+
+STRING 'WINSOCKMGR' @ 00a0ea10
+  ref from FUN_0055e380 @ 0055e380
+  ref from FUN_00476890 @ 00476890
+
+STRING 'WINSOCKMGR' @ 00a0ed40
+  ref from FUN_004770d0 @ 004770d0
+
+STRING 'xfghsdkjskfdlgj' @ 00a26090
+  ref from FUN_0055a5e0 @ 0055a5e0
+  ref from FUN_005592d0 @ 005592d0
+  ref from FUN_0075d660 @ 0075d660
+
+STRING 'WINSOCKMGR' @ 00a274e0
+  ref from FUN_0055dc10 @ 0055dc10
+
+STRING 'WINSOCKMGR' @ 00a2751c
+  ref from FUN_0055dc10 @ 0055dc10
+
+STRING 'WINSOCKMGR' @ 00a27548
+  ref from FUN_0055dc10 @ 0055dc10
+
+STRING 'WINSOCKMGR' @ 00a27578
+  ref from FUN_0055fd00 @ 0055fd00
+  ref from FUN_0055fd00 @ 0055fd00
+  ref from FUN_0055da80 @ 0055da80
+  ref from FUN_0055da80 @ 0055da80
+
+STRING 'WINSOCKMGR' @ 00a275a0
+  ref from FUN_0055fc20 @ 0055fc20
+
+STRING 'WINSOCKMGR' @ 00a2761c
+  ref from FUN_0055f260 @ 0055f260
+
+STRING 'WINSOCKMGR' @ 00a27648
+  ref from FUN_0055e430 @ 0055e430
+  ref from FUN_0055e430 @ 0055e430
+  ref from FUN_0055db30 @ 0055db30
+  ref from FUN_0055df50 @ 0055df50
+
+STRING 'WINSOCKMGR' @ 00a27678
+  ref from FUN_0055df50 @ 0055df50
+
+STRING 'WINSOCKMGR' @ 00a276a4
+  ref from FUN_0055df50 @ 0055df50
+
+STRING 'WINSOCKMGR' @ 00a276d0
+  ref from FUN_0055e430 @ 0055e430
+  ref from FUN_0055df50 @ 0055df50
+
+STRING 'WINSOCKMGR' @ 00a27704
+  ref from FUN_0055e430 @ 0055e430
+  ref from FUN_0055db30 @ 0055db30
+
+STRING 'WINSOCKMGR' @ 00a27744
+  ref from FUN_0055d5f0 @ 0055d5f0
+
+STRING 'WINSOCKMGR' @ 00a2778c
+  ref from FUN_0055d5f0 @ 0055d5f0
+
+STRING 'WINSOCKMGR' @ 00a277d0
+  ref from FUN_0055d5f0 @ 0055d5f0
+
+STRING 'WINSOCKMGR' @ 00a27818
+  ref from FUN_0055d5f0 @ 0055d5f0
+
+STRING 'WINSOCKMGR' @ 00a27858
+  ref from FUN_0055fd00 @ 0055fd00
+
+STRING 'WINSOCKMGR' @ 00a27950
+  ref from FUN_0055f840 @ 0055f840
+  ref from FUN_0055fa20 @ 0055fa20
+
+STRING 'WINSOCKMGR' @ 00a27984
+  ref from FUN_0055f840 @ 0055f840
+
+STRING 'WINSOCKMGR' @ 00a27a08
+  ref from FUN_0055f5a0 @ 0055f5a0
+
+STRING 'WINSOCKMGR' @ 00a27a30
+  ref from FUN_0055f5a0 @ 0055f5a0
+
+STRING 'WINSOCKMGR' @ 00a27a70
+  ref from FUN_0055f5a0 @ 0055f5a0
+
+STRING 'Receive 0 Buffer' @ 00a27a70
+  ref from FUN_0055f5a0 @ 0055f5a0
+
+STRING 'WINSOCKMGR' @ 00a28aec
+  ref from FUN_0055e840 @ 0055e840
+
+STRING 'WINSOCKMGR' @ 00a28ba0
+  ref from FUN_005602f0 @ 005602f0
+
+STRING 'WINSOCKMGR' @ 00a28bd4
+  ref from FUN_005602f0 @ 005602f0
+
+STRING 'WINSOCKMGR' @ 00a28c48
+  ref from FUN_005609a0 @ 005609a0
+
+STRING 'WINSOCKMGR' @ 00a28c74
+  ref from FUN_005609a0 @ 005609a0
+
+STRING 'WINSOCKMGR' @ 00a28cb8
+  ref from FUN_005609a0 @ 005609a0
+
+STRING 'Receive 0 Buffer' @ 00a28cb8
+  ref from FUN_005609a0 @ 005609a0
+
+STRING 'WINSOCKMGR' @ 00b15dfc
+
+
+== Phase 3: Decompilations (23 functions) ==
+
+======================================================
+FUNCTION FUN_00476030 @ 00476030
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+
+
+void FUN_00476030(void)
+
+{
+  uint uVar1;
+  int iVar2;
+  undefined4 *in_ECX;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 uStack_8;
+  
+  uStack_8 = 0xffffffff;
+  puStack_c = &LAB_009bf2c0;
+  local_10 = ExceptionList;
+  uVar1 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  *in_ECX = NETSOCKET::vftable;
+  if (*(char *)((int)in_ECX + 10) != '\0') {
+    iVar2 = Ordinal_22(in_ECX[1],1,uVar1);
+    if (iVar2 == -1) {
+      thunk_FUN_004471c0("WINSOCKMGR : shutdown failed");
+    }
+    *(undefined1 *)((int)in_ECX + 10) = 1;
+  }
+  if ((void *)in_ECX[5] != (void *)0x0) {
+    free((void *)in_ECX[5]);
+  }
+  iVar2 = Ordinal_3(in_ECX[1]);
+  if (iVar2 == -1) {
+    thunk_FUN_004471c0("NETSOCKET : Close Socket failed");
+  }
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_00476890 @ 00476890
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+
+
+undefined4 FUN_00476890(void)
+
+{
+  int iVar1;
+  undefined4 uVar2;
+  char *in_ECX;
+  
+  if (*in_ECX != '\0') {
+    return 1;
+  }
+  iVar1 = Ordinal_115(0x202,in_ECX + 8);
+  if (iVar1 != 0) {
+    uVar2 = Ordinal_111();
+    thunk_FUN_00476ca0(uVar2);
+    thunk_FUN_004471c0("WINSOCKMGR : Init Winsock failed");
+    return 0;
+  }
+  if ((in_ECX[8] == '\x02') && (in_ECX[9] == '\x02')) {
+    *in_ECX = '\x01';
+    return 1;
+  }
+  uVar2 = Ordinal_111();
+  thunk_FUN_00476ca0(uVar2);
+  Ordinal_116();
+  thunk_FUN_004471c0("WINSOCKMGR : Get valid Winsock version failed");
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_004770d0 @ 004770d0
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4 FUN_004770d0(int param_1,int *param_2,undefined4 *param_3,undefined2 *param_4)
+
+{
+  int iVar1;
+  uint uVar2;
+  int local_1c;
+  undefined1 local_18 [2];
+  undefined2 local_16;
+  undefined2 uStack_14;
+  undefined2 uStack_12;
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  if ((*(byte *)(param_1 + 8) & 0x12) == 0) {
+    thunk_FUN_004471c0("wrong socket type from rcv. Address:%i Port: %i",*param_2,param_2[1]);
+    return 1;
+  }
+  *param_3 = 0;
+  local_1c = 0x10;
+  *param_4 = 0;
+  if ((*(byte *)(param_1 + 8) & 2) == 0) {
+    iVar1 = thunk_FUN_004e3420(*(undefined4 *)(param_1 + 4),*(undefined4 *)(param_1 + 0x14),16000,0,
+                               local_18,&local_1c);
+  }
+  else {
+    iVar1 = Ordinal_17();
+  }
+  if (iVar1 == -1) {
+    iVar1 = Ordinal_111();
+    if (iVar1 == 0x2733) {
+      return 1;
+    }
+    if (iVar1 != 0x2745) {
+      if (iVar1 == 0x2746) {
+        if ((*(byte *)(param_1 + 8) & 2) != 0) {
+          return 2;
+        }
+        return 0;
+      }
+      if (iVar1 != 0x274c) {
+        thunk_FUN_00476ca0(iVar1);
+        thunk_FUN_004471c0("WINSOCKMGR : Receive from failed. Address:%i Port: %i",*param_2,
+                           param_2[1]);
+        return 1;
+      }
+    }
+    thunk_FUN_00476ca0(iVar1);
+  }
+  else if (0 < iVar1) {
+    if (local_1c == 0x10) {
+      uVar2 = Ordinal_15(CONCAT22(uStack_14,local_16));
+      if ((((*(byte *)(param_1 + 8) & 2) == 0) &&
+          (CONCAT22(uStack_12,uStack_14) == *(int *)(param_1 + 0xc))) &&
+         ((uVar2 & 0xffff) == *(uint *)(param_1 + 0x10))) {
+        thunk_FUN_004471c0("SOCKETMGR : received wrong addres format. Address:%i Port: %i",*param_2,
+                           param_2[1]);
+        return 1;
+      }
+      *param_3 = *(undefined4 *)(param_1 + 0x14);
+      *param_4 = (short)iVar1;
+      *param_2 = CONCAT22(uStack_12,uStack_14);
+      param_2[1] = uVar2 & 0xffff;
+    }
+    return 0;
+  }
+  return 2;
+}
+
+
+
+======================================================
+FUNCTION FUN_004776a0 @ 004776a0
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+
+
+uint FUN_004776a0(int param_1)
+
+{
+  uint uVar1;
+  undefined4 uVar2;
+  
+  uVar1 = Ordinal_22(*(undefined4 *)(param_1 + 4),1);
+  if (uVar1 == 0xffffffff) {
+    uVar2 = Ordinal_111();
+    thunk_FUN_00476ca0(uVar2);
+    uVar1 = thunk_FUN_004471c0("WINSOCKMGR : shutdown failed");
+  }
+  *(undefined1 *)(param_1 + 10) = 1;
+  return uVar1 & 0xffffff00;
+}
+
+
+
+======================================================
+FUNCTION FUN_005592d0 @ 005592d0
+======================================================
+Why matched:
+  refs 'xfghsdkjskfdlgj'
+
+
+undefined4 FUN_005592d0(void)
+
+{
+  char cVar1;
+  int iVar2;
+  undefined4 uVar3;
+  void *_Memory;
+  int in_ECX;
+  undefined1 local_24 [8];
+  undefined1 local_1c [4];
+  undefined4 local_18;
+  void *local_14;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009c7533;
+  local_10 = ExceptionList;
+  ExceptionList = &local_10;
+  thunk_FUN_0045a280("Init.Log","WorldClient: Connecting to NetHost . . . ",
+                     DAT_00b13e00 ^ (uint)&stack0xfffffffc);
+  local_14 = operator_new(0x58);
+  local_8 = 0;
+  if (local_14 == (void *)0x0) {
+    iVar2 = 0;
+  }
+  else {
+    iVar2 = thunk_FUN_005f1da0(*(undefined4 *)(in_ECX + 0x48));
+  }
+  local_8 = 0xffffffff;
+  *(int *)(in_ECX + 0x29c) = iVar2;
+  if (iVar2 == 0) {
+                    /* WARNING: Subroutine does not return */
+    thunk_FUN_00559250("WORLDCLIENT : netmgr creation failed");
+  }
+  cVar1 = thunk_FUN_005f2f70(0,"xfghsdkjskfdlgj",0,2);
+  if (cVar1 == '\0') {
+                    /* WARNING: Subroutine does not return */
+    thunk_FUN_00559250("WORLDCLIENT : netmgr init failed");
+  }
+  thunk_FUN_004471c0("@PWORLDHOST Connect to %i, %i",*(undefined4 *)(in_ECX + 0x268),
+                     *(undefined4 *)(in_ECX + 0x26c));
+  cVar1 = thunk_FUN_005f24c0(*(undefined4 *)(in_ECX + 0x268),*(undefined4 *)(in_ECX + 0x26c));
+  if (cVar1 != '\0') {
+    uVar3 = thunk_FUN_004c1190();
+    *(undefined4 *)(in_ECX + 0x2a0) = uVar3;
+    thunk_FUN_005f2e50(local_1c);
+    local_18 = *(undefined4 *)(in_ECX + 0x278);
+    _Memory = (void *)thunk_FUN_005587e0(local_1c,local_24);
+    (**(code **)(**(int **)(in_ECX + 0x29c) + 0xc))
+              (*(undefined4 *)(in_ECX + 0x268),*(undefined4 *)(in_ECX + 0x26c),local_24,0);
+    free(_Memory);
+    local_14 = operator_new(8);
+    local_8 = 1;
+    if (local_14 == (void *)0x0) {
+      uVar3 = 0;
+    }
+    else {
+      uVar3 = thunk_FUN_005f45a0(in_ECX + 0x24);
+    }
+    local_8 = 0xffffffff;
+    *(undefined4 *)(in_ECX + 0x264) = uVar3;
+    thunk_FUN_005f4680(*(undefined4 *)(in_ECX + 0x29c),*(undefined4 *)(in_ECX + 0x268),
+                       *(undefined4 *)(in_ECX + 0x26c));
+    thunk_FUN_005f4600();
+    thunk_FUN_0045a280("Init.Log","succeed!\n");
+    ExceptionList = local_10;
+    return 1;
+  }
+  thunk_FUN_0045a280("Init.Log","failed!\n");
+                    /* WARNING: Subroutine does not return */
+  thunk_FUN_00559250("WORLDCLIENT : connection to nethost failed");
+}
+
+
+
+======================================================
+FUNCTION FUN_0055a5e0 @ 0055a5e0
+======================================================
+Why matched:
+  refs 'xfghsdkjskfdlgj'
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+void FUN_0055a5e0(void)
+
+{
+  ushort uVar1;
+  char cVar2;
+  int iVar3;
+  undefined4 uVar4;
+  void *_Memory;
+  int iVar5;
+  int in_ECX;
+  char *pcVar6;
+  char *pcVar7;
+  undefined1 local_1c0 [8];
+  void *local_1b8;
+  undefined1 local_1b4 [4];
+  undefined4 local_1b0;
+  ushort local_1ac [2];
+  char *local_1a8;
+  undefined1 local_1a4 [400];
+  uint local_14;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009c7637;
+  local_10 = ExceptionList;
+  local_14 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  if (*(int *)(in_ECX + 0x29c) == 0) {
+    thunk_FUN_0045a280("Init.Log","WorldClient: Connecting to NetHost . . .\n",local_14);
+    local_1b8 = operator_new(0x58);
+    local_8 = 0;
+    if (local_1b8 == (void *)0x0) {
+      iVar3 = 0;
+    }
+    else {
+      iVar3 = thunk_FUN_005f1da0(*(undefined4 *)(in_ECX + 0x48));
+    }
+    local_8 = 0xffffffff;
+    *(int *)(in_ECX + 0x29c) = iVar3;
+    if (iVar3 == 0) {
+                    /* WARNING: Subroutine does not return */
+      thunk_FUN_00559250("WORLDCLIENT : netmgr creation failed");
+    }
+    cVar2 = thunk_FUN_005f2f70(9000,"xfghsdkjskfdlgj",0,2);
+    if (cVar2 == '\0') {
+                    /* WARNING: Subroutine does not return */
+      thunk_FUN_00559250("WORLDCLIENT : netmgr init failed");
+    }
+    thunk_FUN_004471c0("@PWORLDHOST Connect to %i, %i",*(undefined4 *)(in_ECX + 0x268),
+                       *(undefined4 *)(in_ECX + 0x26c));
+    cVar2 = thunk_FUN_005f24c0(*(undefined4 *)(in_ECX + 0x268),*(undefined4 *)(in_ECX + 0x26c));
+    if (cVar2 == '\0') {
+      thunk_FUN_0045a280("Init.Log","WorldClient: Can\'t connect to NetHost!\n");
+                    /* WARNING: Subroutine does not return */
+      thunk_FUN_00559250("WORLDCLIENT : connection to nethost failed");
+    }
+    uVar4 = thunk_FUN_004c1190();
+    *(undefined4 *)(in_ECX + 0x2a0) = uVar4;
+    thunk_FUN_005f2e50(local_1b4);
+    local_1b0 = *(undefined4 *)(in_ECX + 0x278);
+    _Memory = (void *)thunk_FUN_005587e0(local_1b4,local_1ac);
+    (**(code **)(**(int **)(in_ECX + 0x29c) + 0xc))
+              (*(undefined4 *)(in_ECX + 0x268),*(undefined4 *)(in_ECX + 0x26c),local_1ac,0);
+    free(_Memory);
+  }
+  cVar2 = thunk_FUN_005f3160(*(undefined4 *)(in_ECX + 0x268),*(undefined4 *)(in_ECX + 0x26c));
+  if (cVar2 == '\0') {
+    thunk_FUN_0045a280("Init.Log","WorldClient: Lost connection to NetHost!\n");
+                    /* WARNING: Subroutine does not return */
+    thunk_FUN_00559250("WORLDCLIENT : connection to nethost lost");
+  }
+  iVar3 = *(int *)(in_ECX + 0x2a0);
+  iVar5 = thunk_FUN_004c1190();
+  if (20000 < (uint)(iVar5 - iVar3)) {
+    thunk_FUN_0045a280("Init.Log","WorldClient: Establishing a connection to NetHost timed out!\n");
+                    /* WARNING: Subroutine does not return */
+    thunk_FUN_00559250("WORLDCLIENT : connect to nethost failed");
+  }
+  cVar2 = (**(code **)(**(int **)(in_ECX + 0x29c) + 8))(local_1c0,local_1ac,0);
+  uVar1 = local_1ac[0];
+  pcVar7 = local_1a8;
+  do {
+    if (cVar2 == '\0') {
+      ExceptionList = local_10;
+      return;
+    }
+    local_1ac[0] = uVar1;
+    local_1a8 = pcVar7;
+    (**(code **)(**(int **)(in_ECX + 0x48) + 8))(*(int **)(in_ECX + 0x48),"Msg Recv");
+    cVar2 = *pcVar7;
+    if (cVar2 == -0x7d) {
+      if (1 < uVar1) {
+        cVar2 = pcVar7[1];
+        if (cVar2 == '\x03') {
+          if ((pcVar7[2] == '\x01') ||
+             (pcVar6 = "WorldClient: Connection rejected by nethost : %s!\n", pcVar7[2] == '\x03'))
+          {
+            pcVar6 = "Report this ASAP to the NST STAFF! %s!\n";
+          }
+          thunk_FUN_00447e80(local_1a4,400,pcVar6,pcVar7 + 3);
+          thunk_FUN_0045a280("Init.Log",local_1a4);
+                    /* WARNING: Subroutine does not return */
+          thunk_FUN_00559250(local_1a4);
+        }
+        if (cVar2 == '\x05') {
+          uVar4 = *(undefined4 *)(pcVar7 + 0xe);
+          *(undefined4 *)(in_ECX + 0x2cc) = *(undefined4 *)(pcVar7 + 10);
+          *(undefined4 *)(in_ECX + 0x2d0) = uVar4;
+          uVar4 = *(undefined4 *)(pcVar7 + 0x18);
+          *(undefined4 *)(in_ECX + 0x2b8) = *(undefined4 *)(pcVar7 + 0x14);
+          *(undefined4 *)(in_ECX + 700) = uVar4;
+          uVar4 = *(undefined4 *)(pcVar7 + 2);
+          *(undefined4 *)(in_ECX + 0x2b0) = uVar4;
+          *(undefined4 *)(in_ECX + 0x2b4) = *(undefined4 *)(pcVar7 + 6);
+          (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                    (*(int **)(in_ECX + 0x48),"WORLDCLIENT : Client accepted %i",uVar4);
+          *(undefined4 *)(in_ECX + 0x2a8) = 2;
+          *(undefined2 *)(in_ECX + 0x2ac) = 1;
+          ExceptionList = local_10;
+          return;
+        }
+        if (cVar2 != -0x71) {
+          pcVar7 = "@WWORLDCLIENT : Unknown NetHost Message Type: %i";
+          goto LAB_0055a7e5;
+        }
+      }
+    }
+    else {
+      pcVar7 = "@WWORLDCLIENT : Unknown Message Type: %i";
+LAB_0055a7e5:
+      thunk_FUN_004471c0(pcVar7,cVar2);
+    }
+    cVar2 = (**(code **)(**(int **)(in_ECX + 0x29c) + 8))(local_1c0,local_1ac,0);
+    uVar1 = local_1ac[0];
+    pcVar7 = local_1a8;
+  } while( true );
+}
+
+
+
+======================================================
+FUNCTION FUN_0055d5f0 @ 0055d5f0
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+uint FUN_0055d5f0(undefined4 param_1,uint param_2)
+
+{
+  int iVar1;
+  uint uVar2;
+  undefined4 uVar3;
+  int in_ECX;
+  undefined4 *puVar4;
+  int iVar5;
+  int local_1c;
+  undefined2 local_18;
+  undefined2 local_16;
+  undefined2 uStack_14;
+  undefined2 uStack_12;
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  iVar5 = 0;
+  local_18 = 2;
+  if (0 < *(int *)(in_ECX + 0xc)) {
+    local_1c = 0x10;
+    puVar4 = (undefined4 *)(in_ECX + 0x10);
+    do {
+      uStack_14 = (undefined2)*puVar4;
+      uStack_12 = (undefined2)((uint)*puVar4 >> 0x10);
+      local_16 = Ordinal_9(param_2 & 0xffff);
+      thunk_FUN_004471c0("WINSOCKMGR : Bind recv socket HostIP %i, Addr:%i, Port:%i",iVar5,*puVar4,
+                         param_2);
+      iVar1 = Ordinal_2(*(undefined4 *)((int)puVar4 + *(int *)(in_ECX + 0x4c) + (0x1a0 - in_ECX)),
+                        &local_18,0x10);
+      if (iVar1 == -1) {
+        uVar3 = Ordinal_111();
+        thunk_FUN_0055e840(uVar3);
+        uVar2 = thunk_FUN_004471c0("WINSOCKMGR : Bind recv socket failed, Addr %i  Port:%i",
+                                   *(undefined4 *)(local_1c + in_ECX),param_2);
+        return uVar2 & 0xffffff00;
+      }
+      uVar2 = Ordinal_15(CONCAT22(uStack_14,local_16));
+      *(uint *)(in_ECX + 0x34) = uVar2 & 0xffff;
+      thunk_FUN_004471c0("WINSOCKMGR : Bind send socket HostIP %i, Addr:%i, Port:%i",iVar5,
+                         *(undefined4 *)(local_1c + in_ECX),param_2 + 1);
+      local_16 = 0;
+      if (param_2 != 0) {
+        local_16 = Ordinal_9(*(short *)(in_ECX + 0x34) + 1);
+      }
+      iVar1 = Ordinal_2(*(undefined4 *)((int)puVar4 + *(int *)(in_ECX + 0x4c) + (0x180 - in_ECX)),
+                        &local_18,0x10);
+      if (iVar1 == -1) {
+        uVar3 = Ordinal_111();
+        thunk_FUN_0055e840(uVar3);
+        uVar2 = thunk_FUN_004471c0("WINSOCKMGR : Bind socket failed, Addr %i Port:%i",
+                                   *(undefined4 *)(in_ECX + 0x10 + iVar5 * 4),param_2 + 1);
+        return uVar2 & 0xffffff00;
+      }
+      uVar2 = Ordinal_15(CONCAT22(uStack_14,local_16));
+      local_1c = local_1c + 4;
+      iVar5 = iVar5 + 1;
+      puVar4 = puVar4 + 1;
+      *(uint *)(in_ECX + 0x30) = uVar2 & 0xffff;
+    } while (iVar5 < *(int *)(in_ECX + 0xc));
+  }
+  *(undefined4 *)(*(int *)(in_ECX + 0x48) + 4) = *(undefined4 *)(in_ECX + 0x10);
+  uVar3 = *(undefined4 *)(in_ECX + 0x34);
+  *(undefined4 *)(*(int *)(in_ECX + 0x48) + 8) = uVar3;
+  return CONCAT31((int3)((uint)uVar3 >> 8),1);
+}
+
+
+
+======================================================
+FUNCTION FUN_0055da80 @ 0055da80
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+
+
+undefined4 FUN_0055da80(void)
+
+{
+  int iVar1;
+  undefined4 uVar2;
+  int in_ECX;
+  int iVar3;
+  int iVar4;
+  
+  if (*(char *)(in_ECX + 5) != '\0') {
+    iVar3 = 0;
+    if (0 < *(int *)(in_ECX + 0xc)) {
+      iVar4 = 0x1b0;
+      do {
+        iVar1 = Ordinal_3(*(undefined4 *)(*(int *)(in_ECX + 0x4c) + -0x20 + iVar4));
+        if (iVar1 == -1) {
+          uVar2 = Ordinal_111();
+          thunk_FUN_0055e840(uVar2);
+          thunk_FUN_004471c0("WINSOCKMGR : Close Socket failed");
+        }
+        iVar1 = Ordinal_3(*(undefined4 *)(*(int *)(in_ECX + 0x4c) + iVar4));
+        if (iVar1 == -1) {
+          uVar2 = Ordinal_111();
+          thunk_FUN_0055e840(uVar2);
+          thunk_FUN_004471c0("WINSOCKMGR : Close Socket failed");
+        }
+        iVar3 = iVar3 + 1;
+        iVar4 = iVar4 + 4;
+      } while (iVar3 < *(int *)(in_ECX + 0xc));
+    }
+    *(undefined1 *)(in_ECX + 5) = 0;
+    return 1;
+  }
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055db30 @ 0055db30
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+
+
+undefined4 FUN_0055db30(undefined4 param_1,undefined4 param_2)
+
+{
+  char cVar1;
+  HANDLE pvVar2;
+  DWORD DVar3;
+  LPVOID in_ECX;
+  _SECURITY_ATTRIBUTES local_10;
+  
+  cVar1 = thunk_FUN_0055d5f0(param_1,param_2);
+  if (cVar1 == '\0') {
+    return 0;
+  }
+  if (*(char *)((int)in_ECX + 0x1050) == '\0') {
+    cVar1 = thunk_FUN_0055fc20(0);
+    if (cVar1 == '\0') {
+      thunk_FUN_004471c0("WINSOCKMGR : Set to nonblocking failed");
+      return 0;
+    }
+  }
+  else {
+    local_10.nLength = 0xc;
+    local_10.lpSecurityDescriptor = (LPVOID)0x0;
+    local_10.bInheritHandle = 0;
+    pvVar2 = CreateThread(&local_10,0,(LPTHREAD_START_ROUTINE)&LAB_0041283c,in_ECX,0,
+                          (LPDWORD)((int)in_ECX + 0x1058));
+    *(HANDLE *)((int)in_ECX + 0x1054) = pvVar2;
+    if (pvVar2 == (HANDLE)0x0) {
+      DVar3 = GetLastError();
+      thunk_FUN_004471c0("WINSOCKMGR : Thread Creation Failed : ErrorCode %i\n",DVar3);
+      return 0;
+    }
+  }
+  *(undefined1 *)((int)in_ECX + 8) = 1;
+  return 1;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055dc10 @ 0055dc10
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+uint FUN_0055dc10(undefined4 param_1)
+
+{
+  int iVar1;
+  undefined4 uVar2;
+  uint uVar3;
+  int in_ECX;
+  undefined1 local_48 [64];
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  if (*(char *)(in_ECX + 5) == '\0') {
+    thunk_FUN_004471c0("HostName : %s",local_48);
+    *(undefined4 *)(in_ECX + 0xc) = 0;
+    thunk_FUN_004471c0("WINSOCKMGR : Socket created on %i",param_1);
+    *(undefined4 *)(in_ECX + 0x10 + *(int *)(in_ECX + 0xc) * 4) = param_1;
+    thunk_FUN_004e32a0(param_1,local_48,0x40);
+    thunk_FUN_004471c0("Std HostIP : %s",local_48);
+    uVar2 = Ordinal_23(2,2,0);
+    *(undefined4 *)(*(int *)(in_ECX + 0x4c) + 400 + *(int *)(in_ECX + 0xc) * 4) = uVar2;
+    if (*(int *)(*(int *)(in_ECX + 0x4c) + 400 + *(int *)(in_ECX + 0xc) * 4) != -1) {
+      uVar2 = Ordinal_23(2,2,0);
+      *(undefined4 *)(*(int *)(in_ECX + 0x4c) + 0x1b0 + *(int *)(in_ECX + 0xc) * 4) = uVar2;
+      if (*(int *)(*(int *)(in_ECX + 0x4c) + 0x1b0 + *(int *)(in_ECX + 0xc) * 4) == -1) {
+        uVar2 = Ordinal_111();
+        thunk_FUN_0055e840(uVar2);
+        Ordinal_116();
+        uVar3 = thunk_FUN_004471c0("WINSOCKMGR : Init receive socket failed");
+        return uVar3 & 0xffffff00;
+      }
+      iVar1 = *(int *)(in_ECX + 0xc) + 1;
+      *(undefined1 *)(in_ECX + 5) = 1;
+      *(int *)(in_ECX + 0xc) = iVar1;
+      return CONCAT31((int3)((uint)iVar1 >> 8),1);
+    }
+    uVar2 = Ordinal_111();
+    thunk_FUN_0055e840(uVar2);
+    Ordinal_116();
+    local_8 = thunk_FUN_004471c0("WINSOCKMGR : Init send socket failed");
+  }
+  return local_8 & 0xffffff00;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055df50 @ 0055df50
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+
+
+int FUN_0055df50(int param_1)
+
+{
+  int iVar1;
+  char cVar2;
+  int iVar3;
+  undefined4 uVar4;
+  DWORD DVar5;
+  void *pvVar6;
+  int in_ECX;
+  code *pcVar7;
+  DWORD DVar8;
+  undefined4 uVar9;
+  undefined1 *puVar10;
+  undefined4 uVar11;
+  undefined4 uVar12;
+  char *pcVar13;
+  void *local_3c;
+  void *local_38;
+  undefined4 local_34;
+  undefined4 local_30;
+  int local_2c;
+  int local_28;
+  undefined4 local_24;
+  DWORD local_20;
+  int local_1c;
+  undefined1 local_18;
+  undefined1 local_17;
+  undefined1 local_11;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009c7773;
+  local_10 = ExceptionList;
+  ExceptionList = &local_10;
+  local_38 = operator_new(0x10);
+  local_8 = 0;
+  if (local_38 == (void *)0x0) {
+    local_1c = 0;
+  }
+  else {
+    local_1c = thunk_FUN_00445530(0);
+  }
+  local_8 = 0xffffffff;
+  cVar2 = thunk_FUN_0055dc10(0);
+  if ((cVar2 != '\0') && (cVar2 = thunk_FUN_0055d5f0(0,0x8000), cVar2 != '\0')) {
+    cVar2 = thunk_FUN_0055fc20(0);
+    if (cVar2 == '\0') {
+      pcVar13 = "WINSOCKMGR : Set to nonblocking failed";
+    }
+    else {
+      local_24 = 1;
+      iVar3 = Ordinal_21(*(undefined4 *)(*(int *)(in_ECX + 0x4c) + 400),0xffff,0x20,&local_24,4);
+      if (iVar3 == -1) {
+        uVar4 = Ordinal_111();
+        thunk_FUN_0055e840(uVar4);
+        pcVar13 = "WINSOCKMGR : Set to Broadcast failed";
+      }
+      else {
+        iVar3 = rand();
+        local_17 = (undefined1)iVar3;
+        local_18 = 1;
+        local_20 = 0;
+        local_11 = local_17;
+        local_38 = (void *)timeGetTime();
+        pcVar7 = Ordinal_11_exref;
+        DVar8 = 0;
+        do {
+          DVar5 = timeGetTime();
+          iVar3 = param_1;
+          if (200 < DVar5 - DVar8) {
+            for (; iVar3 != 0; iVar3 = *(int *)(iVar3 + 0xc)) {
+              if (*(int *)(iVar3 + 4) != 0) {
+                uVar12 = 0;
+                uVar11 = 2;
+                puVar10 = &local_18;
+                uVar9 = 0x8000;
+                uVar4 = (*pcVar7)(*(int *)(iVar3 + 4),0x8000,puVar10,2,0);
+                thunk_FUN_0055f840(uVar4,uVar9,puVar10,uVar11,uVar12);
+              }
+            }
+            thunk_FUN_004471c0("WINSOCKMGR : Get Desc Message send");
+            thunk_FUN_0055f840(0xffffffff,0x8000,&local_18,2,0);
+            local_20 = timeGetTime();
+          }
+          thunk_FUN_0055f5a0(2,&local_11);
+          if (*(int *)(in_ECX + 0x3c) != 0) {
+            thunk_FUN_0055df00(&local_28,&local_34);
+            iVar1 = local_28;
+            for (iVar3 = *(int *)(local_1c + 0xc); iVar3 != 0; iVar3 = *(int *)(iVar3 + 0xc)) {
+              thunk_FUN_0055df00(&local_2c,&local_3c);
+              if (local_2c == iVar1) goto LAB_0055e18f;
+            }
+            uVar4 = (**(code **)**(undefined4 **)(in_ECX + 0x3c))(&local_30,0);
+            local_3c = operator_new(0x8c);
+            if (local_3c == (void *)0x0) {
+              uVar4 = 0;
+            }
+            else {
+              uVar4 = thunk_FUN_0055d450(uVar4,local_30);
+            }
+            thunk_FUN_0055fbc0(iVar1,local_34);
+            pvVar6 = operator_new(0x10);
+            local_8 = 1;
+            if (pvVar6 == (void *)0x0) {
+              uVar4 = 0;
+            }
+            else {
+              uVar4 = thunk_FUN_00445530(uVar4);
+            }
+            local_8 = 0xffffffff;
+            thunk_FUN_004455c0(uVar4);
+LAB_0055e18f:
+            thunk_FUN_009ac142(*(undefined4 *)(in_ECX + 0x3c),0x8c);
+            pcVar7 = Ordinal_11_exref;
+            *(undefined4 *)(in_ECX + 0x3c) = 0;
+          }
+          DVar5 = timeGetTime();
+          DVar8 = local_20;
+        } while (DVar5 - (int)local_38 < 2000);
+        cVar2 = thunk_FUN_0055fc20(1);
+        if (cVar2 == '\0') {
+          thunk_FUN_0055da80();
+          ExceptionList = local_10;
+          return local_1c;
+        }
+        uVar4 = Ordinal_111();
+        thunk_FUN_0055e840(uVar4);
+        pcVar13 = "WINSOCKMGR : Set back to blocking failed";
+      }
+    }
+    thunk_FUN_004471c0(pcVar13);
+  }
+  ExceptionList = local_10;
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055e380 @ 0055e380
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+
+
+undefined4 FUN_0055e380(void)
+
+{
+  int iVar1;
+  undefined4 uVar2;
+  int in_ECX;
+  
+  if (*(char *)(in_ECX + 4) == '\0') {
+    iVar1 = Ordinal_115(0x202,*(undefined4 *)(in_ECX + 0x4c));
+    if (iVar1 != 0) {
+      uVar2 = Ordinal_111();
+      thunk_FUN_0055e840(uVar2);
+      thunk_FUN_004471c0("WINSOCKMGR : Init Winsock failed");
+      return 0;
+    }
+    if ((**(char **)(in_ECX + 0x4c) != '\x02') || ((*(char **)(in_ECX + 0x4c))[1] != '\x02')) {
+      uVar2 = Ordinal_111();
+      thunk_FUN_0055e840(uVar2);
+      Ordinal_116();
+      thunk_FUN_004471c0("WINSOCKMGR : Get valid Winsock version failed");
+      return 0;
+    }
+    *(undefined1 *)(in_ECX + 4) = 1;
+    *(undefined1 *)(in_ECX + 8) = 0;
+    *(undefined1 *)(in_ECX + 6) = 0;
+  }
+  return 1;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055e430 @ 0055e430
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+
+
+undefined4 FUN_0055e430(int param_1,DWORD param_2,undefined4 param_3,DWORD param_4)
+
+{
+  uint uVar1;
+  char cVar2;
+  undefined1 uVar3;
+  undefined4 uVar4;
+  int iVar5;
+  DWORD DVar6;
+  HANDLE pvVar7;
+  int *in_ECX;
+  _SECURITY_ATTRIBUTES local_18;
+  undefined4 local_c;
+  undefined4 local_8;
+  
+  in_ECX[0x418] = param_1;
+  *(undefined1 *)((int)in_ECX + 7) = 0;
+  if (*(char *)((int)in_ECX + 5) != '\0') {
+    thunk_FUN_0055da80();
+  }
+  if (*(char *)((int)in_ECX + 6) != '\0') {
+    (**(code **)(*in_ECX + 0x1c))(0);
+  }
+  cVar2 = thunk_FUN_0055dc10(0);
+  uVar1 = param_4;
+  if (cVar2 != '\0') {
+    *(undefined1 *)(in_ECX + 0x414) = 0;
+    if ((param_4 & 2) != 0) {
+      *(undefined1 *)(in_ECX + 0x414) = 1;
+    }
+    cVar2 = thunk_FUN_0055d5f0(0,param_3);
+    if (cVar2 != '\0') {
+      param_4 = uVar1 & 1;
+      if ((param_4 != 0) && (cVar2 = thunk_FUN_0055fc20(0), cVar2 == '\0')) {
+        uVar4 = Ordinal_111();
+        thunk_FUN_0055e840(uVar4);
+        thunk_FUN_004471c0("WINSOCKMGR : Set to nonblocking failed");
+        return 0;
+      }
+      thunk_FUN_009ac142(in_ECX[0xf],0x8c);
+      in_ECX[0xf] = 0;
+      thunk_FUN_0055df00(&local_c,&local_8);
+      iVar5 = rand();
+      uVar3 = (undefined1)iVar5;
+      param_1 = CONCAT13(uVar3,(undefined3)param_1);
+      *(undefined1 *)(in_ECX[0x12] + 0x21) = uVar3;
+      param_3 = CONCAT31(CONCAT21(param_3._2_2_,uVar3),1);
+      *(undefined4 *)(in_ECX[0x12] + 0x18) = local_c;
+      *(undefined4 *)(in_ECX[0x12] + 0x1c) = local_8;
+      *(undefined1 *)(in_ECX[0x12] + 0x20) = 1;
+      if ((short)param_4 == 0) {
+        iVar5 = 3;
+        do {
+          thunk_FUN_0055f840(local_c,local_8,&param_3,2,0);
+          iVar5 = iVar5 + -1;
+        } while (iVar5 != 0);
+      }
+      else {
+        param_4 = 0;
+        param_2 = timeGetTime();
+        do {
+          DVar6 = timeGetTime();
+          if (200 < DVar6 - param_4) {
+            thunk_FUN_0055f840(local_c,local_8,&param_3,2,0);
+            param_4 = timeGetTime();
+          }
+          thunk_FUN_0055f5a0(1,(int)&param_1 + 3);
+        } while (((char)in_ECX[2] == '\0') && (DVar6 = timeGetTime(), DVar6 - param_2 < 2000));
+        cVar2 = thunk_FUN_0055fc20(1);
+        if (cVar2 == '\0') {
+          uVar4 = Ordinal_111();
+          thunk_FUN_0055e840(uVar4);
+          thunk_FUN_004471c0("WINSOCKMGR : Set back to blocking failed");
+          return 0;
+        }
+        if ((char)in_ECX[2] == '\0') {
+          (**(code **)(*in_ECX + 0x1c))(0);
+          return 0;
+        }
+      }
+      *(undefined1 *)((int)in_ECX + 6) = 1;
+      if ((char)in_ECX[0x414] == '\0') {
+        cVar2 = thunk_FUN_0055fc20(0);
+        if (cVar2 != '\0') {
+          uVar4 = Ordinal_111();
+          thunk_FUN_0055e840(uVar4);
+          thunk_FUN_004471c0("WINSOCKMGR : Set to nonblocking failed");
+          return 0;
+        }
+      }
+      else {
+        local_18.nLength = 0xc;
+        local_18.lpSecurityDescriptor = (LPVOID)0x0;
+        local_18.bInheritHandle = 0;
+        pvVar7 = CreateThread(&local_18,0,(LPTHREAD_START_ROUTINE)&LAB_0041283c,in_ECX,0,
+                              (LPDWORD)(in_ECX + 0x416));
+        in_ECX[0x415] = (int)pvVar7;
+        if (pvVar7 == (HANDLE)0x0) {
+          DVar6 = GetLastError();
+          thunk_FUN_004471c0("WINSOCKMGR : Thread Creation Failed : ErrorCode %i\n",DVar6);
+          return 0;
+        }
+      }
+      return 1;
+    }
+  }
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055e840 @ 0055e840
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+
+
+void FUN_0055e840(undefined4 param_1)
+
+{
+  switch(param_1) {
+  case 0x2714:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :  The (blocking) call was canceled through WSACancelBlockingCall. "
+                      );
+    return;
+  default:
+    thunk_FUN_004471c0("WINSOCKMGR : Unspecified error value: %i",param_1);
+    return;
+  case 0x271d:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :   The requested address is a broadcast address, but the appropriate flag was not set. Call setsockopt with the SO_BROADCAST parameter to allow the use of the broadcast address. "
+                      );
+    return;
+  case 0x271e:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :  The name or the namelen parameter is not a valid part of the user address space, or the namelen parameter is too small.  "
+                      );
+    return;
+  case 0x2726:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :  The socket has not been bound to an address with bind, or ADDR_ANY is specified in bind but connection has not yet occurs. "
+                      );
+    return;
+  case 0x2728:
+    thunk_FUN_004471c0("WNSOCKMGR : No more socket descriptors are available. ");
+    return;
+  case 0x2733:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :  The socket is marked as nonblocking and the recvfrom operation would block. "
+                      );
+    return;
+  case 0x2734:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR : A blocking Windows Sockets 1.1 call is in progress, or the service provider is still processing a callback function. "
+                      );
+    return;
+  case 0x2736:
+    thunk_FUN_004471c0("WNSOCKMGR :  The descriptor is not a socket. ");
+    return;
+  case 0x2737:
+    thunk_FUN_004471c0("WNSOCKMGR :   A destination address is required. ");
+    return;
+  case 0x2738:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :  The message was too large to fit into the specified buffer and was truncated. "
+                      );
+    return;
+  case 0x2739:
+    thunk_FUN_004471c0("WNSOCKMGR : The specified protocol is the wrong type for this socket. ");
+    return;
+  case 0x273a:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :   The option is unknown or unsupported for the specified provider or socket (see SO_GROUP_PRIORITY limitations). "
+                      );
+    return;
+  case 0x273b:
+    thunk_FUN_004471c0("WNSOCKMGR : The specified protocol is not supported. ");
+    return;
+  case 0x273c:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR : The specified socket type is not supported in this address family. "
+                      );
+    return;
+  case 0x273d:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :  MSG_OOB was specified, but the socket is not stream-style such as type SOCK_STREAM, out-of-band data is not supported in the communication domain associated with this socket, or the socket is unidirectional and supports only send operations. "
+                      );
+    return;
+  case 0x273f:
+    thunk_FUN_004471c0("WNSOCKMGR : The specified address family is not supported.");
+    return;
+  case 0x2740:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :   A process on the machine is already bound to the same fully-qualified address and the socket has not been marked to allow address re-use with SO_REUSEADDR."
+                      );
+    return;
+  case 0x2741:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :   The remote address is not a valid address, for example, ADDR_ANY. "
+                      );
+    return;
+  case 0x2742:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR : The network subsystem or the associated service provider has failed."
+                      );
+    return;
+  case 0x2743:
+    thunk_FUN_004471c0("WNSOCKMGR :   The network cannot be reached from this host at this time. ");
+    return;
+  case 0x2744:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :  The connection has been broken due to the keep-alive activity detecting a failure while the operation was in progress. "
+                      );
+    return;
+  case 0x2745:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :   The virtual circuit was terminated due to a time-out or other failure. The application should close the socket as it is no longer usable. "
+                      );
+    return;
+  case 0x2746:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :  The virtual circuit was reset by the remote side executing a hard or abortive close. The application should close the socket as it is no longer usable. On a UDP datagram socket this error would indicate that a previous send operation resulted in an ICMP Port Unreachable message. "
+                      );
+    return;
+  case 0x2747:
+    thunk_FUN_004471c0("WNSOCKMGR : No buffer space is available. The socket cannot be created. ");
+    return;
+  case 0x2748:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :  The socket is connected. This function is not permitted with a connected socket, whether the socket is connection-oriented or connectionless. "
+                      );
+    return;
+  case 0x2749:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :   The socket is not connected (connection-oriented sockets only) "
+                      );
+    return;
+  case 0x274a:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :  The socket has been shut down; it is not possible to recvfrom on a socket after shutdown has been invoked with how set to SD_RECEIVE or SD_BOTH. "
+                      );
+    return;
+  case 0x274c:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :  The connection has been dropped, because of a network failure or because the system on the other end went down without notice. "
+                      );
+    return;
+  case 0x2751:
+    thunk_FUN_004471c0(
+                      "WNSOCKMGR :   The remote host cannot be reached from this host at this time. "
+                      );
+    return;
+  case 0x276d:
+    thunk_FUN_004471c0("WNSOCKMGR : A successful WSAStartup must occur before using this function.")
+    ;
+    return;
+  }
+}
+
+
+
+======================================================
+FUNCTION FUN_0055f260 @ 0055f260
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+int FUN_0055f260(undefined4 param_1,undefined4 param_2,undefined4 param_3,char param_4,int *param_5)
+
+{
+  int iVar1;
+  uint uVar2;
+  undefined4 uVar3;
+  int in_ECX;
+  uint uVar4;
+  int iVar5;
+  int iVar6;
+  undefined4 local_110;
+  uint local_10c;
+  int aiStack_108 [64];
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  iVar6 = *(int *)(in_ECX + 0xc);
+  local_110 = 0x10;
+  if (param_4 == '\0') {
+    iVar5 = 0;
+    if (0 < iVar6) {
+      iVar6 = 0x1b0;
+      do {
+        iVar1 = thunk_FUN_0055ff30(*(undefined4 *)(*(int *)(in_ECX + 0x4c) + iVar6),param_1,param_2,
+                                   0,param_3,&local_110);
+        if (param_5 != (int *)0x0) {
+          *param_5 = iVar5;
+        }
+        if (iVar1 != 0) {
+          return iVar1;
+        }
+        iVar5 = iVar5 + 1;
+        iVar6 = iVar6 + 4;
+      } while (iVar5 < *(int *)(in_ECX + 0xc));
+    }
+    iVar6 = 0;
+  }
+  else {
+    if (iVar6 != 1) {
+      thunk_FUN_004471c0("Receive from %i",iVar6);
+      do {
+        thunk_FUN_004471c0("Receive from %i",*(undefined4 *)(in_ECX + 0xc));
+        iVar6 = *(int *)(in_ECX + 0xc);
+        uVar4 = 0;
+        local_10c = 0;
+        if (0 < iVar6) {
+          iVar5 = 0x1b0;
+          do {
+            uVar2 = 0;
+            if (uVar4 != 0) {
+              do {
+                if (aiStack_108[uVar2] == *(int *)(iVar5 + *(int *)(in_ECX + 0x4c))) break;
+                uVar2 = uVar2 + 1;
+              } while (uVar2 < uVar4);
+            }
+            if ((uVar2 == uVar4) && (uVar4 < 0x40)) {
+              aiStack_108[uVar2] = *(int *)(iVar5 + *(int *)(in_ECX + 0x4c));
+              uVar4 = local_10c + 1;
+              local_10c = uVar4;
+            }
+            iVar5 = iVar5 + 4;
+            iVar6 = iVar6 + -1;
+          } while (iVar6 != 0);
+        }
+        iVar6 = Ordinal_18(0,&local_10c,0,0,0);
+        if (iVar6 < 1) {
+          if (iVar6 == -1) {
+            uVar3 = Ordinal_111();
+            thunk_FUN_0055e840(uVar3);
+            thunk_FUN_004471c0("WINSOCKMGR : select sockets failed!");
+          }
+          Sleep(100);
+        }
+        else {
+          thunk_FUN_004471c0("Received %i",iVar6);
+          iVar6 = 0;
+          if (0 < *(int *)(in_ECX + 0xc)) {
+            iVar5 = 0x1b0;
+            do {
+              iVar1 = Ordinal_151(*(undefined4 *)(iVar5 + *(int *)(in_ECX + 0x4c)),&local_10c);
+              if (iVar1 != 0) {
+                iVar1 = thunk_FUN_0055ff30(*(undefined4 *)(iVar5 + *(int *)(in_ECX + 0x4c)),param_1,
+                                           param_2,0,param_3,&local_110);
+                thunk_FUN_004471c0("Received Bytes %i",iVar1);
+                if (param_5 != (int *)0x0) {
+                  *param_5 = iVar6;
+                }
+                if (iVar1 != 0) {
+                  return iVar1;
+                }
+              }
+              iVar6 = iVar6 + 1;
+              iVar5 = iVar5 + 4;
+            } while (iVar6 < *(int *)(in_ECX + 0xc));
+          }
+        }
+      } while( true );
+    }
+    iVar6 = thunk_FUN_0055ff30(*(undefined4 *)(*(int *)(in_ECX + 0x4c) + 0x1b0),param_1,param_2,0,
+                               param_3,&local_110);
+    if (param_5 != (int *)0x0) {
+      *param_5 = 0;
+      return iVar6;
+    }
+  }
+  return iVar6;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055f5a0 @ 0055f5a0
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+  refs 'Receive 0 Buffer'
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4 FUN_0055f5a0(undefined4 param_1,undefined4 param_2)
+
+{
+  undefined1 *puVar1;
+  int iVar2;
+  uint uVar3;
+  int iVar4;
+  int in_ECX;
+  char *pcVar5;
+  int local_20;
+  undefined4 local_1c;
+  undefined1 local_18 [2];
+  undefined2 uStack_16;
+  undefined2 local_14;
+  undefined2 uStack_12;
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  puVar1 = (undefined1 *)(in_ECX + 0x50);
+  iVar2 = thunk_FUN_0055f260(puVar1,0x1000,local_18,1,&local_20);
+  if (iVar2 == -1) {
+    iVar2 = Ordinal_111();
+    if (iVar2 == 0x2733) {
+      return 0;
+    }
+    thunk_FUN_0055e840(iVar2);
+    pcVar5 = "WINSOCKMGR : Receive from failed";
+  }
+  else {
+    if (0 < iVar2) {
+      local_1c = CONCAT22(uStack_12,local_14);
+      uVar3 = Ordinal_15(CONCAT22(local_14,uStack_16));
+      local_20 = (uVar3 & 0xffff) - 1;
+      iVar4 = thunk_FUN_0055e2f0(local_1c,local_20);
+      if (iVar4 != 0) {
+        thunk_FUN_0055ec10(iVar4,local_1c,local_20,puVar1,iVar2,param_1,param_2);
+        return 1;
+      }
+      thunk_FUN_004471c0("WINSOCKMGR : Message received for unknown station, %i",*puVar1);
+      return 1;
+    }
+    pcVar5 = "WINSOCKMGR : Receive 0 Buffer";
+  }
+  thunk_FUN_004471c0(pcVar5);
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055f840 @ 0055f840
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4 FUN_0055f840(undefined4 param_1,undefined4 param_2,undefined4 param_3,undefined4 param_4)
+
+{
+  int iVar1;
+  undefined4 uVar2;
+  int in_ECX;
+  int iVar3;
+  uint uStack_3c;
+  undefined2 local_28;
+  undefined2 local_26;
+  undefined4 local_24;
+  uint local_18;
+  undefined1 *local_14;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009c77a0;
+  local_10 = ExceptionList;
+  uStack_3c = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  local_14 = (undefined1 *)&uStack_3c;
+  ExceptionList = &local_10;
+  local_28 = 2;
+  local_18 = uStack_3c;
+  local_26 = Ordinal_9(param_2);
+  local_24 = param_1;
+  thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\net\\WinSockMGR.cpp",
+                     0x53c);
+  local_8 = 0;
+  if (*(int *)(in_ECX + 0xc) < 2) {
+    iVar3 = thunk_FUN_00560090(*(undefined4 *)(*(int *)(in_ECX + 0x4c) + 0x1b0),param_3,param_4,0,
+                               &local_28,0x10);
+    if (iVar3 == -1) {
+      uVar2 = Ordinal_111();
+      thunk_FUN_0055e840(uVar2);
+      thunk_FUN_004471c0("WINSOCKMGR : Send Msg failed");
+      thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\net\\WinSockMGR.cpp",
+                         0x55c);
+      ExceptionList = local_10;
+      return 0;
+    }
+  }
+  else {
+    for (iVar3 = 0; iVar3 < *(int *)(in_ECX + 0xc); iVar3 = iVar3 + 1) {
+      iVar1 = thunk_FUN_00560090(*(undefined4 *)(*(int *)(in_ECX + 0x4c) + 0x1b0 + iVar3 * 4),
+                                 param_3,param_4,0,&local_28,0x10);
+      if (iVar1 == -1) {
+        uVar2 = Ordinal_111();
+        thunk_FUN_0055e840(uVar2);
+        thunk_FUN_004471c0("WINSOCKMGR : Send Msg failed (Socket %i)",iVar3);
+        thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\net\\WinSockMGR.cpp"
+                           ,0x54c);
+        ExceptionList = local_10;
+        return 0;
+      }
+    }
+  }
+  local_8 = 0xffffffff;
+  thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\net\\WinSockMGR.cpp",
+                     0x566);
+  ExceptionList = local_10;
+  return 1;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055fa20 @ 0055fa20
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4
+FUN_0055fa20(undefined4 param_1,undefined4 param_2,undefined4 param_3,undefined4 param_4,int param_5
+            )
+
+{
+  int iVar1;
+  undefined4 uVar2;
+  int in_ECX;
+  uint uStack_3c;
+  undefined2 local_28;
+  undefined2 local_26;
+  undefined4 local_24;
+  uint local_18;
+  undefined1 *local_14;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009c77d0;
+  local_10 = ExceptionList;
+  uStack_3c = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  local_14 = (undefined1 *)&uStack_3c;
+  ExceptionList = &local_10;
+  if (param_5 < *(int *)(in_ECX + 0xc)) {
+    local_28 = 2;
+    local_18 = uStack_3c;
+    local_26 = Ordinal_9(param_2);
+    local_24 = param_1;
+    thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\net\\WinSockMGR.cpp",
+                       0x589);
+    local_8 = 0;
+    iVar1 = thunk_FUN_00560090(*(undefined4 *)(*(int *)(in_ECX + 0x4c) + 0x1b0 + param_5 * 4),
+                               param_3,param_4,0,&local_28,0x10);
+    if (iVar1 != -1) {
+      local_8 = 0xffffffff;
+      thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\net\\WinSockMGR.cpp",
+                         0x59f);
+      ExceptionList = local_10;
+      return 1;
+    }
+    uVar2 = Ordinal_111();
+    thunk_FUN_0055e840(uVar2);
+    thunk_FUN_004471c0("WINSOCKMGR : Send Msg failed (Socket %i)",param_5);
+    thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\net\\WinSockMGR.cpp",
+                       0x596);
+  }
+  ExceptionList = local_10;
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055fc20 @ 0055fc20
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+
+
+undefined4 FUN_0055fc20(char param_1)
+
+{
+  int iVar1;
+  undefined4 uVar2;
+  int in_ECX;
+  int iVar3;
+  int iVar4;
+  
+  _param_1 = (uint)(param_1 == '\0');
+  iVar3 = 0;
+  if (0 < *(int *)(in_ECX + 0xc)) {
+    iVar4 = 0x1b0;
+    do {
+      iVar1 = Ordinal_10(*(undefined4 *)(*(int *)(in_ECX + 0x4c) + iVar4),0x8004667e,&param_1);
+      if (iVar1 == -1) {
+        uVar2 = Ordinal_111();
+        thunk_FUN_0055e840(uVar2);
+        thunk_FUN_004471c0("WINSOCKMGR : Set to nonblocking failed (socket %i)",iVar3);
+        return 0;
+      }
+      iVar3 = iVar3 + 1;
+      iVar4 = iVar4 + 4;
+    } while (iVar3 < *(int *)(in_ECX + 0xc));
+  }
+  return 1;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055fd00 @ 0055fd00
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+
+
+undefined4 FUN_0055fd00(int param_1)
+
+{
+  int iVar1;
+  undefined4 uVar2;
+  int in_ECX;
+  int iVar3;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009c7800;
+  local_10 = ExceptionList;
+  ExceptionList = &local_10;
+  if (*(int *)(in_ECX + 0xc) <= param_1) {
+    thunk_FUN_004471c0("WINSOCKMGR : validate own IP: received ID too high own:%i rcv:%i",
+                       *(int *)(in_ECX + 0xc),param_1);
+    ExceptionList = local_10;
+    return 0;
+  }
+  thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\net\\WinSockMGR.cpp",
+                     0x446);
+  local_8 = 0;
+  thunk_FUN_004471c0("VALID IP received %i",param_1);
+  iVar3 = 0;
+  do {
+    if (*(int *)(in_ECX + 0xc) <= iVar3) {
+LAB_0055fdd9:
+      local_8 = 0xffffffff;
+      thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\net\\WinSockMGR.cpp",
+                         0x476);
+      ExceptionList = local_10;
+      return 1;
+    }
+    if (param_1 == iVar3) {
+      *(undefined4 *)(in_ECX + 0x10) = *(undefined4 *)(in_ECX + 0x10 + iVar3 * 4);
+      *(undefined4 *)(*(int *)(in_ECX + 0x4c) + 0x1b0) =
+           *(undefined4 *)(*(int *)(in_ECX + 0x4c) + 0x1b0 + iVar3 * 4);
+      *(undefined4 *)(*(int *)(in_ECX + 0x4c) + 400) =
+           *(undefined4 *)(*(int *)(in_ECX + 0x4c) + 400 + iVar3 * 4);
+      *(undefined4 *)(in_ECX + 0xc) = 1;
+      thunk_FUN_004471c0("Good IP found %i %i",*(undefined4 *)(in_ECX + 0x10 + iVar3 * 4),iVar3);
+      goto LAB_0055fdd9;
+    }
+    iVar1 = Ordinal_3(*(undefined4 *)(*(int *)(in_ECX + 0x4c) + 400 + iVar3 * 4));
+    if (iVar1 == -1) {
+      uVar2 = Ordinal_111();
+      thunk_FUN_0055e840(uVar2);
+      thunk_FUN_004471c0("WINSOCKMGR : Close Socket failed");
+    }
+    *(undefined4 *)(*(int *)(in_ECX + 0x4c) + 400 + iVar3 * 4) = 0;
+    iVar1 = Ordinal_3(*(undefined4 *)(*(int *)(in_ECX + 0x4c) + 0x1b0 + iVar3 * 4));
+    if (iVar1 == -1) {
+      uVar2 = Ordinal_111();
+      thunk_FUN_0055e840(uVar2);
+      thunk_FUN_004471c0("WINSOCKMGR : Close Socket failed");
+    }
+    *(undefined4 *)(*(int *)(in_ECX + 0x4c) + 0x1b0 + iVar3 * 4) = 0;
+    iVar3 = iVar3 + 1;
+  } while( true );
+}
+
+
+
+======================================================
+FUNCTION FUN_005602f0 @ 005602f0
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4 FUN_005602f0(int param_1,undefined4 *param_2,undefined4 param_3,ushort param_4)
+
+{
+  char cVar1;
+  char *pcVar2;
+  DWORD DVar3;
+  HANDLE pvVar4;
+  int *in_ECX;
+  DWORD DVar5;
+  int iVar6;
+  _SECURITY_ATTRIBUTES local_38;
+  DWORD local_2c;
+  int local_28;
+  undefined4 local_24;
+  undefined4 local_20;
+  undefined1 local_1c;
+  char local_1b;
+  char local_1a;
+  char local_19;
+  char local_18;
+  char local_17;
+  char local_16;
+  char local_15;
+  char local_14;
+  undefined1 local_12;
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  in_ECX[0x418] = param_1;
+  *(undefined1 *)((int)in_ECX + 7) = 0;
+  if (*(char *)((int)in_ECX + 5) != '\0') {
+    thunk_FUN_0055da80();
+  }
+  if (*(char *)((int)in_ECX + 6) != '\0') {
+    (**(code **)(*in_ECX + 0x1c))(0);
+  }
+  cVar1 = thunk_FUN_0055dc10(0);
+  if (cVar1 == '\0') {
+    return 0;
+  }
+  *(undefined1 *)(in_ECX + 0x414) = 0;
+  if ((param_4 & 2) != 0) {
+    *(undefined1 *)(in_ECX + 0x414) = 1;
+  }
+  cVar1 = thunk_FUN_0055d5f0(0,param_3);
+  if (cVar1 == '\0') {
+    return 0;
+  }
+  if (((param_4 & 1) == 0) || (cVar1 = thunk_FUN_0055fc20(0), cVar1 != '\0')) {
+    thunk_FUN_009ac142(in_ECX[0xf],0x8c);
+    in_ECX[0xf] = 0;
+    thunk_FUN_0055df00(&local_24,&local_20);
+    local_1c = 1;
+    local_28 = 0;
+    pcVar2 = (char *)(**(code **)*param_2)(&local_28,0);
+    if (pcVar2 == (char *)0x0) {
+      return 0;
+    }
+    if (local_28 < 8) {
+      return 0;
+    }
+    iVar6 = *(int *)(pcVar2 + 2);
+    in_ECX[0x41a] = iVar6;
+    *(char *)(in_ECX + 0x41a) = (char)iVar6 - *pcVar2;
+    *(char *)((int)in_ECX + 0x1069) = *(char *)((int)in_ECX + 0x1069) - pcVar2[1];
+    *(char *)((int)in_ECX + 0x106a) = *(char *)((int)in_ECX + 0x106a) - pcVar2[2];
+    *(char *)((int)in_ECX + 0x106b) = *(char *)((int)in_ECX + 0x106b) - pcVar2[3];
+    local_1b = '\x7f' - *pcVar2;
+    local_1a = '\x7f' - pcVar2[1];
+    local_19 = '\x7f' - pcVar2[2];
+    local_18 = '\x7f' - pcVar2[3];
+    local_17 = '\x7f' - pcVar2[4];
+    local_16 = '\x7f' - pcVar2[5];
+    local_15 = '\x7f' - pcVar2[6];
+    local_14 = '\x7f' - pcVar2[7];
+    local_12 = 0;
+    *(undefined1 *)(in_ECX[0x12] + 0x21) = 0;
+    *(undefined4 *)(in_ECX[0x12] + 0x18) = local_24;
+    *(undefined4 *)(in_ECX[0x12] + 0x1c) = local_20;
+    *(undefined1 *)(in_ECX[0x12] + 0x20) = 2;
+    if ((param_4 & 1) == 0) {
+      iVar6 = 3;
+      do {
+        thunk_FUN_0055f6d0(local_24,local_20,&local_1c,10,0);
+        iVar6 = iVar6 + -1;
+      } while (iVar6 != 0);
+    }
+    else {
+      DVar5 = 0;
+      local_2c = timeGetTime();
+      do {
+        DVar3 = timeGetTime();
+        if (200 < DVar3 - DVar5) {
+          thunk_FUN_0055f6d0(local_24,local_20,&local_1c,10,0);
+          DVar5 = timeGetTime();
+        }
+        thunk_FUN_005609a0(1,0);
+      } while (((char)in_ECX[2] == '\0') && (DVar3 = timeGetTime(), DVar3 - local_2c < 2000));
+      cVar1 = thunk_FUN_0055fc20(1);
+      if (cVar1 == '\0') {
+        pcVar2 = "@WWINSOCKMGR : Set back to blocking failed";
+        goto LAB_005604c9;
+      }
+      if ((char)in_ECX[2] == '\0') {
+        (**(code **)(*in_ECX + 0x1c))(0);
+        return 0;
+      }
+    }
+    *(undefined1 *)((int)in_ECX + 6) = 1;
+    if ((char)in_ECX[0x414] != '\0') {
+      local_38.nLength = 0xc;
+      local_38.lpSecurityDescriptor = (LPVOID)0x0;
+      local_38.bInheritHandle = 0;
+      pvVar4 = CreateThread(&local_38,0,(LPTHREAD_START_ROUTINE)&LAB_0041283c,in_ECX,0,
+                            (LPDWORD)(in_ECX + 0x416));
+      in_ECX[0x415] = (int)pvVar4;
+      if (pvVar4 == (HANDLE)0x0) {
+        DVar5 = GetLastError();
+        thunk_FUN_004471c0("@WGAMENETMGR : Thread Creation Failed : ErrorCode %i\n",DVar5);
+        return 0;
+      }
+      return 1;
+    }
+    cVar1 = thunk_FUN_0055fc20(0);
+    if (cVar1 != '\0') {
+      return 1;
+    }
+  }
+  pcVar2 = "@WWINSOCKMGR : Set to nonblocking failed";
+LAB_005604c9:
+  thunk_FUN_004471c0(pcVar2);
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_005609a0 @ 005609a0
+======================================================
+Why matched:
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+  refs 'WINSOCKMGR'
+  refs 'Receive 0 Buffer'
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4 FUN_005609a0(undefined4 param_1,undefined4 param_2)
+
+{
+  int *piVar1;
+  int iVar2;
+  int iVar3;
+  int *in_ECX;
+  char *pcVar4;
+  undefined1 local_28 [4];
+  uint local_24;
+  undefined4 local_20;
+  undefined4 local_1c;
+  undefined1 local_18 [2];
+  undefined2 uStack_16;
+  undefined2 local_14;
+  undefined2 uStack_12;
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  local_20 = param_2;
+  piVar1 = in_ECX + 0x14;
+  iVar2 = thunk_FUN_0055f260(piVar1,0x1000,local_18,1,local_28);
+  if (iVar2 == -1) {
+    iVar2 = Ordinal_111();
+    if (iVar2 == 0x2733) {
+      return 0;
+    }
+    thunk_FUN_0055e840(iVar2);
+    pcVar4 = "@WWINSOCKMGR : Receive from failed";
+  }
+  else {
+    if (0 < iVar2) {
+      local_1c = CONCAT22(uStack_12,local_14);
+      local_24 = Ordinal_15(CONCAT22(local_14,uStack_16));
+      local_24 = local_24 & 0xffff;
+      iVar3 = thunk_FUN_0055e2f0(local_1c,local_24);
+      if (iVar3 == 0) {
+        thunk_FUN_004471c0("@WWINSOCKMGR : Message received for unknown station, %i",(char)*piVar1);
+        return 1;
+      }
+      (**(code **)(*in_ECX + 0x3c))(iVar3,local_1c,local_24,piVar1,iVar2,param_1,local_20);
+      return 1;
+    }
+    if (iVar2 < 0) {
+      return 1;
+    }
+    pcVar4 = "@WWINSOCKMGR : Receive 0 Buffer";
+  }
+  thunk_FUN_004471c0(pcVar4);
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_0075d660 @ 0075d660
+======================================================
+Why matched:
+  refs 'xfghsdkjskfdlgj'
+
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+/* WARNING: Type propagation algorithm not settling */
+
+undefined1 FUN_0075d660(undefined4 *param_1,char *param_2,char *param_3,char param_4,char param_5)
+
+{
+  undefined **ppuVar1;
+  code *pcVar2;
+  undefined2 *puVar3;
+  char cVar4;
+  undefined1 uVar5;
+  char cVar6;
+  byte bVar7;
+  undefined2 uVar8;
+  short sVar9;
+  uint uVar10;
+  undefined4 uVar11;
+  undefined2 *puVar12;
+  byte *******pppppppbVar13;
+  int iVar14;
+  undefined4 *puVar15;
+  DWORD DVar16;
+  DWORD DVar17;
+  undefined4 *in_ECX;
+  char *pcVar18;
+  char *pcVar19;
+  int *piVar20;
+  byte *pbVar21;
+  byte *pbVar22;
+  int *piVar23;
+  byte *******pppppppbVar24;
+  char *pcVar25;
+  int iVar26;
+  bool bVar27;
+  undefined1 *puVar28;
+  int local_5c4 [5];
+  char *local_5b0;
+  undefined4 local_5ac;
+  undefined2 *local_5a8;
+  void *local_5a4;
+  undefined4 *local_5a0;
+  char *local_59c;
+  uint local_598;
+  code *local_594;
+  char *local_590;
+  char *local_58c;
+  undefined2 *local_588;
+  char *local_584;
+  undefined4 *local_580;
+  char local_579;
+  undefined1 local_4d8 [4];
+  byte *******local_4d4;
+  byte *******local_4d0;
+  undefined4 uStack_4cc;
+  undefined4 uStack_4c8;
+  undefined4 uStack_4c4;
+  char *local_4c0;
+  char *local_4bc;
+  byte local_4b8 [500];
+  char local_2c4 [500];
+  undefined1 local_d0 [100];
+  int local_6c [5];
+  undefined1 local_58 [20];
+  int local_44 [5];
+  undefined4 local_30;
+  undefined4 local_2c;
+  undefined4 local_28;
+  undefined4 uStack_24;
+  undefined4 uStack_20;
+  undefined4 uStack_1c;
+  undefined4 local_18;
+  uint local_14;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009e072d;
+  local_10 = ExceptionList;
+  uVar10 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  local_59c = param_2;
+  local_5a0 = param_1;
+  local_58c = param_3;
+  *(undefined2 *)(in_ECX + 10) = 0;
+  *(undefined2 *)(in_ECX + 0x4e) = 0;
+  local_580 = in_ECX;
+  local_14 = uVar10;
+  thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\terminal\\MenuConnectMgr.cpp"
+                     ,0xf9);
+  if (in_ECX[3] == 0) {
+    local_5a4 = operator_new(0x58);
+    local_8 = 0;
+    if (local_5a4 == (void *)0x0) {
+      uVar11 = 0;
+    }
+    else {
+      uVar11 = thunk_FUN_005f1da0(in_ECX[0x1a]);
+    }
+    local_8 = 0xffffffff;
+    in_ECX[3] = uVar11;
+    cVar4 = thunk_FUN_005f2f70(9000,"xfghsdkjskfdlgj",0,2);
+    if (cVar4 == '\0') {
+      in_ECX[0x1b] = "Failed to initialize net connection";
+      iVar26 = in_ECX[3];
+      if (iVar26 != 0) {
+        thunk_FUN_005f1f80();
+        thunk_FUN_009ac142(iVar26,0x58);
+      }
+      local_580[3] = 0;
+      thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\terminal\\MenuConnectMgr.cpp"
+                         ,0x106);
+      ExceptionList = local_10;
+      return 0;
+    }
+  }
+  puVar15 = local_5a0;
+  cVar4 = thunk_FUN_005f3160(*local_5a0,local_5a0[1],uVar10);
+  if (cVar4 == '\0') {
+    cVar4 = thunk_FUN_005f24c0(*puVar15,puVar15[1]);
+    if (cVar4 == '\0') {
+      in_ECX[0x1b] = "Failed to connect to server";
+      iVar26 = in_ECX[3];
+      if (iVar26 != 0) {
+        thunk_FUN_005f1f80();
+        thunk_FUN_009ac142(iVar26,0x58);
+      }
+      local_580[3] = 0;
+      thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\terminal\\MenuConnectMgr.cpp"
+                         ,0x115);
+      ExceptionList = local_10;
+      return 0;
+    }
+    uVar11 = puVar15[1];
+    in_ECX[1] = *puVar15;
+    in_ECX[2] = uVar11;
+  }
+  *(undefined1 *)(in_ECX + 10) = 1;
+  thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\terminal\\MenuConnectMgr.cpp"
+                     ,0x11d);
+  in_ECX[0xe] = 0xffffffff;
+  pcVar25 = local_59c + 1;
+  pcVar18 = local_59c;
+  do {
+    cVar4 = *pcVar18;
+    pcVar18 = pcVar18 + 1;
+  } while (cVar4 != '\0');
+  uVar10 = 0;
+  local_594 = rand_exref;
+  local_598 = (uint)(pcVar18 + (1 - (int)pcVar25)) & 0xffff;
+  do {
+    uVar5 = (*local_594)();
+    *(undefined1 *)((int)&local_30 + uVar10) = uVar5;
+    uVar10 = uVar10 + 1;
+  } while (uVar10 < 8);
+  pcVar19 = local_58c;
+  do {
+    cVar4 = *pcVar19;
+    pcVar19 = pcVar19 + 1;
+  } while (cVar4 != '\0');
+  local_58c = (char *)thunk_FUN_005f4490(local_58c,(int)pcVar19 - (int)(local_58c + 1),&local_30,8,
+                                         local_d0,100);
+  local_5a4 = (void *)((int)local_58c + 0x26U + ((uint)(pcVar18 + (1 - (int)pcVar25)) & 0xffff) &
+                      0xffff);
+  puVar12 = (undefined2 *)thunk_FUN_009ac153(local_5a4);
+  *puVar12 = 0x8084;
+  *(undefined2 *)((int)puVar12 + 0x15) = 0;
+  local_588 = puVar12;
+  if (param_4 == '\0') {
+    uVar8 = thunk_FUN_007d2650();
+  }
+  else {
+    uVar8 = 0xbad;
+  }
+  puVar15 = local_580;
+  puVar12[5] = uVar8;
+  puVar28 = &DAT_00a0af83;
+  uVar11 = thunk_FUN_0049d090(&DAT_00a0af83);
+  thunk_FUN_00456cf0(uVar11,puVar28);
+  local_8 = 1;
+  if (*(char *)(puVar15 + 0x4e) != '\0') goto LAB_0075de52;
+  *(undefined1 *)((int)puVar15 + 0x139) = 1;
+  uStack_4cc = 0;
+  uStack_4c8 = 0;
+  uStack_4c4 = 0;
+  local_590 = (char *)0x0;
+  local_4c0 = (char *)0x0;
+  local_4bc = (char *)0xf;
+  local_4d0 = (byte *******)0x0;
+  local_8 = 2;
+  local_579 = '\0';
+  cVar4 = thunk_FUN_00458490("ini\\hash.ini");
+  if (cVar4 != '\0') {
+    thunk_FUN_00457df0(0,3);
+    cVar6 = thunk_FUN_00457cf0(&local_590,local_58);
+    pcVar25 = local_5b0;
+    local_5b0 = local_590;
+    cVar4 = local_579;
+    pppppppbVar13 = local_4d4;
+    local_4d4 = (byte *******)local_4bc;
+    while (local_590 = local_5b0, local_579 = cVar4, local_4bc = (char *)local_4d4, cVar6 != '\0') {
+      pcVar25 = local_5b0;
+      do {
+        cVar4 = *pcVar25;
+        pcVar25 = pcVar25 + 1;
+      } while (cVar4 != '\0');
+      pcVar25 = pcVar25 + -(int)(local_5b0 + 1);
+      if (local_4d4 < pcVar25) {
+        if (&DAT_7fffffff < pcVar25) {
+                    /* WARNING: Subroutine does not return */
+          thunk_FUN_0043f300();
+        }
+        local_584 = (char *)((uint)pcVar25 | 0xf);
+        if (local_584 < (char *)0x80000000) {
+          if ((char *)(0x7fffffff - ((uint)local_4d4 >> 1)) < local_4d4) {
+            local_584 = &DAT_7fffffff;
+            pppppppbVar13 = (byte *******)thunk_FUN_0043d6b0(0x80000000);
+          }
+          else {
+            if (local_584 < (char *)((int)local_4d4 + ((uint)local_4d4 >> 1))) {
+              local_584 = (char *)((int)local_4d4 + ((uint)local_4d4 >> 1));
+            }
+            pcVar18 = local_584 + 1;
+            pppppppbVar13 = (byte *******)0x0;
+            if (pcVar18 != (char *)0x0) {
+              if (pcVar18 < (char *)0x1000) {
+                pppppppbVar13 = operator_new((uint)pcVar18);
+              }
+              else {
+                pppppppbVar13 = (byte *******)thunk_FUN_0043d6b0(pcVar18);
+              }
+            }
+          }
+        }
+        else {
+          local_584 = &DAT_7fffffff;
+          pppppppbVar13 = (byte *******)thunk_FUN_0043d6b0(0x80000000);
+        }
+        local_4bc = local_584;
+        local_4c0 = pcVar25;
+        memcpy(pppppppbVar13,local_5b0,(size_t)pcVar25);
+        *(byte *)((int)pppppppbVar13 + (int)pcVar25) = 0;
+        if ((char *)0xf < local_4d4) {
+          thunk_FUN_004420d0(&local_4d0,local_4d0,local_4d4);
+        }
+        local_4d0 = pppppppbVar13;
+      }
+      else {
+        pppppppbVar13 = (byte *******)&local_4d0;
+        if ((char *)0xf < local_4d4) {
+          pppppppbVar13 = local_4d0;
+        }
+        local_4c0 = pcVar25;
+        memmove(pppppppbVar13,local_5b0,(size_t)pcVar25);
+        *(byte *)((int)pppppppbVar13 + (int)pcVar25) = 0;
+      }
+      pppppppbVar13 = (byte *******)&local_4d0;
+      if ((char *)0xf < local_4bc) {
+        pppppppbVar13 = local_4d0;
+      }
+      local_4d4 = (byte *******)((int)pppppppbVar13 + (int)local_4c0);
+      pppppppbVar24 = (byte *******)&local_4d0;
+      if ((char *)0xf < local_4bc) {
+        pppppppbVar24 = local_4d0;
+      }
+      if (pppppppbVar24 != (byte *******)((int)pppppppbVar13 + (int)local_4c0)) {
+        iVar26 = (int)pppppppbVar13 - (int)pppppppbVar24;
+        do {
+          iVar14 = tolower((int)(char)*(byte *)pppppppbVar24);
+          *(byte *)((int)pppppppbVar24 + iVar26) = (byte)iVar14;
+          pppppppbVar24 = (byte *******)((int)pppppppbVar24 + 1);
+        } while (pppppppbVar24 != local_4d4);
+      }
+      pcVar25 = "neocronclient.exe";
+      pppppppbVar13 = (byte *******)&local_4d0;
+      if ((char *)0xf < local_4bc) {
+        pppppppbVar13 = local_4d0;
+      }
+      pcVar18 = local_4c0;
+      if ((char *)0x11 < local_4c0) {
+        pcVar18 = (char *)0x11;
+      }
+      while (pcVar19 = pcVar18 + -4, &DAT_00000003 < pcVar18) {
+        if (*pppppppbVar13 != *(byte *******)pcVar25) goto LAB_0075db46;
+        pppppppbVar13 = pppppppbVar13 + 1;
+        pcVar25 = pcVar25 + 4;
+        pcVar18 = pcVar19;
+      }
+      if (pcVar19 == (char *)0xfffffffc) {
+LAB_0075db7a:
+        uVar10 = 0;
+      }
+      else {
+LAB_0075db46:
+        bVar27 = *(byte *)pppppppbVar13 < (byte)*pcVar25;
+        if ((*(byte *)pppppppbVar13 == *pcVar25) &&
+           ((pcVar19 == (char *)0xfffffffd ||
+            ((bVar27 = *(byte *)((int)pppppppbVar13 + 1) < (byte)pcVar25[1],
+             *(byte *)((int)pppppppbVar13 + 1) == pcVar25[1] &&
+             ((pcVar19 == (char *)0xfffffffe ||
+              ((bVar27 = *(byte *)((int)pppppppbVar13 + 2) < (byte)pcVar25[2],
+               *(byte *)((int)pppppppbVar13 + 2) == pcVar25[2] &&
+               ((pcVar19 == (char *)0xffffffff ||
+                (bVar27 = *(byte *)((int)pppppppbVar13 + 3) < (byte)pcVar25[3],
+                *(byte *)((int)pppppppbVar13 + 3) == pcVar25[3])))))))))))) goto LAB_0075db7a;
+        uVar10 = -(uint)bVar27 | 1;
+      }
+      if (((uVar10 == 0) && ((char *)0x10 < local_4c0)) && (local_4c0 < (char *)0x12)) {
+        cVar4 = '\x01';
+        puVar15 = local_580;
+        pcVar25 = local_5b0;
+        pppppppbVar13 = local_4d4;
+        break;
+      }
+      cVar6 = thunk_FUN_00457cf0(&local_590,local_58);
+      pcVar25 = local_5b0;
+      local_5b0 = local_590;
+      puVar15 = local_580;
+      cVar4 = local_579;
+      pppppppbVar13 = local_4d4;
+      local_4d4 = (byte *******)local_4bc;
+    }
+    local_4d4 = pppppppbVar13;
+    local_5b0 = pcVar25;
+    if ((*(char *)((int)puVar15 + 0x139) != '\0') && (cVar4 != '\0')) {
+      memset(local_2c4,0,500);
+      GetModuleFileNameA((HMODULE)0x0,local_2c4,500);
+      pcVar25 = local_2c4;
+      while (local_2c4[0] != '\0') {
+        if (local_2c4[0] == '/') {
+          *pcVar25 = '\\';
+        }
+        if ((byte)(*pcVar25 + 0xbfU) < 0x1a) {
+          *pcVar25 = *pcVar25 + ' ';
+        }
+        pcVar18 = pcVar25 + 1;
+        pcVar25 = pcVar25 + 1;
+        local_2c4[0] = *pcVar18;
+      }
+      local_6c[4] = 0;
+      local_6c[0] = 0;
+      local_6c[1] = 0;
+      local_6c[2] = 0;
+      local_6c[3] = 0;
+      cVar4 = thunk_FUN_00458050(local_2c4,local_6c);
+      if (cVar4 == '\0') {
+LAB_0075dc98:
+        *(undefined1 *)((int)puVar15 + 0x139) = 0;
+      }
+      else {
+        piVar20 = local_6c;
+        uVar10 = 0x10;
+        piVar23 = local_5c4;
+        do {
+          puVar15 = local_580;
+          if (*piVar20 != *piVar23) goto LAB_0075dc98;
+          piVar20 = piVar20 + 1;
+          piVar23 = piVar23 + 1;
+          bVar27 = 3 < uVar10;
+          uVar10 = uVar10 - 4;
+        } while (bVar27);
+      }
+    }
+    *(undefined1 *)(puVar15 + 0x4e) = 1;
+  }
+  if (*(char *)((int)puVar15 + 0x139) == '\0') {
+LAB_0075ddef:
+    local_588[5] = local_588[5] | 0x8000;
+  }
+  else {
+    local_44[4] = 0;
+    local_44[0] = 0;
+    local_44[1] = 0;
+    local_44[2] = 0;
+    local_44[3] = 0;
+    thunk_FUN_00457df0(0,0xf);
+    cVar4 = thunk_FUN_00457cf0(&local_584,local_44);
+    while (cVar4 != '\0') {
+      pcVar25 = local_584;
+      do {
+        cVar4 = *pcVar25;
+        pcVar25 = pcVar25 + 1;
+        pcVar25[(int)(local_4b8 + (-1 - (int)local_584))] = cVar4;
+      } while (cVar4 != '\0');
+      pbVar21 = local_4b8;
+      bVar7 = local_4b8[0];
+      while (bVar7 != 0) {
+        if (bVar7 == 0x2f) {
+          *pbVar21 = 0x5c;
+        }
+        if ((byte)(*pbVar21 + 0xbf) < 0x1a) {
+          *pbVar21 = *pbVar21 + 0x20;
+        }
+        pbVar22 = pbVar21 + 1;
+        pbVar21 = pbVar21 + 1;
+        bVar7 = *pbVar22;
+      }
+      iVar26 = 0;
+      pbVar21 = PTR_s_defs_weapons_def_00b0f7c0;
+      while (pbVar21 != (byte *)0x0) {
+        pbVar22 = local_4b8;
+        do {
+          bVar7 = *pbVar22;
+          bVar27 = bVar7 < *pbVar21;
+          if (bVar7 != *pbVar21) {
+LAB_0075dd76:
+            uVar10 = -(uint)bVar27 | 1;
+            goto LAB_0075dd7b;
+          }
+          if (bVar7 == 0) break;
+          bVar7 = pbVar22[1];
+          bVar27 = bVar7 < pbVar21[1];
+          if (bVar7 != pbVar21[1]) goto LAB_0075dd76;
+          pbVar22 = pbVar22 + 2;
+          pbVar21 = pbVar21 + 2;
+        } while (bVar7 != 0);
+        uVar10 = 0;
+LAB_0075dd7b:
+        if (uVar10 == 0) {
+          iVar14 = (**(code **)(**(int **)*puVar15 + 0x1c))(iVar26);
+          piVar20 = local_44;
+          uVar10 = 0x10;
+          piVar23 = (int *)(iVar14 + 8);
+          do {
+            puVar15 = local_580;
+            if (*piVar20 != *piVar23) {
+              *(undefined1 *)((int)local_580 + 0x139) = 0;
+              goto LAB_0075ddc8;
+            }
+            piVar20 = piVar20 + 1;
+            piVar23 = piVar23 + 1;
+            bVar27 = 3 < uVar10;
+            uVar10 = uVar10 - 4;
+          } while (bVar27);
+        }
+        ppuVar1 = &PTR_s_defs_items_def_00b0f7c4 + iVar26;
+        iVar26 = iVar26 + 1;
+        pbVar21 = *ppuVar1;
+      }
+LAB_0075ddc8:
+      cVar4 = thunk_FUN_00457cf0(&local_584,local_44);
+    }
+    if (*(char *)((int)puVar15 + 0x139) == '\0') goto LAB_0075ddef;
+  }
+  puVar12 = local_588;
+  local_8 = CONCAT31(local_8._1_3_,1);
+  if ((char *)0xf < local_4bc) {
+    pcVar25 = local_4bc + 1;
+    pppppppbVar13 = local_4d0;
+    if ((char *)0xfff < pcVar25) {
+      pppppppbVar13 = (byte *******)local_4d0[-1];
+      pcVar25 = local_4bc + 0x24;
+      if ((byte *)0x1f < (byte *)((int)local_4d0 + (-4 - (int)pppppppbVar13))) {
+                    /* WARNING: Subroutine does not return */
+        _invoke_watson((wchar_t *)0x0,(wchar_t *)0x0,(wchar_t *)0x0,0,0);
+      }
+    }
+    thunk_FUN_009ac142(pppppppbVar13,pcVar25);
+  }
+LAB_0075de52:
+  local_18 = 0;
+  local_28 = 0;
+  uStack_24 = 0;
+  uStack_20 = 0;
+  uStack_1c = 0;
+  thunk_FUN_00458050("ini\\hash.ini",&local_28);
+  *(undefined1 *)((int)puVar12 + 0xd) = (undefined1)local_28;
+  *(undefined1 *)(puVar12 + 7) = local_28._1_1_;
+  *(undefined1 *)((int)puVar12 + 0xf) = local_28._2_1_;
+  *(undefined1 *)(puVar12 + 8) = local_28._3_1_;
+  *(undefined1 *)((int)puVar12 + 0x11) = (undefined1)local_18;
+  *(undefined1 *)(puVar12 + 9) = local_18._1_1_;
+  *(undefined1 *)((int)puVar12 + 0x13) = local_18._2_1_;
+  *(undefined1 *)(puVar12 + 10) = local_18._3_1_;
+  uVar5 = thunk_FUN_0075eb10();
+  *(undefined1 *)(puVar12 + 6) = uVar5;
+  *(short *)((int)puVar12 + 0x21) = (short)local_598;
+  *(short *)((int)puVar12 + 0x23) = (short)local_58c;
+  *(undefined4 *)(puVar12 + 3) = local_2c;
+  *(undefined4 *)(puVar12 + 1) = local_30;
+  cVar4 = thunk_FUN_00458400();
+  pcVar2 = local_594;
+  if ((cVar4 != '\0') || (param_5 != '\0')) {
+    sVar9 = (*local_594)();
+    *(short *)((int)puVar12 + 0x15) = sVar9;
+    while (sVar9 == 0) {
+      sVar9 = (*pcVar2)();
+      *(short *)((int)puVar12 + 0x15) = sVar9;
+    }
+  }
+  uVar10 = local_598 & 0xffff;
+  memcpy((void *)((int)puVar12 + 0x25),local_59c,uVar10 - 1);
+  *(undefined1 *)(uVar10 + 0x24 + (int)puVar12) = 0;
+  memcpy((void *)(uVar10 + 0x25 + (int)puVar12),local_d0,(size_t)local_58c);
+  puVar15 = local_580;
+  thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\terminal\\MenuConnectMgr.cpp"
+                     ,0x1f6);
+  uVar11 = local_5ac;
+  puVar12 = local_5a8;
+  if (puVar15[3] != 0) {
+    puVar15 = (undefined4 *)thunk_FUN_005f2f30(local_4d8);
+    uVar11 = *puVar15;
+    puVar12 = (undefined2 *)puVar15[1];
+  }
+  thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\terminal\\MenuConnectMgr.cpp"
+                     ,0x1fa);
+  puVar3 = local_588;
+  *(undefined4 *)((int)local_588 + 0x19) = uVar11;
+  *(undefined2 **)((int)local_588 + 0x1d) = puVar12;
+  bVar7 = (*local_594)();
+  puVar15 = local_580;
+  *(byte *)((int)puVar3 + 0x19) = *(byte *)((int)puVar3 + 0x19) ^ bVar7;
+  *(byte *)(puVar3 + 0xd) = *(byte *)(puVar3 + 0xd) ^ bVar7;
+  *(byte *)((int)puVar3 + 0x1b) = *(byte *)((int)puVar3 + 0x1b) ^ bVar7;
+  *(byte *)(puVar3 + 0xe) = *(byte *)(puVar3 + 0xe) ^ bVar7;
+  *(byte *)((int)puVar3 + 0x1d) = *(byte *)((int)puVar3 + 0x1d) ^ bVar7;
+  *(byte *)(puVar3 + 0xf) = *(byte *)(puVar3 + 0xf) ^ bVar7;
+  *(byte *)((int)puVar3 + 0x1f) = *(byte *)((int)puVar3 + 0x1f) ^ bVar7;
+  *(byte *)(puVar3 + 0x10) = *(byte *)(puVar3 + 0x10) ^ bVar7;
+  *(ushort *)((int)puVar3 + 0x17) = (ushort)bVar7 << 4;
+  local_5a8 = puVar3;
+  local_5ac = CONCAT22(local_5ac._2_2_,(short)local_5a4);
+  thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\terminal\\MenuConnectMgr.cpp"
+                     ,0x20c);
+  if ((int *)puVar15[3] != (int *)0x0) {
+    (**(code **)(*(int *)puVar15[3] + 0xc))(*local_5a0,local_5a0[1],&local_5ac,0);
+  }
+  thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\terminal\\MenuConnectMgr.cpp"
+                     ,0x20f);
+  free(local_588);
+  DVar16 = timeGetTime();
+  *(undefined1 *)(local_580 + 0xd) = 0;
+  DVar17 = timeGetTime();
+  uVar10 = DVar17 - DVar16;
+  while (((uVar10 < 30000 && (*(char *)((int)local_580 + 0x29) == '\0')) &&
+         (*(char *)(local_580 + 0xd) == '\0'))) {
+    thunk_FUN_0075eeb0();
+    Sleep(0);
+    DVar17 = timeGetTime();
+    uVar10 = DVar17 - DVar16;
+  }
+  if (*(char *)((int)local_580 + 0x29) == '\0') {
+    if (*(char *)(local_580 + 0xd) == '\0') {
+      local_580[0x1b] = "Connection failed, connected but auth timed out";
+    }
+    local_579 = 0;
+  }
+  else {
+    local_579 = 1;
+  }
+  thunk_FUN_004573d0();
+  ExceptionList = local_10;
+  return local_579;
+}
+
+
+
