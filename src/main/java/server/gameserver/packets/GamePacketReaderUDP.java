@@ -40,6 +40,28 @@ public final class GamePacketReaderUDP {
 						"UDP sub-packet size=" + datasize
 						+ " type=0x" + String.format("%02x", t0)
 						+ (t0 == 0x03 ? " sub=0x" + String.format("%02x", t1) : ""));
+					// Diagnostic: dump the full bytes of 0x03->0x07
+					// multipart fragments coming FROM the client. Retail
+					// never sends these C→S, so receiving them means our
+					// session is in a state retail never enters — knowing
+					// the content is required to figure out why.
+					if (t0 == 0x03 && t1 == 0x07) {
+						StringBuilder hex = new StringBuilder();
+						for (byte b : subPacket) hex.append(String.format("%02x", b));
+						server.tools.Out.writeln(server.tools.Out.Info,
+							"CLIENT_MULTIPART_FRAG (" + subPacket.length + "B): " + hex);
+					}
+					// Also dump 0x03->0x1f GamePackets (inner opcodes we
+					// don't know yet) and 0x03->0x24-like ready triggers
+					// so we can correlate size patterns.
+					if (t0 == 0x03 && t1 == 0x1f) {
+						StringBuilder hex = new StringBuilder();
+						int n = Math.min(32, subPacket.length);
+						for (int k = 0; k < n; k++) hex.append(String.format("%02x", subPacket[k]));
+						if (subPacket.length > n) hex.append("...");
+						server.tools.Out.writeln(server.tools.Out.Info,
+							"CLIENT_GAMEPKT (" + subPacket.length + "B): " + hex);
+					}
 				}
 				server.interfaces.GameServerEvent ev = decodesub13(subPacket);
 				if (ev != null) {

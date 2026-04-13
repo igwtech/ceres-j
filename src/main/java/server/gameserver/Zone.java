@@ -16,7 +16,26 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 	
 	public Zone(int id, String loc){
 		zoneId = id;
-		location = new String(loc);		
+		location = new String(loc);
+		// Register a "phantom NPC" at id 0xAB so the raw 0x1b
+		// object-position heartbeat has a lookup target: the modern
+		// client's world-alive watchdog expects broadcasts → client
+		// fires RequestWorldInfo for each advertised id → server
+		// replies with WorldNPCInfo. If getNPC(0xAB) returns null we
+		// silently drop the query and the client retries until
+		// timeout. See ObjectPositionBroadcast.java.
+		synchronized (NPCList) {
+			// Args: (x, y, z, hp, armor, type, ID). Position mirrors
+			// ObjectPositionBroadcast (30000, 0, 30000). The id must
+			// match the low+high bytes written at offsets 1 and 2 of
+			// the raw 0x1b broadcast: 0x1AB (low=0xAB, high=0x01).
+			// Client reads both bytes, so a single-byte id like 0xAB
+			// gets queried as 0x01AB (the high byte at offset 2 is
+			// not a "class marker constant" as we first thought — it's
+			// the id's high byte, always 0x01 in retail because retail
+			// NPC ids live in 0x101..0x1FF).
+			NPCList.put(0x01AB, new NPC(30000, 0, 30000, 100, 0, 1, 0x01AB));
+		}
 	}
 	
 	public void loadZone(){ //TODO: access DB

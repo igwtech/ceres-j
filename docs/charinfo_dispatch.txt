@@ -1,0 +1,151 @@
+# Callers of FUN_0055c270 and the target itself.
+# 1 callers found.
+
+============================================
+TARGET FUNCTION FUN_FUN_0055c270 @ 0055c270
+============================================
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+void FUN_0055c270(uint *param_1)
+
+{
+  int iVar1;
+  uint uVar2;
+  int in_ECX;
+  undefined4 uVar3;
+  undefined4 local_14;
+  int iStack_10;
+  undefined4 local_c;
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  if (*param_1 < 3) {
+    return;
+  }
+  iVar1 = *(int *)(in_ECX + 0x2c8);
+  while (iVar1 == 0) {
+    Sleep(10);
+    iVar1 = *(int *)(in_ECX + 0x2c8);
+  }
+  uVar2 = param_1[1];
+  if (*(char *)(uVar2 + 1) == '\x01') {
+    thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\WorldClient.cpp"
+                       ,0x84e);
+    OutputDebugStringA("CharInfo received\n");
+    if ((*(byte *)(in_ECX + 0x2ae) & 1) == 0) {
+      if ((*(char *)(in_ECX + 0x149) == '\x01') || (*(char *)(in_ECX + 0x149) == '\x03')) {
+        (**(code **)(**(int **)(in_ECX + 0x10c) + 8))(0x98,0xc,&local_14);
+        *(ulonglong *)(uVar2 + 7) = CONCAT44(iStack_10,local_14);
+        *(undefined4 *)(uVar2 + 0xf) = local_c;
+      }
+      *(byte *)(in_ECX + 0x2ae) = *(byte *)(in_ECX + 0x2ae) | 1;
+      (**(code **)(**(int **)(in_ECX + 0x10c) + 8))(0xa7,0x45,uVar2 + 3);
+    }
+    if (0x42 < *param_1) {
+      local_c = CONCAT22(local_c._2_2_,(short)*param_1 + -0x48);
+      iStack_10 = param_1[1] + 0x48;
+      (**(code **)(**(int **)(in_ECX + 0x10c) + 8))(0x13ef,8,&iStack_10);
+    }
+    *(undefined1 *)(in_ECX + 0x191) = 1;
+    thunk_FUN_0055ce20(*(undefined1 *)(in_ECX + 0x2e6),*(undefined1 *)(in_ECX + 0x2e7));
+    uVar3 = 0x86e;
+  }
+  else {
+    if (*(char *)(uVar2 + 1) != '\x02') {
+      return;
+    }
+    OutputDebugStringA("CharsysInfo received\n");
+    (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+              (*(int **)(in_ECX + 0x48),"WORLDCLIENT : Char sys info rcv %i",*param_1);
+    if (*(int *)(in_ECX + 0x10c) == 0) {
+      return;
+    }
+    thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\WorldClient.cpp"
+                       ,0x879);
+    *(byte *)(in_ECX + 0x2ae) = *(byte *)(in_ECX + 0x2ae) | 2;
+    (**(code **)(**(int **)(in_ECX + 0x10c) + 8))(0xa8,*param_1,uVar2);
+    thunk_FUN_0055ce20(*(undefined1 *)(in_ECX + 0x2e6),*(undefined1 *)(in_ECX + 0x2e7));
+    uVar3 = 0x880;
+  }
+  thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\WorldClient.cpp"
+                     ,uVar3);
+  return;
+}
+
+
+
+============================================
+CALLER thunk_FUN_0055c270 @ 00402b21
+============================================
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+void thunk_FUN_0055c270(uint *param_1)
+
+{
+  int iVar1;
+  uint uVar2;
+  int in_ECX;
+  undefined4 uVar3;
+  undefined4 uStack_14;
+  int iStack_10;
+  undefined4 uStack_c;
+  uint uStack_8;
+  
+  uStack_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  if (*param_1 < 3) {
+    return;
+  }
+  iVar1 = *(int *)(in_ECX + 0x2c8);
+  while (iVar1 == 0) {
+    Sleep(10);
+    iVar1 = *(int *)(in_ECX + 0x2c8);
+  }
+  uVar2 = param_1[1];
+  if (*(char *)(uVar2 + 1) == '\x01') {
+    thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\WorldClient.cpp"
+                       ,0x84e);
+    OutputDebugStringA("CharInfo received\n");
+    if ((*(byte *)(in_ECX + 0x2ae) & 1) == 0) {
+      if ((*(char *)(in_ECX + 0x149) == '\x01') || (*(char *)(in_ECX + 0x149) == '\x03')) {
+        (**(code **)(**(int **)(in_ECX + 0x10c) + 8))(0x98,0xc,&uStack_14);
+        *(ulonglong *)(uVar2 + 7) = CONCAT44(iStack_10,uStack_14);
+        *(undefined4 *)(uVar2 + 0xf) = uStack_c;
+      }
+      *(byte *)(in_ECX + 0x2ae) = *(byte *)(in_ECX + 0x2ae) | 1;
+      (**(code **)(**(int **)(in_ECX + 0x10c) + 8))(0xa7,0x45,uVar2 + 3);
+    }
+    if (0x42 < *param_1) {
+      uStack_c = CONCAT22(uStack_c._2_2_,(short)*param_1 + -0x48);
+      iStack_10 = param_1[1] + 0x48;
+      (**(code **)(**(int **)(in_ECX + 0x10c) + 8))(0x13ef,8,&iStack_10);
+    }
+    *(undefined1 *)(in_ECX + 0x191) = 1;
+    thunk_FUN_0055ce20(*(undefined1 *)(in_ECX + 0x2e6),*(undefined1 *)(in_ECX + 0x2e7));
+    uVar3 = 0x86e;
+  }
+  else {
+    if (*(char *)(uVar2 + 1) != '\x02') {
+      return;
+    }
+    OutputDebugStringA("CharsysInfo received\n");
+    (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+              (*(int **)(in_ECX + 0x48),"WORLDCLIENT : Char sys info rcv %i",*param_1);
+    if (*(int *)(in_ECX + 0x10c) == 0) {
+      return;
+    }
+    thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\WorldClient.cpp"
+                       ,0x879);
+    *(byte *)(in_ECX + 0x2ae) = *(byte *)(in_ECX + 0x2ae) | 2;
+    (**(code **)(**(int **)(in_ECX + 0x10c) + 8))(0xa8,*param_1,uVar2);
+    thunk_FUN_0055ce20(*(undefined1 *)(in_ECX + 0x2e6),*(undefined1 *)(in_ECX + 0x2e7));
+    uVar3 = 0x880;
+  }
+  thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\WorldClient.cpp"
+                     ,uVar3);
+  return;
+}
+
+
+

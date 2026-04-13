@@ -44,6 +44,15 @@ public class Player extends Thread {
 	// the second Answer2 skip re-scheduling WorldEntryEvent while still
 	// allowing a zone-handoff reconnect (seconds later) to re-run it.
 	private long lastWorldEntryAt = 0L;
+	// Last time we echoed an authoritative PlayerPositionUpdate back to this
+	// player in response to a client Movement packet. The modern NCE 2.5
+	// client runs local dead-reckoning and expects periodic server-side
+	// position confirmation; without it the prediction window expires after
+	// ~10-15 s and the "SYNCHRONIZING INTO CITY ZONE" overlay re-appears.
+	// Throttled to one echo per 500 ms to approximately match retail's
+	// ~20-25 reliable 0x03->0x1b packets per session (seen across all 4
+	// captures) rather than echoing every 60 ms movement packet.
+	private long lastPositionEchoAt = 0L;
 	// Per-session UDP listener: each login reserves its own server port,
 	// matching NC2 retail's session-per-port design. Null if the player
 	// falls back to the shared ListenerUDP (pool exhausted, bind failure).
@@ -272,6 +281,14 @@ public class Player extends Thread {
 
 	public void setLastWorldEntryAt(long at) {
 		this.lastWorldEntryAt = at;
+	}
+
+	public long getLastPositionEchoAt() {
+		return lastPositionEchoAt;
+	}
+
+	public void setLastPositionEchoAt(long at) {
+		this.lastPositionEchoAt = at;
 	}
 
 	public PlayerUdpListener getUdpListener() {

@@ -68,5 +68,17 @@ public class Movement extends GamePacketDecoderUDP {
 			// ?? :(
 		}
 		pl.getZone().sendPlayerMovement(pl);
+
+		// Previously attempted: echo a reliable 0x03->0x1b PlayerPositionUpdate
+		// back to the moving player every 500 ms. That REGRESSED movement
+		// (rubberbanding): the reliable position update overrides the
+		// client's local prediction, so the client got snapped back each
+		// tick and the gameplay loop starved (0x1f events 448 -> 9).
+		// Retail's 20-25 reliable 0x03->0x1b per session turn out to be
+		// a one-shot burst during zone population, not periodic echoes.
+		// Leaving the logic off here; the real fix for the 10-15 s
+		// "re-sync" is more likely a different packet type (raw 0x1b
+		// unreliable broadcast, or a session-alive marker), not a
+		// reliable self-echo.
 	}
 }
