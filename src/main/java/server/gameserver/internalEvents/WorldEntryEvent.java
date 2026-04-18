@@ -7,6 +7,10 @@ import server.gameserver.packets.server_udp.CharInfo;
 import server.gameserver.packets.server_udp.CharInfoV1;
 import server.gameserver.packets.server_udp.ChatList;
 import server.gameserver.packets.server_udp.InfoResponse;
+import server.gameserver.packets.server_udp.InitInfoResponse02;
+import server.gameserver.packets.server_udp.InitSoullight02;
+import server.gameserver.packets.server_udp.InitUpdateModel02;
+import server.gameserver.packets.server_udp.InitWeather02;
 import server.gameserver.packets.server_udp.LongPlayerInfo;
 import server.gameserver.packets.server_udp.PlayerPositionUpdate;
 import server.gameserver.packets.server_udp.PositionUpdate;
@@ -70,14 +74,30 @@ public class WorldEntryEvent extends DummyEvent {
         safeSend(pl, () -> new UDPAlive(pl), "UDPAlive (pre-stream)");
 
         // ── Phase 1: CharInfo multipart (retail sends this first) ────
-        // CharInfoV1 (0x22 0x01) sets sync bit 0.
-        safeSend(pl, () -> new CharInfoV1(pl), "CharInfoV1 (sync bit 0)");
+        // Retail sends ONE multipart stream: 0x22 0x02 0x01 (CharsysInfo)
+        // with per-fragment header discriminator=0x01. FUN_0055c270
+        // reads the discriminator to set bit 0 (CharInfo received) and
+        // the payload byte[1]=0x02 to set bit 1 (CharsysInfo received).
+        //
+        // REMOVED: CharInfoV1 as a separate multipart. Sending two
+        // multipart objects with the same chain_key=0x00 corrupts the
+        // reassembly — the client sees total_size=72 from CharInfoV1's
+        // header and truncates the CharInfo data that follows. Retail
+        // never sends a separate 0x22 0x01 payload.
+        safeSend(pl, () -> new CharInfo(pl), "CharInfo / CharsysInfo (bits 0+1)");
 
-        // CharInfo / CharsysInfo (0x22 0x02 0x01) sets sync bit 1.
-        // Fragmented via 0x13 → 0x03 → 0x07 multi-part wrapper.
-        safeSend(pl, () -> new CharInfo(pl), "CharInfo / CharsysInfo (sync bit 1)");
+        // ── Phase 2: 0x02 wrapper initialization packets ────────────
+        // Retail sends these via the 0x02 "simplified reliable" wrapper
+        // right after CharInfo multipart. They carry initialization
+        // data the client needs: session flags, weather/time of day,
+        // player model, and Soullight value. Without them the client
+        // may not fully initialize its core data structures.
+        safeSend(pl, () -> new InitInfoResponse02(pl), "0x02 InfoResponse (session flags)");
+        safeSend(pl, () -> new InitWeather02(pl), "0x02 Weather (time of day)");
+        safeSend(pl, () -> new InitUpdateModel02(pl), "0x02 UpdateModel (appearance)");
+        safeSend(pl, () -> new InitSoullight02(pl), "0x02 Soullight (soul energy=100.0)");
 
-        // ── Phase 2: InfoResponse + TimeSync (retail pkt #11) ────────
+        // ── Phase 3: InfoResponse + TimeSync (retail pkt #11) ────────
         // InfoResponse zone variant (0x03→0x23): 20 00 10 00 00 00
         // Observed in retail right after CharInfo multipart completes.
         safeSend(pl, () -> InfoResponse.zoneInfo(pl), "InfoResponse (zone info)");
@@ -136,17 +156,16 @@ public class WorldEntryEvent extends DummyEvent {
         // the initial burst. See docs/retail_burst_analysis.md §5.
         pl.addEvent(new TimeSyncHeartbeatEvent());
 
-        // ── Zone-state broadcast: DISABLED ──
-        // Compound packet (ZoneStateHeartbeat) has a framing bug where
-        // newSubPacket() misaligns sub-packet bytes (0x1b→0x00,
-        // 0x2d→0x0c). Separate heartbeats flooded at 12 Hz. Both
-        // approaches failed to keep the client alive past ~25 s.
-        //
-        // The real blocker is likely incomplete CharInfo data — retail
-        // sends 4280 B of character state vs our 1004 B. The client
-        // may require full stats/equipment/quickbelt data to consider
-        // the session initialized. Pursuing that path next.
-        //   pl.addEvent(new ZoneStateHeartbeat());
+        // ── Start the compound zone-state broadcast ──
+        // A single heartbeat at 2 Hz that packs raw 0x1b + reliable
+        // 0x03→0x2d NPCData + reliable 0x03→0x28 WorldInfo into one
+        // 0x13 datagram per tick. The framing IS correct (verified by
+        // CompoundSubPacketTest + manual hex decode of the strace).
+        // Earlier analysis showed these as "0x00 raw" due to a bug in
+        // parse-burst.py's auto-detect (0x1b wasn't in the known-type
+        // whitelist, causing fallback to 1-byte length parsing).
+        // Now re-enabled with confidence. Round-robins zone NPCs.
+        pl.addEvent(new ZoneStateHeartbeat());
 
         // Mark the player as waiting for a UDP zone-handoff handshake.
         // Once the client finishes loading the zone descriptor it closes

@@ -65,36 +65,47 @@ public class HandshakeUDP extends GamePacketDecoderUDP {
         }
 
         public void execute(Player pl) {
-            // Cooldown guard: the 3 HandshakeUDPAnswer events and the
-            // Answer2 they schedule can interleave in the event queue such
-            // that a 4th HandshakeUDPAnswer sees handshakingState=false
-            // (just reset by a prior Answer2) and schedules a duplicate
-            // Answer2 milliseconds later. Without this we'd dispatch
-            // WorldEntryEvent twice back-to-back. The zone-handoff
-            // reconnect case, however, legitimately re-runs
-            // HandshakeUDPAnswer2 several seconds later and DOES need a
-            // fresh WorldEntryEvent (on the same connection, counters
-            // preserved via rebindClient). A 500 ms cooldown distinguishes
-            // the two cases cleanly.
+            // Guard: WorldEntryEvent must fire EXACTLY ONCE per session.
+            // Re-sending CharInfo multipart resets the client's state
+            // machine from state 4 (in-world) back to state 1→2
+            // (joining), triggering a 15-second "Connecting to
+            // worldserver failed" timeout in FUN_0055bdc0 case 2.
+            //
+            // The NC2 client performs a zone-handoff ~10 s after the
+            // initial login: it closes its UDP socket and opens a new
+            // one from a different port, which produces a second
+            // HandshakeUDP sequence. We must NOT re-stream world state
+            // on this reconnect — just ack the handshake.
             long now = Timer.getRealtime();
             if (now - pl.getLastWorldEntryAt() < 500) {
+                // Duplicate within 500 ms — interleaved handshake events
                 pl.getUdpConnection().setHandshakingState(false);
                 return;
             }
+
+            boolean firstEntry = !pl.isloggedin();
             pl.setLastWorldEntryAt(now);
             pl.getUdpConnection().setHandshakingState(false);
             pl.setloggedin();
-            Out.writeln(Out.Info, "HandshakeUDPAnswer2: player logged in, scheduling world entry");
 
-            // Ack the final handshake first so the client stops retransmitting.
+            // Ack the handshake so the client stops retransmitting.
             try {
                 pl.send(new UDPAlive(pl));
             } catch (Exception e) {
-                Out.writeln(Out.Error, "UDPAlive (final handshake ack) failed: " + e.getMessage());
+                Out.writeln(Out.Error, "UDPAlive (handshake ack) failed: " + e.getMessage());
             }
 
-            // Stream the full world-entry burst shortly after.
-            pl.addEvent(new WorldEntryEvent());
+            if (firstEntry) {
+                Out.writeln(Out.Info, "HandshakeUDPAnswer2: first login, scheduling world entry");
+                pl.addEvent(new WorldEntryEvent());
+            } else {
+                // Zone-handoff reconnect: the client is already in
+                // state 4 (in-world). Re-sending CharInfo multipart
+                // would reset its state machine to 1→2 (joining) and
+                // trigger a 15s timeout. Retail doesn't have zone-
+                // handoff at all. Just ack — session is established.
+                Out.writeln(Out.Info, "HandshakeUDPAnswer2: zone-handoff reconnect, skipping WorldEntryEvent");
+            }
         }
     }
 }

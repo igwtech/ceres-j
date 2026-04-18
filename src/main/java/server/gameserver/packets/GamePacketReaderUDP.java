@@ -63,6 +63,22 @@ public final class GamePacketReaderUDP {
 							"CLIENT_GAMEPKT (" + subPacket.length + "B): " + hex);
 					}
 				}
+				// ACK every reliable (0x03) sub-packet the client sends.
+				// The client's reliable delivery layer tracks unACKed
+				// reliables and aborts after ~15 s if none are ACKed.
+				// Confirmed by strace: client sends 153 unACKed 0x3d
+				// GamePackets (retail: 27) then 0x08 ABORT exactly
+				// 15 s after last activity. ACK format: a 0x13 datagram
+				// with one [0x01][seq_lo][seq_hi] sub-packet.
+				if (subPacket.length >= 3 && (subPacket[0] & 0xFF) == 0x03) {
+					int ackSeq = (subPacket[1] & 0xFF) | ((subPacket[2] & 0xFF) << 8);
+					server.networktools.PacketBuilderUDP13 ack =
+						new server.networktools.PacketBuilderUDP13(pl);
+					ack.write(0x01);
+					ack.write(ackSeq & 0xFF);
+					ack.write((ackSeq >> 8) & 0xFF);
+					pl.send(ack);
+				}
 				server.interfaces.GameServerEvent ev = decodesub13(subPacket);
 				if (ev != null) {
 					pl.addEvent(ev);
@@ -92,7 +108,7 @@ public final class GamePacketReaderUDP {
 		UnknownClientUDPPacket pd = new UnknownClientUDPPacket(subPacket);
 		switch (pd.read()) {
 		case 0x03:
-			pd.skip(2); // TODO we should check this counter
+			pd.skip(2); // sequence counter (ACKed in readPacket)
 			switch (pd.read()) {
 			case 0x01:
 				//resend packets
@@ -160,11 +176,15 @@ public final class GamePacketReaderUDP {
 					return pd;
 				}
 			case 0x24:
-				// "Ready for world state" — client has processed the
-				// initial burst and is asking the server to populate the
-				// zone. Response: zone-population burst (see
-				// ReadyForWorldState for the retail-matched content).
-				return new ReadyForWorldState(subPacket);
+				// Client's "ready for world state" trigger. Previously
+				// responded with a full zone-population re-burst
+				// (ReadyForWorldState) but that re-sends InfoResponse +
+				// ChatList + TimeSync + PlayerInfo which appears to
+				// push the client's state machine back to state 1→2
+				// (joining session), triggering a 15 s timeout. The
+				// WorldEntryEvent initial burst already sends everything
+				// the client needs. Treat this as a no-op.
+				return null;
 			case 0x27:
 				return new RequestInfoAboutWordlID(subPacket);
 			case 0x31:

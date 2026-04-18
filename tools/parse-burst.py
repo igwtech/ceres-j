@@ -125,7 +125,9 @@ def parse_gamedata(plain, len_bytes=None):
             if (pos + 2 + test_len <= len(plain) and test_len > 0
                     and test_len < len(plain)
                     and pos + 2 + test_len >= pos + 3
-                    and plain[pos+2] in (0x03, 0x0b, 0x0c, 0x20, 0x2a)):
+                    and plain[pos+2] in (0x00, 0x01, 0x02, 0x03, 0x06, 0x09,
+                                        0x0b, 0x0c, 0x13, 0x1b, 0x1f, 0x20,
+                                        0x22, 0x2a, 0x32, 0x3a, 0x3f, 0x96)):
                 len_bytes = 2
             else:
                 len_bytes = 1
