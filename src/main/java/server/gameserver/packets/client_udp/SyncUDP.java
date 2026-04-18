@@ -36,13 +36,27 @@ public class SyncUDP extends GamePacketDecoderUDP {
 
     @Override
     public void execute(Player pl) {
-        // Intentionally a no-op at the wire level. The client does NOT wait
-        // for a reply to a 0x03 sync packet; replying triggers a feedback
-        // storm and re-delivers ZoningEnd, trapping the client on the
-        // "SYNCHRONIZING INTO CITY ZONE" overlay.
+        if (pl == null || pl.getUdpConnection() == null) return;
+
+        // The bare 0x03 sync packet serves TWO purposes:
         //
-        // TODO: parse the ACKed sequence counter out of the payload and
-        // advance GameServerUDPConnection's reliable-sent window so we stop
-        // retransmitting confirmed packets.
+        // 1. ACK for a server-side reliable (just a counter echo — no
+        //    reply needed).
+        //
+        // 2. "Sync req send" from the client's state 3/6 in
+        //    FUN_0055bdc0: the client is waiting for a 0x03→0x0d
+        //    TimeSync reply to advance to state 4 (in-world).
+        //    Without this reply the client retries every 8 seconds
+        //    and aborts after 5 attempts (~25 s) with
+        //    "Synchronization with worldserver failed."
+        //
+        // We can't distinguish (1) from (2) at the wire level, so
+        // we reply with TimeSync to every sync. The TimeSync reply is
+        // a single reliable 0x03→0x0d packet — much cheaper than the
+        // old zone re-broadcast that caused the feedback storm. The
+        // client processes it idempotently: if already in state 4 the
+        // TimeSync is just a time correction, not a state transition.
+
+        pl.send(new server.gameserver.packets.server_udp.TimeSync(pl, 0));
     }
 }

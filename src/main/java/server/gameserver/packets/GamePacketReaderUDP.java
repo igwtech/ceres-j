@@ -98,6 +98,19 @@ public final class GamePacketReaderUDP {
 				//resend packets
 				// TODO implement this
 				return null;
+			case 0x0d:
+				// Client sync request: 0x03→0x0d TimeSync. The client
+				// sends this from state 3/6 every 8 seconds and expects
+				// a 0x03→0x0d TimeSync reply. After 5 failed retries
+				// (no reply) the client aborts with "Synchronisation to
+				// WorldServer failed." Responding with TimeSync
+				// advances the state machine from state 3/6 to state 4
+				// (in-world). See FUN_0055b6f0 case 3 in the Ghidra
+				// decompile (docs/state_string_refs.txt:575-605).
+				//
+				// Inner payload after 0x0d: 4-byte client time (LE).
+				// pd has already consumed 0x03 + 2-byte seq + 0x0d.
+				return new ReliableTimeSyncRequest(subPacket);
 			case 0x1f:
 				pd.skip(2);
 				switch (pd.read()) {
