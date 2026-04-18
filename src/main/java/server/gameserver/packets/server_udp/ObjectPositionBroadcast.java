@@ -1,6 +1,6 @@
 package server.gameserver.packets.server_udp;
 
-import server.database.playerCharacters.PlayerCharacter;
+import server.gameserver.NPC;
 import server.gameserver.Player;
 import server.networktools.PacketBuilderUDP13;
 
@@ -44,60 +44,45 @@ import server.networktools.PacketBuilderUDP13;
 public class ObjectPositionBroadcast extends PacketBuilderUDP13 {
 
     /**
-     * Fixed object id for a phantom NPC standing still far from the
-     * player's spawn. Using a CONSTANT id instead of a rotating one
-     * because the first attempt used {@code counter ^ 0xF0} which
-     * generated ~50 unique "objects" per session — the client queried
-     * 13 of them with RequestWorldInfo and gave up when we had no
-     * WorldInfo reply to send. Retail sessions use ~19 stable object
-     * ids, each broadcast ~8 times. One consistent phantom is simpler
-     * and avoids spurious RequestWorldInfo pressure we can't satisfy.
+     * Build a raw 0x1b position broadcast for a specific NPC.
+     *
+     * <p>Retail sends 122 of these per session (7.7 Hz in ACC1_CHAR1).
+     * Each one carries the position of a zone-resident object (NPC or
+     * item). The NPC's {@code mapID} is split into low (offset 1) and
+     * high (offset 2) bytes — the client reconstructs the 16-bit id
+     * from both bytes.
+     *
+     * @param pl  the player receiving the broadcast
+     * @param npc the NPC whose position to broadcast
      */
-    private static final int PHANTOM_ID = 0xAB;
-
-    /**
-     * Fixed world position for the phantom, chosen far from player
-     * spawn so the client can never interpret it as a collider near the
-     * player. First broadcast-attempt used player's own coordinates,
-     * which halved the movement-packet rate (148 -> 32) — broadcasting
-     * a phantom at the player's location confuses the client's local
-     * movement / collision code.
-     */
-    private static final int PHANTOM_Y = 30000;
-    private static final int PHANTOM_Z = 0;
-    private static final int PHANTOM_X = 30000;
-
-    public ObjectPositionBroadcast(Player pl) {
+    public ObjectPositionBroadcast(Player pl, NPC npc) {
         super(pl);
 
+        int id = npc.getMapID();
+
         write(0x1b);                                  // [0] type
-        write(PHANTOM_ID);                            // [1] stable object id
-        write(0x01);                                  // [2] class marker
+        write(id & 0xFF);                             // [1] object id low byte
+        write((id >> 8) & 0xFF);                      // [2] object id high byte
         write(0x00);                                  // [3]
         write(0x00);                                  // [4]
         write(0x1f);                                  // [5] inner opcode
 
-        writeShort((PHANTOM_Y + 32000) & 0xFFFF);     // [6-7] Y
-        writeShort((PHANTOM_Z + 32000) & 0xFFFF);     // [8-9] Z
-        writeShort((PHANTOM_X + 32000) & 0xFFFF);     // [10-11] X
+        int y = (npc.getYpos() + 32000) & 0xFFFF;
+        int z = (npc.getZpos() + 32000) & 0xFFFF;
+        int x = (npc.getXpos() + 32000) & 0xFFFF;
 
-        write(0x40);                                  // [12] orient (dominant in retail)
+        writeShort(y);                                // [6-7] Y
+        writeShort(z);                                // [8-9] Z
+        writeShort(x);                                // [10-11] X
+
+        int angle = npc.getAngle() & 0xFF;
+        write(angle == 0 ? 0x40 : angle);             // [12] orient
 
         write(0x00);                                  // [13] status lo
         write(0x00);                                  // [14] status hi
         write(0x00);                                  // [15]
         write(0x00);                                  // [16]
-
-        // Trailer: 0x11 0x11 observed in 50/122 (41%) retail samples;
-        // 0x11 0x0f in another 48 (39%). Content is almost certainly a
-        // session-local marker — we pick the most common.
-        write(0x11);                                  // [17]
-        write(0x11);                                  // [18]
-
-        // Suppress "pc unused" warning — kept as a parameter above so
-        // a future revision can pull player / character state back in
-        // once the watchdog behavior is fully characterized.
-        @SuppressWarnings("unused")
-        PlayerCharacter pc = pl.getCharacter();
+        write(0x11);                                  // [17] trailer
+        write(0x11);                                  // [18] trailer
     }
 }

@@ -246,6 +246,48 @@ public final class SqliteDatabase {
                 "  stats_json TEXT" +
                 ")"
             );
+
+            // NPC spawn definitions — where NPCs appear in each zone.
+            // Schema mirrors TinNS npc_spawns. mapID must be in the
+            // retail convention range 0x101–0x1FF (257–511) so clients
+            // can reference them in RequestWorldInfo queries and the
+            // raw 0x1b position broadcasts look legitimate.
+            stmt.execute(
+                "CREATE TABLE IF NOT EXISTS npc_spawns (" +
+                "  id INTEGER PRIMARY KEY," +
+                "  zone_id INTEGER NOT NULL," +
+                "  type INTEGER NOT NULL," +
+                "  name TEXT DEFAULT ''," +
+                "  x INTEGER DEFAULT 0," +
+                "  y INTEGER DEFAULT 0," +
+                "  z INTEGER DEFAULT 0," +
+                "  angle INTEGER DEFAULT 0," +
+                "  hp INTEGER DEFAULT 100," +
+                "  armor INTEGER DEFAULT 0" +
+                ")"
+            );
+
+            // Seed default plaza_p1 (zone 1) NPCs if the table is empty.
+            // These are decorative NPCs at positions derived from the
+            // retail ACC1_CHAR1 capture's 0x1b position broadcast data.
+            // IDs 257–270 (0x101–0x10E) match the retail convention.
+            java.sql.ResultSet rs = stmt.executeQuery(
+                "SELECT COUNT(*) FROM npc_spawns");
+            rs.next();
+            if (rs.getInt(1) == 0) {
+                stmt.execute(
+                    "INSERT INTO npc_spawns (id, zone_id, type, name, x, y, z, angle, hp, armor) VALUES " +
+                    "(257, 1, 33900, 'CityMercs Guard', 32186, 31551, 32827, 64, 500, 50)," +
+                    "(258, 1, 33900, 'CityMercs Guard', 32301, 31488, 32835, 64, 500, 50)," +
+                    "(259, 1, 33900, 'CityMercs Guard', 31768, 31523, 32899, 64, 500, 50)," +
+                    "(260, 1, 33900, 'CityMercs Guard', 32135, 31487, 32653, 64, 500, 50)," +
+                    "(261, 1, 33901, 'City Admin', 32384, 31604, 32593, 64, 200, 0)," +
+                    "(262, 1, 33902, 'Trader', 31890, 31492, 32706, 64, 200, 0)," +
+                    "(263, 1, 33903, 'Tech Dealer', 32242, 31399, 32809, 64, 200, 0)," +
+                    "(264, 1, 33904, 'Drug Dealer', 31900, 31587, 32482, 64, 200, 0)"
+                );
+            }
+            rs.close();
         }
     }
 

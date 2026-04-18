@@ -1,6 +1,10 @@
 package server.gameserver.internalEvents;
 
+import java.util.List;
+
+import server.gameserver.NPC;
 import server.gameserver.Player;
+import server.gameserver.Zone;
 import server.gameserver.packets.server_udp.ObjectPositionBroadcast;
 import server.tools.Out;
 import server.tools.Timer;
@@ -14,46 +18,47 @@ import server.tools.Timer;
  * without them, forcing the "SYNCHRONIZING INTO CITY ZONE" overlay
  * to re-appear and the session to time out.
  *
- * <p>Uses the unreliable {@code 0x13} wrapper (no {@code 0x03} reliable
- * sub-type) so the broadcast is treated as advisory — it feeds the
- * world-state watchdog but does NOT override the client's local
- * movement prediction (which an authoritative
- * {@code 0x03→0x1b PlayerPositionUpdate} echo would, causing rubber-
- * banding — verified in a prior attempt).
+ * <p>Iterates zone NPCs round-robin, broadcasting one NPC per tick.
+ * With 8 NPCs in plaza_p1 and 150 ms interval, each NPC gets
+ * broadcast every ~1.2 s (8 × 150 ms). Uses the unreliable
+ * {@code 0x13} wrapper (no {@code 0x03} reliable sub-type) so the
+ * broadcast doesn't rubberband the client's local movement prediction.
  */
 public class ObjectBroadcastHeartbeat extends DummyEvent {
 
-    /**
-     * Interval in milliseconds. Retail averages 7.7 Hz (130 ms) but
-     * ranges 2-10 Hz depending on zone activity. 150 ms gives us
-     * ~6.6 Hz which sits comfortably in that range without burying the
-     * socket in writes.
-     */
     public static final long INTERVAL_MS = 150;
+
+    private int npcIndex = 0;
 
     public ObjectBroadcastHeartbeat() {
         this.eventTime = Timer.getRealtime() + INTERVAL_MS;
     }
 
-    public ObjectBroadcastHeartbeat(long firstTickAt) {
-        this.eventTime = firstTickAt;
-    }
-
     @Override
     public void execute(Player pl) {
-        if (pl == null || !pl.isloggedin() || pl.getUdpConnection() == null
-                || pl.getCharacter() == null) {
+        if (pl == null || !pl.isloggedin() || pl.getUdpConnection() == null) {
             return;
         }
 
-        try {
-            pl.send(new ObjectPositionBroadcast(pl));
-        } catch (Exception e) {
-            Out.writeln(Out.Error,
-                "ObjectBroadcastHeartbeat: send failed: " + e.getMessage());
+        Zone zone = pl.getZone();
+        if (zone == null) return;
+
+        List<NPC> npcs = zone.getAllNPCs();
+        if (!npcs.isEmpty()) {
+            npcIndex = npcIndex % npcs.size();
+            NPC npc = npcs.get(npcIndex);
+            npcIndex++;
+
+            try {
+                pl.send(new ObjectPositionBroadcast(pl, npc));
+            } catch (Exception e) {
+                Out.writeln(Out.Error,
+                    "ObjectBroadcastHeartbeat: send failed: " + e.getMessage());
+            }
         }
 
-        // Self-reschedule.
-        pl.addEvent(new ObjectBroadcastHeartbeat(Timer.getRealtime() + INTERVAL_MS));
+        ObjectBroadcastHeartbeat next = new ObjectBroadcastHeartbeat();
+        next.npcIndex = this.npcIndex;
+        pl.addEvent(next);
     }
 }

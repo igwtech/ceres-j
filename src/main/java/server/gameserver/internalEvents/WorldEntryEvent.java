@@ -136,19 +136,17 @@ public class WorldEntryEvent extends DummyEvent {
         // the initial burst. See docs/retail_burst_analysis.md §5.
         pl.addEvent(new TimeSyncHeartbeatEvent());
 
-        // ── Raw 0x1b object broadcast: CURRENTLY DISABLED ──
-        // The broadcast + phantom-NPC + RequestWorldInfo-reply loop
-        // works end-to-end (client's 121 unknown queries dropped to
-        // 22 / all answered), BUT the 6.6 Hz S→C write rate starved
-        // the client's movement loop: movement packets fell from a
-        // baseline of ~148 per session to ~14. Fixing this properly
-        // needs the rest of retail's zone-state broadcast set
-        // (particularly 0x03->0x2d NPCData at 3.3/s); until that's
-        // implemented, running only the 0x1b broadcast is net
-        // negative. Phantom NPC 0x01AB is still registered in
-        // Zone.java so re-enabling this line picks up where we left
-        // off.
-        //   pl.addEvent(new ObjectBroadcastHeartbeat());
+        // ── Zone-state broadcast: DISABLED ──
+        // Compound packet (ZoneStateHeartbeat) has a framing bug where
+        // newSubPacket() misaligns sub-packet bytes (0x1b→0x00,
+        // 0x2d→0x0c). Separate heartbeats flooded at 12 Hz. Both
+        // approaches failed to keep the client alive past ~25 s.
+        //
+        // The real blocker is likely incomplete CharInfo data — retail
+        // sends 4280 B of character state vs our 1004 B. The client
+        // may require full stats/equipment/quickbelt data to consider
+        // the session initialized. Pursuing that path next.
+        //   pl.addEvent(new ZoneStateHeartbeat());
 
         // Mark the player as waiting for a UDP zone-handoff handshake.
         // Once the client finishes loading the zone descriptor it closes

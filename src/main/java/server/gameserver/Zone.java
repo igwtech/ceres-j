@@ -17,24 +17,15 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 	public Zone(int id, String loc){
 		zoneId = id;
 		location = new String(loc);
-		// Register a "phantom NPC" at id 0xAB so the raw 0x1b
-		// object-position heartbeat has a lookup target: the modern
-		// client's world-alive watchdog expects broadcasts → client
-		// fires RequestWorldInfo for each advertised id → server
-		// replies with WorldNPCInfo. If getNPC(0xAB) returns null we
-		// silently drop the query and the client retries until
-		// timeout. See ObjectPositionBroadcast.java.
+		// Load NPC spawns from the npc_spawns SQLite table. Each NPC's
+		// id lives in the retail convention range 0x101–0x1FF so the
+		// raw 0x1b position broadcasts and RequestWorldInfo replies
+		// reference valid ids.
+		java.util.List<NPC> spawns = server.database.NpcSpawnManager.loadForZone(id);
 		synchronized (NPCList) {
-			// Args: (x, y, z, hp, armor, type, ID). Position mirrors
-			// ObjectPositionBroadcast (30000, 0, 30000). The id must
-			// match the low+high bytes written at offsets 1 and 2 of
-			// the raw 0x1b broadcast: 0x1AB (low=0xAB, high=0x01).
-			// Client reads both bytes, so a single-byte id like 0xAB
-			// gets queried as 0x01AB (the high byte at offset 2 is
-			// not a "class marker constant" as we first thought — it's
-			// the id's high byte, always 0x01 in retail because retail
-			// NPC ids live in 0x101..0x1FF).
-			NPCList.put(0x01AB, new NPC(30000, 0, 30000, 100, 0, 1, 0x01AB));
+			for (NPC npc : spawns) {
+				NPCList.put(npc.getMapID(), npc);
+			}
 		}
 	}
 	
@@ -58,6 +49,21 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 			else
 				return null;
 		}
+	}
+
+	/**
+	 * Return a snapshot of all NPCs in this zone for broadcast iteration.
+	 * The returned list is a copy safe for iteration without holding the
+	 * NPCList lock.
+	 */
+	public java.util.List<NPC> getAllNPCs() {
+		synchronized (NPCList) {
+			return new java.util.ArrayList<>(NPCList.values());
+		}
+	}
+
+	public int getZoneId() {
+		return zoneId;
 	}
 	
 	public Player getPlayer(int ID){
