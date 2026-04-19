@@ -30,7 +30,11 @@ public class DamageEvent extends PacketBuilderUDP1303 {
     public DamageEvent(Player pl, float damage, int attackerId, int dmgType) {
         super(pl);
         PlayerCharacter pc = pl.getCharacter();
-        int targetId = pc.getMisc(PlayerCharacter.MISC_ID) & 0xFFFF;
+        // Use the player's zone mapId as the target entity. The client's
+        // character system maps entities by this ID, not the database charId.
+        // When this was set to pc.getMisc(MISC_ID), the damage bubbles
+        // appeared at NPC positions instead of the player.
+        int targetId = pl.getMapID() & 0xFFFF;
 
         write(0x1f);                       // GamePackets
         writeShort(pl.getMapID());         // zone mapId
