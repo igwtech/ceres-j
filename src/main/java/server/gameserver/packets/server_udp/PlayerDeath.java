@@ -15,14 +15,24 @@ import server.networktools.PacketBuilderUDP1303;
  */
 public class PlayerDeath extends PacketBuilderUDP1303 {
 
-    public PlayerDeath(Player pl) {
+    /**
+     * @param pl     the player receiving the death notification
+     * @param killer the NPC/entity mapId that dealt the killing blow
+     *               (0 for self/environment)
+     */
+    public PlayerDeath(Player pl, int killer) {
         super(pl);
         write(0x1f);                   // GamePackets sub-type
         writeShort(pl.getMapID());     // zone
         write(0x16);                   // Death sub-opcode
-        writeInt(pl.getCharacter().getMisc(
-            server.database.playerCharacters.PlayerCharacter.MISC_ID));  // killed entity
-        writeInt(0);                   // killer ID (0 = environment/self)
-        write(0x00);                   // death type (0 = normal)
+        // Retail format (7 bytes after 0x1f header):
+        //   [mapId LE2] [0x16] [killer_id LE2] [00] [00]
+        writeShort(killer);            // killer entity mapId (2 bytes LE)
+        write(0x00);
+        write(0x00);
+    }
+
+    public PlayerDeath(Player pl) {
+        this(pl, 0);
     }
 }

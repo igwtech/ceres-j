@@ -261,24 +261,40 @@ public class Player extends Thread {
 	public void die() {
 		if (pc == null) return;
 		pc.setHealth(0);
-		// Send death via multiple mechanisms — we don't know which
-		// one the client reacts to, so try all:
-		// 1. GamePackets death sub-opcode (0x03→0x1f→0x16)
+		// Retail death sequence (from strace capture of COPBOT kill):
+		// 1. 0x1f raw: HP update setting health to 0/negative
+		// 2. R:0x1f GamePackets(11B): death sub-opcode 0x16
+		// 3. Pool status with HP=0
+		try {
+			// HP update: 0x1f 0x01 0x00 0x50 [hp LE4] [00 00 00 04] [maxhp LE2] [00 00]
+			server.networktools.PacketBuilderUDP13 hpUpdate =
+				new server.networktools.PacketBuilderUDP13(this);
+			hpUpdate.write(0x1f);
+			hpUpdate.write(0x01);
+			hpUpdate.write(0x00);
+			hpUpdate.write(0x50);  // set-pool sub-opcode
+			hpUpdate.writeInt(0);  // HP = 0
+			hpUpdate.write(0x00);
+			hpUpdate.write(0x00);
+			hpUpdate.write(0x00);
+			hpUpdate.write(0x04);  // pool type (4 = health?)
+			hpUpdate.writeShort(pc.getMaxHealth());
+			hpUpdate.write(0x00);
+			hpUpdate.write(0x00);
+			send(hpUpdate);
+		} catch (Exception e) {
+			// ignore
+		}
+		// Death packet with correct retail format
 		try {
 			send(new server.gameserver.packets.server_udp.PlayerDeath(this));
 		} catch (Exception e) {
 			server.tools.Out.writeln(server.tools.Out.Error,
 				"Player.die: death packet failed: " + e.getMessage());
 		}
-		// 2. Pool status with HP=0 (client may check this)
+		// Pool status broadcast
 		try {
 			send(new server.gameserver.packets.server_udp.PoolStatusBroadcast(this));
-		} catch (Exception e) {
-			// ignore
-		}
-		// 3. CharInfo update with HP=0
-		try {
-			send(new server.gameserver.packets.server_udp.CharInfo(this));
 		} catch (Exception e) {
 			// ignore
 		}

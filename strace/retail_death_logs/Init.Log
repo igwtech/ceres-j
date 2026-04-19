@@ -1,0 +1,162 @@
+=================================================================
+ Neocron Intitialization Logfile
+=================================================================
+
+ Current Time: 06:26:41
+ Current Date: 04-19-2026
+
+WinMain: Creating window . . .
+
+WinMain: Current server connection: 157.90.195.74:7000
+
+WinMain: Window created!
+Host: Current language: en
+Host: Console initialized.
+Init Engine . . .
+Init Driver . . .
+Host: Creating controller . . .
+Basehost: Initialize resources . . .
+ -> TextureManager . . . complete
+ -> ActorManager . . . complete
+ -> SoundManager . . . complete
+ -> TextManager . . . Host: Current language: en
+Textresources initializedcomplete
+ -> Fractions . . . complete
+ -> ScriptManager . . . complete
+ -> ParticleManager . . . complete
+Basehost: Resources initialized!
+Host: Comleted.
+Host: Creating netmanager . . .
+. . . world loaded.
+Creating FX-System for worlds . . .
+Creating FX-System for actors . . .
+Creating other FX-Systems . . .
+ . . . FX-Systems created.
+ . . . Initialization of WorldManager completed!
+
+Event: WM_ACTIVATE (0)
+
+Event: WM_KILLFOCUS
+
+Event: WM_ACTIVATE (1)
+
+Event: WM_SETFOCUS
+. . . world loaded.
+Creating FX-System for worlds . . .
+Creating FX-System for actors . . .
+Creating other FX-Systems . . .
+ . . . FX-Systems created.
+ . . . Initialization of WorldManager completed!
+WorldClient: Initialization . . .
+CTRL Player Init...Completed 
+WorldClient: Connecting to NetHost . . . succeed!
+WorldClient: Joining session . . .
+WorldClient: Delete world for world change . . . WorldManager: Shutting down . . .
+ -> Terrain
+ -> ParticleSystem
+ -> PolyFXSystem
+ -> ChangeWorld (NULL) for resources
+ -> Players (DelPlayerList)
+ -> Players (PlayerList)
+ -> WorldGFX
+ -> GFXCreationSystem and PHFXCreationSystem
+ -> Subworlds
+ -> WorldBSP
+Shutdown complete!
+complete
+. . . world loaded.
+WorldManager: Getting start position.
+Creating FX-System for worlds . . .
+Creating FX-System for actors . . .
+Creating other FX-Systems . . .
+ . . . FX-Systems created.
+ . . . Initialization of WorldManager completed!
+WorldClient: Create new world to change to . . .
+ -> setting time . . .
+WorldClient: World changes successfull!
+WorldClient: Delete world for world change . . . WorldManager: Shutting down . . .
+ -> Terrain
+ -> ParticleSystem
+ -> PolyFXSystem
+ -> ChangeWorld (NULL) for resources
+ -> Players (DelPlayerList)
+ -> Players (PlayerList)
+ -> WorldGFX
+ -> GFXCreationSystem and PHFXCreationSystem
+ -> Subworlds
+ -> WorldBSP
+Shutdown complete!
+complete
+. . . world loaded.
+WorldManager: Getting start position.
+Creating FX-System for worlds . . .
+Creating FX-System for actors . . .
+Creating other FX-Systems . . .
+ . . . FX-Systems created.
+ . . . Initialization of WorldManager completed!
+WorldClient: Create new world to change to . . .
+ -> setting time . . .
+WorldClient: World changes successfull!
+WorldClient: Delete world for world change . . . WorldManager: Shutting down . . .
+ -> Terrain
+ -> ParticleSystem
+ -> PolyFXSystem
+ -> ChangeWorld (NULL) for resources
+ -> Players (DelPlayerList)
+ -> Players (PlayerList)
+ -> WorldGFX
+ -> GFXCreationSystem and PHFXCreationSystem
+ -> Subworlds
+ -> WorldBSP
+Shutdown complete!
+complete
+. . . world loaded.
+WorldManager: Getting start position.
+Creating FX-System for worlds . . .
+Creating FX-System for actors . . .
+Creating other FX-Systems . . .
+ . . . FX-Systems created.
+ . . . Initialization of WorldManager completed!
+WorldClient: Create new world to change to . . .
+ -> setting time . . .
+WorldClient: World changes successfull!
+wantescape (!modal)
+WorldClient: WinUpdate for baseclient failed
+WorldManager: Shutting down . . .
+ -> Terrain
+ -> ParticleSystem
+ -> PolyFXSystem
+ -> ChangeWorld (NULL) for resources
+ -> Players (DelPlayerList)
+ -> Players (PlayerList)
+ -> WorldGFX
+ -> GFXCreationSystem and PHFXCreationSystem
+ -> Subworlds
+ -> WorldBSP
+Shutdown complete!
+WorldManager: Shutting down . . .
+ -> Terrain
+ -> ParticleSystem
+ -> PolyFXSystem
+ -> ChangeWorld (NULL) for resources
+ -> Players (DelPlayerList)
+ -> Players (PlayerList)
+ -> WorldGFX
+ -> GFXCreationSystem and PHFXCreationSystem
+ -> Subworlds
+ -> WorldBSP
+Shutdown complete!
+Host: Starting shutdown procedure . . .
+ -> Exit TextureManager
+ -> Exit ActorManager
+ -> Exit SoundManager
+ -> Exit TextManager
+ -> Exit ShotInfo
+ -> Exit NetManager
+ -> Exit NetBuffer
+ -> Exit InputManager
+ -> Exit MouseCtrl
+ -> Exit Console
+ -> Exit GenesisManager
+ -> Exit Parser
+Host: Shutting down complete!
