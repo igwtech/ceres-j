@@ -12,20 +12,14 @@ public class GetUDPConnection extends GamePacketDecoderTCP {
 	}
 
 	public void execute(Player pl) {
-		try {
-			byte[] sid = pl.getSessionID();
-			StringBuilder sidHex = new StringBuilder();
-			for (int j = 0; j < sid.length; j++) sidHex.append(String.format("%02x ", sid[j] & 0xFF));
-			Out.writeln(Out.Info, "GetUDPConnection: user=" + pl.getAccount().getUsername()
-				+ " serverIP=" + pl.getServerIP()
-				+ " sessionID=" + sidHex.toString().trim()
-				+ " (transformed: " + String.format("%02x %02x %02x %02x %02x %02x %02x %02x",
-					127-sid[0], 127-sid[1], 127-sid[2], 127-sid[3],
-					127-sid[4], 127-sid[5], 127-sid[6], 127-sid[7]) + ")");
-			pl.send(new UDPServerData(pl));
-		} catch (Exception e) {
-			Out.writeln(Out.Error, "GetUDPConnection failed: " + e.getMessage());
-			e.printStackTrace();
-		}
+		// No-op. GetGamedata already sends UDPServerData + Location.
+		// Sending a SECOND UDPServerData here causes the client to
+		// create a second WinSockMGR socket (zone-handoff) — which
+		// retail never does (retail's GetGamedata and GetUDPConnection
+		// arrive together and the server responds with ONE combined
+		// burst). Our delayed GetGamedataAnswer splits them, causing
+		// the second UDPServerData to arrive after the session is
+		// established, triggering socket recreation.
+		Out.writeln(Out.Info, "GetUDPConnection: no-op (UDPServerData already sent by GetGamedata)");
 	}
 }

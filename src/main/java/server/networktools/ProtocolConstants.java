@@ -151,8 +151,12 @@ public class ProtocolConstants {
     /** Auth (0x8480) unknown block size — 30 bytes in modern client, was 18 in old */
     public static final int AUTH_UNKNOWN_BLOCK_SIZE = 30;
 
-    /** UDPServerData flags field — retail server sends 0x00890000 */
-    public static final int UDP_SERVER_DATA_FLAGS = 0x00890000;
+    /** UDPServerData flags field — retail TCP capture (ACC2_CHAR2_LONG)
+     *  shows 0x00830000 (bytes: 00 00 83 00). Our old value 0x00890000
+     *  may trigger the client to create a second WinSockMGR socket
+     *  (zone-handoff) which retail never does — causing GAMENETMGR
+     *  CheckOOOList "Msg num 2 behind" disconnect after 10 s. */
+    public static final int UDP_SERVER_DATA_FLAGS = 0x00830000;
 
     /** Default UDP game port */
     public static final int DEFAULT_UDP_PORT = 5000;

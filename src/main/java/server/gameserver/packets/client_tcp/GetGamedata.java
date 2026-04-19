@@ -42,6 +42,10 @@ public class GetGamedata extends GamePacketDecoderTCP {
 			// and the client joins a session at uninitialised memory
 			// → "Connection to worldserver failed" after 15 seconds.
 			pl.send(new UDPServerData(pl));
+			// Retail sends 0x83 0x0d (2 bytes: 00 00) between
+			// UDPServerData and Location. Unknown purpose but its
+			// absence may contribute to zone-handoff behavior.
+			pl.send(new server.gameserver.packets.server_tcp.Packet830D());
 			pl.send(new Location(pl));
 		}
 	}

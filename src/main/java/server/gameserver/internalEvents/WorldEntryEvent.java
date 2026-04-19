@@ -163,6 +163,11 @@ public class WorldEntryEvent extends DummyEvent {
         // zone-handoff completes (first gamedata from the new port).
         // See PlayerUdpListener.handle() zoneHandoffActive logic.
 
+        // ── TCP keepalive (0x83 0x8f) every ~10 s ──
+        // Retail sends this on the TCP connection for the entire
+        // session. Without it the client's TCP layer may time out.
+        pl.addEvent(new TcpKeepaliveEvent());
+
         // Mark the player as waiting for a UDP zone-handoff handshake.
         // Once the client finishes loading the zone descriptor it closes
         // the login UDP socket and opens a fresh one from a new ephemeral
