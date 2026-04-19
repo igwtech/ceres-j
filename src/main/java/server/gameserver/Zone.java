@@ -5,6 +5,7 @@ import java.util.TreeMap;
 
 import server.database.playerCharacters.PlayerCharacter;
 import server.gameserver.packets.server_udp.*;
+import server.tools.Out;
 
 public class Zone extends Thread{ //TODO: making a thread out of that class would be better
 
@@ -81,10 +82,10 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 			Iterator<Integer> plkeySetIt = playerList.keySet().iterator();
 			while(plkeySetIt.hasNext()){
 				int i = plkeySetIt.next();
-				if(i != mapId){
-					Player reciever = playerList.get(i);
-					reciever.send(new LocalChatMessage(reciever, text, mapId));
-				}
+				if(i == mapId) continue;
+				Player reciever = playerList.get(i);
+				if (reciever == null || reciever.getUdpConnection() == null) continue;
+				reciever.send(new LocalChatMessage(reciever, text, mapId));
 			}
 		}
 	}
@@ -106,6 +107,39 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 		synchronized(playerList){
 			playerList.remove(pl.getMapID());
 		}
+	}
+
+	/**
+	 * Remove player entries whose UDP session has gone away (client
+	 * disconnected or never completed the UDP handshake). Heartbeat
+	 * events keep a Player's event loop alive by continually updating
+	 * lastping, so the 60-second idle timeout in {@link Player#run()}
+	 * never fires for dead clients. Without this sweep, broadcast
+	 * methods would keep tripping over those stale entries.
+	 *
+	 * @return number of entries removed.
+	 */
+	public int reapDeadPlayers() {
+		int removed = 0;
+		synchronized (playerList) {
+			Iterator<java.util.Map.Entry<Integer, Player>> it =
+				playerList.entrySet().iterator();
+			while (it.hasNext()) {
+				java.util.Map.Entry<Integer, Player> e = it.next();
+				Player p = e.getValue();
+				if (p == null || p.getUdpConnection() == null) {
+					Out.writeln(Out.Info,
+						"Zone[" + zoneId + "] reaped stale player slot="
+						+ e.getKey()
+						+ " name="
+						+ (p != null && p.getCharacter() != null
+							? p.getCharacter().getName() : "?"));
+					it.remove();
+					removed++;
+				}
+			}
+		}
+		return removed;
 	}
 
 	public void useitem(int id, Player pl) {
@@ -209,6 +243,7 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 	
 	// sends the players currently in a Zone to one player
 	public void sendPlayersinZone(Player pl){
+		if (pl.getUdpConnection() == null) return;
 		int mapId = pl.getMapID();
 		PlayerCharacter pc = null;
 		synchronized(playerList){
@@ -216,46 +251,56 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 			while(plSetIt.hasNext()){
 				int i = plSetIt.next();
 				if(i != mapId){
-					pc = playerList.get(i).getCharacter();
+					Player other = playerList.get(i);
+					if (other == null || other.getCharacter() == null) continue;
+					pc = other.getCharacter();
 					pl.send(new PlayerPositionUpdate(pl, pc, i));
 					pl.send(new LongPlayerInfo(pl, pc, i));
 				}
 			}
 		}
 	}
-	
+
 	// send the new player pl to the others
 	public void sendnewPlayerinZone(Player pl){
 		int mapId = pl.getMapID();
 		PlayerCharacter pc = pl.getCharacter();
+		if (pc == null) return;
+		reapDeadPlayers();
 		synchronized(playerList){
 			Iterator<Integer> plSetIt = playerList.keySet().iterator();
 			while(plSetIt.hasNext()){
 				int i = plSetIt.next();
-				if(i != mapId){
-					Player reciever = playerList.get(i);
-					reciever.send(new PlayerPositionUpdate(reciever, pc, mapId));
-					reciever.send(new LongPlayerInfo(reciever, pc, mapId));
-				}
+				if(i == mapId) continue;
+				Player reciever = playerList.get(i);
+				// Skip receivers whose UDP session isn't established yet
+				// (stale Player objects from disconnected clients whose
+				// event loop is still alive, or fresh logins that haven't
+				// completed their first UDP packet). Without this guard,
+				// incandgetSessionCounter() NPEs and aborts the broadcast.
+				if (reciever == null || reciever.getUdpConnection() == null) continue;
+				reciever.send(new PlayerPositionUpdate(reciever, pc, mapId));
+				reciever.send(new LongPlayerInfo(reciever, pc, mapId));
 			}
 		}
 	}
-	
+
 	// sends the movement of pl to the others in zone
 	public void sendPlayerMovement(Player pl){
 		int mapId = pl.getMapID();
 		PlayerCharacter pc = pl.getCharacter();
+		if (pc == null) return;
 		synchronized(playerList){
 			Iterator<Integer> plSetIt = playerList.keySet().iterator();
 			while(plSetIt.hasNext()){
 				int i = plSetIt.next();
-				if(i != mapId){
-					Player reciever = playerList.get(i);
-					reciever.send(new SMovement(reciever, pc, mapId));
-					reciever.send(new PlayerPositionUpdate(reciever, pc, mapId));
-					//could be that this has to be exchanged with playerposupdate in
-					//case the player status hasnt changed since last update
-				}
+				if(i == mapId) continue;
+				Player reciever = playerList.get(i);
+				if (reciever == null || reciever.getUdpConnection() == null) continue;
+				reciever.send(new SMovement(reciever, pc, mapId));
+				reciever.send(new PlayerPositionUpdate(reciever, pc, mapId));
+				//could be that this has to be exchanged with playerposupdate in
+				//case the player status hasnt changed since last update
 			}
 		}
 	}
