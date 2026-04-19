@@ -24,6 +24,9 @@ GAME_DIR=/home/javier/Neocron2
 GAME_EXE=neocronclient.exe
 LOG=/tmp/nc2_strace.log
 
+find  ~/Neocron2 -name "*.log" -delete || true
+rm $LOG || true
+
 echo "Launching $GAME_EXE under strace"
 echo "Log: $LOG (syscalls: recvfrom, sendto, recvmsg, sendmsg)"
 echo ""
@@ -39,3 +42,6 @@ exec strace -f -e trace=recvfrom,sendto,recvmsg,sendmsg,bind,connect,socket \
     -s 4096 -xx -tt -yy \
     -o "$LOG" \
     "$WINE" "$GAME_EXE"
+
+find  ~/Neocron2 -name "*.log" 
+ls $LOG

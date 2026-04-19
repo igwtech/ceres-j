@@ -121,27 +121,18 @@ public final class PlayerUdpListener extends Thread {
 		} else if (!con.getAddress().equals(dp.getAddress()) || con.getPort() != dp.getPort()) {
 			int oldPort = con.getPort();
 			con.rebindClient(dp.getAddress(), dp.getPort());
-			Out.writeln(Out.Info, "PlayerUdpListener[" + port + "]: zone handoff for "
+			Out.writeln(Out.Info, "PlayerUdpListener[" + port + "]: port change for "
 				+ (player.getAccount() != null ? player.getAccount().getUsername() : "?")
-				+ " client port " + oldPort + " -> " + dp.getPort()
-				+ " (counter/sessionkey preserved)");
-			// On zone-handoff, the client opens a fresh UDP socket and
-			// re-sends handshake (0x01) packets. These must NOT trigger
-			// the full HandshakeUDP → WorldEntryEvent chain because
-			// re-streaming CharInfo resets the client's state machine
-			// from state 4 (in-world) back to state 1→2 (joining),
-			// causing a 15-second "Connecting to worldserver failed"
-			// timeout. Retail doesn't have zone-handoff at all (single
-			// UDP session), so this is a Ceres-J architecture artifact.
-			//
-			// Just ack with UDPAlive and drop the packet. The session
-			// is already established and the counters are preserved.
-			try {
-				con.send(new server.gameserver.packets.server_udp.UDPAlive(player));
-			} catch (Exception e) {
-				Out.writeln(Out.Error, "PlayerUdpListener: zone-handoff UDPAlive failed: " + e.getMessage());
+				+ " " + oldPort + " -> " + dp.getPort());
+			// Start heartbeats on port change if they haven't been
+			// started yet (zone-handoff). The handshake packets go
+			// through normally — the client's GAMENETMGR on the new
+			// socket needs to see responses to satisfy its OOO check.
+			// HandshakeUDPAnswer2 skips WorldEntryEvent for reconnects
+			// (isloggedin check) so no state reset occurs.
+			if (player.getLastWorldEntryAt() > 0 && !player.isZoneHandoffActive()) {
+				player.setZoneHandoffActive(true);
 			}
-			return;
 		}
 		GamePacketReaderUDP.readPacket(dp, player);
 	}

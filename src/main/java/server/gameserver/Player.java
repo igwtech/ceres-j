@@ -44,6 +44,11 @@ public class Player extends Thread {
 	// the second Answer2 skip re-scheduling WorldEntryEvent while still
 	// allowing a zone-handoff reconnect (seconds later) to re-run it.
 	private long lastWorldEntryAt = 0L;
+	// Zone-handoff suppression: when the client reconnects from a new
+	// port after BSP load, we suppress handshake (0x01) and sync (0x03)
+	// packets until the first gamedata (0x13) arrives. Retail never has
+	// zone-handoff so processing these packets causes state resets.
+	private volatile boolean zoneHandoffActive = false;
 	// Last time we echoed an authoritative PlayerPositionUpdate back to this
 	// player in response to a client Movement packet. The modern NCE 2.5
 	// client runs local dead-reckoning and expects periodic server-side
@@ -290,6 +295,9 @@ public class Player extends Thread {
 	public void setLastPositionEchoAt(long at) {
 		this.lastPositionEchoAt = at;
 	}
+
+	public boolean isZoneHandoffActive() { return zoneHandoffActive; }
+	public void setZoneHandoffActive(boolean v) { this.zoneHandoffActive = v; }
 
 	public PlayerUdpListener getUdpListener() {
 		return udpListener;

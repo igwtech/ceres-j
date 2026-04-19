@@ -149,23 +149,19 @@ public class WorldEntryEvent extends DummyEvent {
         // Our previous ZoningEnd may have been confusing the client's
         // state machine. Removed to match retail behavior.
 
-        // ── Start the S→C TimeSync heartbeat (0x13 → 0x03 → 0x1f) ──
-        // Retail streams this at ~1 Hz throughout the session and the
-        // modern client appears to gate its "SYNCHRONIZING INTO CITY
-        // ZONE" clear on seeing the stream, not on any single packet in
-        // the initial burst. See docs/retail_burst_analysis.md §5.
-        pl.addEvent(new TimeSyncHeartbeatEvent());
-
-        // ── Start the compound zone-state broadcast ──
-        // A single heartbeat at 2 Hz that packs raw 0x1b + reliable
-        // 0x03→0x2d NPCData + reliable 0x03→0x28 WorldInfo into one
-        // 0x13 datagram per tick. The framing IS correct (verified by
-        // CompoundSubPacketTest + manual hex decode of the strace).
-        // Earlier analysis showed these as "0x00 raw" due to a bug in
-        // parse-burst.py's auto-detect (0x1b wasn't in the known-type
-        // whitelist, causing fallback to 1-byte length parsing).
-        // Now re-enabled with confidence. Round-robins zone NPCs.
-        pl.addEvent(new ZoneStateHeartbeat());
+        // ── Heartbeats: DEFERRED until after zone-handoff ──
+        // The client closes its UDP socket and opens a new one during
+        // BSP load (~11 s after WorldEntryEvent). Any reliable packets
+        // sent during this window are received on the OLD socket which
+        // the client has already closed — they're permanently lost.
+        // The session counter advances past what the client received,
+        // creating a gap in the out-of-order list. After 10 s the
+        // client reports "GAMENETMGR [CheckOOOList]: out-of-sync.
+        // Msg num 19 more than 10000ms behind. Disconnecting."
+        //
+        // Heartbeats are started from PlayerUdpListener when the
+        // zone-handoff completes (first gamedata from the new port).
+        // See PlayerUdpListener.handle() zoneHandoffActive logic.
 
         // Mark the player as waiting for a UDP zone-handoff handshake.
         // Once the client finishes loading the zone descriptor it closes

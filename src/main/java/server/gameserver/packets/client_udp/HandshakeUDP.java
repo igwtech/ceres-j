@@ -83,7 +83,6 @@ public class HandshakeUDP extends GamePacketDecoderUDP {
                 return;
             }
 
-            boolean firstEntry = !pl.isloggedin();
             pl.setLastWorldEntryAt(now);
             pl.getUdpConnection().setHandshakingState(false);
             pl.setloggedin();
@@ -95,16 +94,18 @@ public class HandshakeUDP extends GamePacketDecoderUDP {
                 Out.writeln(Out.Error, "UDPAlive (handshake ack) failed: " + e.getMessage());
             }
 
-            if (firstEntry) {
+            if (pl.isZoneHandoffActive()) {
+                // Zone-handoff reconnect: don't re-stream world state
+                // (causes state machine reset) but DO start heartbeats
+                // now that the client is on its new socket.
+                Out.writeln(Out.Info, "HandshakeUDPAnswer2: zone-handoff, starting heartbeats (no WorldEntryEvent)");
+                pl.setZoneHandoffActive(false);
+                pl.addEvent(new server.gameserver.internalEvents.TimeSyncHeartbeatEvent());
+                pl.addEvent(new server.gameserver.internalEvents.ZoneStateHeartbeat());
+                pl.addEvent(new server.gameserver.internalEvents.PoolStatusHeartbeat());
+            } else {
                 Out.writeln(Out.Info, "HandshakeUDPAnswer2: first login, scheduling world entry");
                 pl.addEvent(new WorldEntryEvent());
-            } else {
-                // Zone-handoff reconnect: the client is already in
-                // state 4 (in-world). Re-sending CharInfo multipart
-                // would reset its state machine to 1→2 (joining) and
-                // trigger a 15s timeout. Retail doesn't have zone-
-                // handoff at all. Just ack — session is established.
-                Out.writeln(Out.Info, "HandshakeUDPAnswer2: zone-handoff reconnect, skipping WorldEntryEvent");
             }
         }
     }

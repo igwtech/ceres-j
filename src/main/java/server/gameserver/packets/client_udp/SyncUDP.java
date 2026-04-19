@@ -36,27 +36,17 @@ public class SyncUDP extends GamePacketDecoderUDP {
 
     @Override
     public void execute(Player pl) {
-        if (pl == null || pl.getUdpConnection() == null) return;
-
-        // The bare 0x03 sync packet serves TWO purposes:
+        // No-op. Bare 0x03 sync packets are the client's ACK for
+        // server-side reliables. They do NOT require a reply.
         //
-        // 1. ACK for a server-side reliable (just a counter echo — no
-        //    reply needed).
+        // Previously this sent a TimeSync reply, but that burns a
+        // reliable sequence number. If the sync arrives from the OLD
+        // port during BSP load (before zone-handoff detection), the
+        // TimeSync goes to a closed socket and creates a gap in the
+        // out-of-order list → 10 s disconnect ("Msg num X behind").
         //
-        // 2. "Sync req send" from the client's state 3/6 in
-        //    FUN_0055bdc0: the client is waiting for a 0x03→0x0d
-        //    TimeSync reply to advance to state 4 (in-world).
-        //    Without this reply the client retries every 8 seconds
-        //    and aborts after 5 attempts (~25 s) with
-        //    "Synchronization with worldserver failed."
-        //
-        // We can't distinguish (1) from (2) at the wire level, so
-        // we reply with TimeSync to every sync. The TimeSync reply is
-        // a single reliable 0x03→0x0d packet — much cheaper than the
-        // old zone re-broadcast that caused the feedback storm. The
-        // client processes it idempotently: if already in state 4 the
-        // TimeSync is just a time correction, not a state transition.
-
-        pl.send(new server.gameserver.packets.server_udp.TimeSync(pl, 0));
+        // The TimeSyncHeartbeat already provides continuous TimeSync
+        // at ~1.3 Hz after zone-handoff completes. No need for a
+        // per-sync reply.
     }
 }
