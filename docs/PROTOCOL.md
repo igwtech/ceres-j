@@ -61,9 +61,11 @@ Client                          Server
   |<-- UDPServerData (0x8305) ----|  (UDP IP + port + session)
   |--- GetGamedata (0x8737) ----->|
   |<-- Gamedata (0x873a) ---------|
+  |<-- GameinfoReady (0x830d) ----|  (server ready signal)
   |<-- Location (0x830c) ---------|  (zone name + ID)
   |--- GetUDPConnection (0x873c)->|
-  |<-- UDPServerData (0x8305) ----|  (repeated)
+  |    (no-op — no second         |
+  |     UDPServerData sent)       |
   |                               |
   |  [UDP connection starts]      |
 ```
@@ -133,7 +135,7 @@ Offset  Size  Description
 0x06    4     Character ID (LE)
 0x0A    4     Server IP (network byte order)
 0x0E    2     UDP port (LE)
-0x10    4     Flags/unknown (retail sends 0x00890000)
+0x10    4     Flags/unknown (retail sends 0x00830000)
 0x14    8     Session ID (transformed: 127 - original_byte)
 ```
 
@@ -698,19 +700,26 @@ Detailed analysis: `docs/retail_burst_analysis.md`.
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| TCP Handshake | Working | |
-| Auth (0x8480) | Working | 30-byte offset for modern client |
-| AuthB (0x8301) | Working | Character slot selection |
-| Character CRUD | Working | Create, list, delete |
-| UDPServerData | Working | IP, port, session |
-| Location | Working | Zone name sent |
-| UDP Encryption (C→S) | Complete | `WireEncrypt.decrypt()` decodes the LFSR CFB wire format on the receive side. `PlayerUdpListener` and `ListenerUDP` both decrypt every incoming datagram before dispatch. Confirmed against 72/72 retail C→S packets via `tools/decrypt-retail.py -d send`. Legacy `PacketObfuscator` kept only for the old handshake path and has been decoupled from the UDP listeners. |
-| UDP Encryption (S→C) | **Working** | LFSR CFB cipher implemented in `WireEncrypt.java`. All outgoing UDP datagrams are encrypted with per-packet random 16-bit seed. Wire format: `[seed_lo][seed_hi][enc_len_lo][enc_len_hi][enc_data...]`. Applied in `GameServerUDPConnection.sendPacket()`. |
+| TCP Handshake | Complete | |
+| Auth (0x8480) | Complete | 30-byte offset for modern client |
+| AuthB (0x8301) | Complete | Character slot selection |
+| Character CRUD | Complete | Create, list, delete |
+| UDPServerData | Complete | IP, port, session. Flags: `0x00830000` (retail match). Sent once per login from `GetGamedata` only; `GetUDPConnection` is a no-op. |
+| Location (0x83 0x0c) | Complete | Zone name sent |
+| GameinfoReady (0x83 0x0d) | Complete | Sent between UDPServerData and Location (retail match) |
+| TCP Keepalive (0x83 0x8f) | Complete | Sent every 10s on TCP (retail match) |
+| UDP Encryption (C→S) | Complete | `WireEncrypt.decrypt()` on both `PlayerUdpListener` and `ListenerUDP`. Confirmed against 72/72 retail C→S packets. Legacy `PacketObfuscator` kept only for old handshake path. |
+| UDP Encryption (S→C) | Complete | LFSR CFB cipher in `WireEncrypt.java`. All outgoing UDP datagrams encrypted with per-packet random 16-bit seed. Applied in `GameServerUDPConnection.sendPacket()`. |
 | UDP Cipher Cracked | **Yes** | 88/88 retail packets decrypted. LFSR PRNG at `FUN_004e36e0`, encrypt at `FUN_00560090`, decrypt at `FUN_0055ff30`. |
-| UDP Handshake | Working | 3-way handshake + UDPAlive |
-| Zone Loading / World Entry | Working | `WorldEntryEvent` streams CharInfo, UpdateModel, PositionUpdate, LongPlayerInfo, weather, NPCs and ZoningEnd terminator |
-| Movement | Partially implemented | Inbound UDP 0x20 parsed, SMovement broadcast via `Zone.sendPlayerMovement` |
+| UDP Handshake | Complete | 3-way handshake + UDPAlive |
+| Zone Loading / World Entry | Complete | Session survives indefinitely. `WorldEntryEvent` streams CharInfo, UpdateModel, PositionUpdate, LongPlayerInfo, weather, NPCs. Heartbeats deferred until zone-handoff completes. |
+| Zone-handoff (25s disconnect) | **Fixed** | Root cause: duplicate `UDPServerData` from `GetUDPConnection` created second WinSockMGR socket, OOO timeout. Fix: `GetUDPConnection` is now a no-op. |
+| CharInfo multipart (0x03→0x07) | Complete | Retail-format per-fragment headers: `[0x00][discriminator][total_size LE4]`. chain_key=0x00. |
+| 0x02 wrapper | Complete | Used for InfoResponse, Weather, UpdateModel, Soullight sub-types (retail match) |
+| NPC Spawns | Complete | SQLite-backed, 8 NPCs in plaza_p1 |
+| Zone broadcasts | Complete | Compound 0x1b + 0x2d + 0x28 at 2 Hz |
+| Movement | Partial | Inbound UDP 0x20 parsed, SMovement broadcast via `Zone.sendPlayerMovement` |
 | Combat | Not implemented | |
-| Chat | Partially implemented | Local + global chat |
-| Inventory | Partially implemented | Basic item moves |
+| Chat | Partial | Local + global chat |
+| Inventory | Partial | Basic item moves |
 | NPC Interaction | Not implemented | |
