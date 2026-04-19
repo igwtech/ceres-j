@@ -131,9 +131,8 @@ public class AdminCommandHandler {
     }
 
     private static void cmdKill(Player pl) {
-        PlayerCharacter pc = pl.getCharacter();
-        pc.setHealth(0);
-        reply(pl, "HP set to 0.");
+        reply(pl, "You died.");
+        pl.die();
     }
 
     private static void cmdGod(Player pl) {

@@ -253,6 +253,37 @@ public class Player extends Thread {
 	public void setloggedin(){
 		isloggedin = true;
 	}
+
+	/**
+	 * Kill the player: set HP to 0, send death packet to client,
+	 * broadcast death to zone, and schedule respawn after 3 seconds.
+	 */
+	public void die() {
+		if (pc == null) return;
+		pc.setHealth(0);
+		// Send death via multiple mechanisms — we don't know which
+		// one the client reacts to, so try all:
+		// 1. GamePackets death sub-opcode (0x03→0x1f→0x16)
+		try {
+			send(new server.gameserver.packets.server_udp.PlayerDeath(this));
+		} catch (Exception e) {
+			server.tools.Out.writeln(server.tools.Out.Error,
+				"Player.die: death packet failed: " + e.getMessage());
+		}
+		// 2. Pool status with HP=0 (client may check this)
+		try {
+			send(new server.gameserver.packets.server_udp.PoolStatusBroadcast(this));
+		} catch (Exception e) {
+			// ignore
+		}
+		// 3. CharInfo update with HP=0
+		try {
+			send(new server.gameserver.packets.server_udp.CharInfo(this));
+		} catch (Exception e) {
+			// ignore
+		}
+		addEvent(new server.gameserver.internalEvents.RespawnEvent());
+	}
 	
 	public void incrementTransactionID(){
 		Transactionid++;
