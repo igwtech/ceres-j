@@ -18,11 +18,16 @@ public class LocalChat extends GamePacketDecoderUDP{
 	public void execute(Player pl) {
 		String message = new String();
 		message += readCString(7);
-		
+
 		Out.writeln(Out.Info, "Message from user: "
 				+ pl.getCharacter().getName() + " :"
 				+ message);
-		
+
+		// Try /command syntax first (new admin handler)
+		if (server.gameserver.AdminCommandHandler.handle(pl, message))
+			return;
+
+		// Legacy ./command syntax
 		if(!checkforcommand(pl, message))
 			pl.getZone().localChat(pl, message);
 	}

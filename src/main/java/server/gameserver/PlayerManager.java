@@ -115,4 +115,14 @@ public class PlayerManager {
 			return new LinkedList<Player>(playerList);
 		}
 	}
+
+	public static java.util.List<Player> getOnlinePlayers() {
+		synchronized (playerList) {
+			java.util.List<Player> online = new java.util.ArrayList<>();
+			for (Player pl : playerList) {
+				if (pl.isloggedin()) online.add(pl);
+			}
+			return online;
+		}
+	}
 }
