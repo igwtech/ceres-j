@@ -25,15 +25,18 @@ public class PoolStatusBroadcast extends PacketBuilderUDP13 {
         super(pl);
         PlayerCharacter pc = pl.getCharacter();
 
+        // Retail format (14B total): 1f 01 00 30 [HP LE2] [PSI LE2]
+        //   [STA LE2] [maxHP LE2] [maxHP LE2]
+        // The 0x8a that was previously treated as a sub-opcode byte
+        // is actually the LOW byte of HP (138 = 0x8a). Fixed.
         write(0x1f);  // GamePackets sub-type
         write(0x01);  // variant
         write(0x00);
-        write(0x30);  // sub-opcode byte 1 (from retail: 0x308a)
-        write(0x8a);  // sub-opcode byte 2
-
+        write(0x30);  // pool status sub-opcode
         writeShort(pc.getHealth());      // current HP
         writeShort(pc.getPsi());         // current PSI
         writeShort(pc.getStamina());     // current STA
-        writeShort(pc.getMaxStamina());  // max STA
+        writeShort(pc.getMaxHealth());   // max HP
+        writeShort(pc.getMaxHealth());   // max HP (repeated in retail)
     }
 }
