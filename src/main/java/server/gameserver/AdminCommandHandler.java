@@ -61,6 +61,10 @@ public class AdminCommandHandler {
         case "heal":
             cmdHeal(pl);
             return true;
+        case "damage":
+        case "dmg":
+            cmdDamage(pl, args);
+            return true;
         case "kill":
             cmdKill(pl);
             return true;
@@ -95,6 +99,17 @@ public class AdminCommandHandler {
         int x = pc.getMisc(PlayerCharacter.MISC_X_COORDINATE);
         reply(pl, "Position: Y=" + y + " Z=" + z + " X=" + x
                 + " Zone=" + pl.getMapID());
+    }
+
+    private static void cmdDamage(Player pl, String args) {
+        float amount = 25.0f;
+        if (!args.isEmpty()) {
+            try { amount = Float.parseFloat(args.split("\\s+")[0]); }
+            catch (NumberFormatException e) { /* use default */ }
+        }
+        pl.applyDamage(amount, 0);
+        reply(pl, "Took " + (int)amount + " damage. HP: "
+                + pl.getCharacter().getHealth() + "/" + pl.getCharacter().getMaxHealth());
     }
 
     private static void cmdWarp(Player pl, String args) {
@@ -178,6 +193,6 @@ public class AdminCommandHandler {
     }
 
     private static void cmdHelp(Player pl) {
-        reply(pl, "Commands: !pos !warp !hp !heal !kill !god !spawn !online !help");
+        reply(pl, "Commands: !pos !warp !hp !heal !kill !damage !god !spawn !online !help");
     }
 }

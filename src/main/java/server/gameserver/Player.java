@@ -255,50 +255,43 @@ public class Player extends Thread {
 	}
 
 	/**
-	 * Kill the player: set HP to 0, send death packet to client,
-	 * broadcast death to zone, and schedule respawn after 3 seconds.
+	 * Apply damage through the retail combat sequence.
+	 * If HP reaches 0, triggers death screen and schedules respawn.
 	 */
+	public void applyDamage(float damage, int attackerId) {
+		if (pc == null) return;
+		int newHp = pc.getHealth() - (int) damage;
+		pc.setHealth(Math.max(0, newHp));
+
+		// 1. Pool update: set HP to new value (raw 0x1f 0x50)
+		try {
+			send(new server.gameserver.packets.server_udp.PoolUpdate(
+				this, server.gameserver.packets.server_udp.PoolUpdate.POOL_HP,
+				newHp, pc.getMaxHealth()));
+		} catch (Exception e) { /* ignore */ }
+
+		// 2. Damage event (R:0x1f 0x25 0x06)
+		try {
+			send(new server.gameserver.packets.server_udp.DamageEvent(
+				this, damage, attackerId, 0x0a));
+		} catch (Exception e) { /* ignore */ }
+
+		// 3. If dead, send death packet and schedule respawn
+		if (newHp <= 0) {
+			try {
+				send(new server.gameserver.packets.server_udp.PlayerDeath(this, attackerId));
+			} catch (Exception e) { /* ignore */ }
+			try {
+				send(new server.gameserver.packets.server_udp.PoolStatusBroadcast(this));
+			} catch (Exception e) { /* ignore */ }
+			addEvent(new server.gameserver.internalEvents.RespawnEvent());
+		}
+	}
+
+	/** Instant kill: apply lethal damage. */
 	public void die() {
 		if (pc == null) return;
-		pc.setHealth(0);
-		// Retail death sequence (from strace capture of COPBOT kill):
-		// 1. 0x1f raw: HP update setting health to 0/negative
-		// 2. R:0x1f GamePackets(11B): death sub-opcode 0x16
-		// 3. Pool status with HP=0
-		try {
-			// HP update: 0x1f 0x01 0x00 0x50 [hp LE4] [00 00 00 04] [maxhp LE2] [00 00]
-			server.networktools.PacketBuilderUDP13 hpUpdate =
-				new server.networktools.PacketBuilderUDP13(this);
-			hpUpdate.write(0x1f);
-			hpUpdate.write(0x01);
-			hpUpdate.write(0x00);
-			hpUpdate.write(0x50);  // set-pool sub-opcode
-			hpUpdate.writeInt(0);  // HP = 0
-			hpUpdate.write(0x00);
-			hpUpdate.write(0x00);
-			hpUpdate.write(0x00);
-			hpUpdate.write(0x04);  // pool type (4 = health?)
-			hpUpdate.writeShort(pc.getMaxHealth());
-			hpUpdate.write(0x00);
-			hpUpdate.write(0x00);
-			send(hpUpdate);
-		} catch (Exception e) {
-			// ignore
-		}
-		// Death packet with correct retail format
-		try {
-			send(new server.gameserver.packets.server_udp.PlayerDeath(this));
-		} catch (Exception e) {
-			server.tools.Out.writeln(server.tools.Out.Error,
-				"Player.die: death packet failed: " + e.getMessage());
-		}
-		// Pool status broadcast
-		try {
-			send(new server.gameserver.packets.server_udp.PoolStatusBroadcast(this));
-		} catch (Exception e) {
-			// ignore
-		}
-		addEvent(new server.gameserver.internalEvents.RespawnEvent());
+		applyDamage(pc.getHealth() + 100, 0);
 	}
 	
 	public void incrementTransactionID(){
