@@ -264,7 +264,15 @@ public class Player extends Thread {
 		int newHp = pc.getHealth() - dmgInt;
 		pc.setHealth(Math.max(0, newHp));
 
-		// 1. Pool delta: signed delta applied client-side. Retail's
+		// 1. Damage tick (1f 01 00 25 23 30): retail emits this every
+		// ~500 ms while a character is taking damage — appears to drive
+		// the HUD HP-bar animation. Send first so the client knows
+		// damage is incoming before the pool delta arrives.
+		try {
+			send(new server.gameserver.packets.server_udp.DamageTick(this));
+		} catch (Exception e) { /* ignore */ }
+
+		// 2. Pool delta: signed delta applied client-side. Retail's
 		// 0x50 sub-opcode is "delta", not "set"; passing newHp here
 		// caused the client to ADD HP instead of subtract.
 		try {
@@ -273,7 +281,8 @@ public class Player extends Thread {
 				-dmgInt, pc.getMaxHealth()));
 		} catch (Exception e) { /* ignore */ }
 
-		// 2. Damage event (R:0x1f 0x25 0x06)
+		// 3. Rich damage event (R:0x1f 0x25 0x06) — retail sends this
+		// at the fatal blow with target/attacker/value fields.
 		try {
 			send(new server.gameserver.packets.server_udp.DamageEvent(
 				this, damage, attackerId, 0x0a));
