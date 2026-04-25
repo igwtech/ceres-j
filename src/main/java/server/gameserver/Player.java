@@ -260,14 +260,17 @@ public class Player extends Thread {
 	 */
 	public void applyDamage(float damage, int attackerId) {
 		if (pc == null) return;
-		int newHp = pc.getHealth() - (int) damage;
+		int dmgInt = (int) damage;
+		int newHp = pc.getHealth() - dmgInt;
 		pc.setHealth(Math.max(0, newHp));
 
-		// 1. Pool update: set HP to new value (raw 0x1f 0x50)
+		// 1. Pool delta: signed delta applied client-side. Retail's
+		// 0x50 sub-opcode is "delta", not "set"; passing newHp here
+		// caused the client to ADD HP instead of subtract.
 		try {
 			send(new server.gameserver.packets.server_udp.PoolUpdate(
 				this, server.gameserver.packets.server_udp.PoolUpdate.POOL_HP,
-				newHp, pc.getMaxHealth()));
+				-dmgInt, pc.getMaxHealth()));
 		} catch (Exception e) { /* ignore */ }
 
 		// 2. Damage event (R:0x1f 0x25 0x06)

@@ -22,3 +22,7 @@ log/
 .DS_Store
 Thumbs.db
 .claude/worktrees/
+
+# Python tooling
+tools/__pycache__/
+*.pyc
