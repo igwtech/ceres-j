@@ -76,17 +76,43 @@ public final class SqliteDatabase {
 
     private static Connection connection;
     private static final String DB_PATH = "database" + File.separator + "ceres.db";
+    private static boolean isPostgres = false;
+
+    /**
+     * Whether the active backend is PostgreSQL. Influences DDL syntax for
+     * schema migrations (e.g., {@code information_schema.columns} vs
+     * {@code PRAGMA table_info}) and skips SQLite-specific PRAGMAs. Set
+     * during {@link #init()} from the JDBC URL.
+     */
+    public static boolean isPostgres() { return isPostgres; }
 
     public static void init() throws StartupException {
         try {
-            Class.forName("org.sqlite.JDBC");
-            connection = DriverManager.getConnection("jdbc:sqlite:" + DB_PATH);
+            // Resolve JDBC URL: production runtime defaults to PostgreSQL via
+            // ceres.cfg. If no Database.url is configured, fall back to the
+            // SQLite file at ./database/ceres.db. Tests bypass init() entirely
+            // and call initWithConnection(...) with an in-memory SQLite.
+            String url = server.tools.Config.getProperty("Database.url");
+            String user = server.tools.Config.getProperty("Database.user");
+            String pass = server.tools.Config.getProperty("Database.password");
+            if (url == null || url.isBlank()) {
+                url = "jdbc:sqlite:" + DB_PATH;
+            }
 
-            // Enable WAL mode for concurrent reads
-            try (Statement stmt = connection.createStatement()) {
-                stmt.execute("PRAGMA journal_mode=WAL");
-                stmt.execute("PRAGMA foreign_keys=ON");
-                stmt.execute("PRAGMA busy_timeout=5000");
+            isPostgres = url.startsWith("jdbc:postgresql:");
+            if (isPostgres) {
+                Class.forName("org.postgresql.Driver");
+                connection = DriverManager.getConnection(url,
+                    user != null ? user : "ceres",
+                    pass != null ? pass : "ceres");
+            } else {
+                Class.forName("org.sqlite.JDBC");
+                connection = DriverManager.getConnection(url);
+                try (Statement stmt = connection.createStatement()) {
+                    stmt.execute("PRAGMA journal_mode=WAL");
+                    stmt.execute("PRAGMA foreign_keys=ON");
+                    stmt.execute("PRAGMA busy_timeout=5000");
+                }
             }
 
             createTables();
@@ -105,22 +131,34 @@ public final class SqliteDatabase {
             migrateSchema();
             migrateFromCsv();
 
-            Out.writeln(Out.Info, "SQLite database initialized: " + DB_PATH);
+            // One-shot copy of legacy SQLite data into the active PG database
+            // when the user has just switched backends. No-op in SQLite mode.
+            if (isPostgres) {
+                SqliteToPostgresMigrator.migrateIfNeeded(connection);
+            }
+
+            Out.writeln(Out.Info, "Database initialized: " + url
+                + (isPostgres ? " (PostgreSQL)" : " (SQLite)"));
         } catch (ClassNotFoundException e) {
-            throw new StartupException("SQLite JDBC driver not found");
+            throw new StartupException("JDBC driver not found: " + e.getMessage());
         } catch (SQLException e) {
-            throw new StartupException("Failed to initialize SQLite database: " + e.getMessage());
+            throw new StartupException("Failed to initialize database: " + e.getMessage());
         }
     }
 
     /**
      * Initialize with a custom connection (for testing).
+     * Auto-detects backend from the connection's metadata URL.
      */
     public static void initWithConnection(Connection conn) throws SQLException {
         connection = conn;
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute("PRAGMA journal_mode=WAL");
-            stmt.execute("PRAGMA foreign_keys=ON");
+        String url = conn.getMetaData().getURL();
+        isPostgres = url != null && url.startsWith("jdbc:postgresql:");
+        if (!isPostgres) {
+            try (Statement stmt = connection.createStatement()) {
+                stmt.execute("PRAGMA journal_mode=WAL");
+                stmt.execute("PRAGMA foreign_keys=ON");
+            }
         }
         createTables();
         migrateSchema();
@@ -269,14 +307,20 @@ public final class SqliteDatabase {
                 ")"
             );
 
-            // Seed default plaza_p1 (zone 1) NPCs if the table is empty.
+            // Seed default plaza_p1 (zone 1) NPCs if the table is empty AND
+            // there's no legacy SQLite file waiting to be migrated (which
+            // would already contain these rows). Without this guard,
+            // PG seeds 257-264 here and then SqliteToPostgresMigrator hits a
+            // duplicate-key error trying to copy the same IDs from SQLite.
             // Type IDs and script/model names sourced from pak_npc.def.
             // Positions from retail ACC1_CHAR1 0x1b broadcasts.
             // IDs 257–264 (0x101–0x108) are in the retail 0x101–0x1FF range.
             java.sql.ResultSet rs = stmt.executeQuery(
                 "SELECT COUNT(*) FROM npc_spawns");
             rs.next();
-            if (rs.getInt(1) == 0) {
+            boolean pendingSqliteMigration = isPostgres
+                && new File("database" + File.separator + "ceres.db").exists();
+            if (rs.getInt(1) == 0 && !pendingSqliteMigration) {
                 stmt.execute(
                     "INSERT INTO npc_spawns (id, zone_id, type, name, script_name, model_name, x, y, z, angle, hp, armor) VALUES " +
                     // type 191 = S_CITYMERCS_0, WLDK model (CityMercs faction security guard)
@@ -314,11 +358,7 @@ public final class SqliteDatabase {
      * {@code PRAGMA user_version} is bumped to {@link #CURRENT_SCHEMA_VERSION}.
      */
     private static void migrateSchema() throws SQLException {
-        int currentVersion;
-        try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery("PRAGMA user_version")) {
-            currentVersion = rs.next() ? rs.getInt(1) : 0;
-        }
+        int currentVersion = readSchemaVersion();
 
         if (currentVersion >= CURRENT_SCHEMA_VERSION) {
             return;
@@ -368,24 +408,74 @@ public final class SqliteDatabase {
             }
         }
 
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute("PRAGMA user_version = " + CURRENT_SCHEMA_VERSION);
-        }
+        writeSchemaVersion(CURRENT_SCHEMA_VERSION);
 
         Out.writeln(Out.Info, "Schema migrated to version " + CURRENT_SCHEMA_VERSION);
     }
 
     /**
-     * Read the set of existing column names on a table via
-     * {@code PRAGMA table_info}. Column comparison is case-sensitive to match
-     * SQLite's default identifier handling with our double-quoted columns.
+     * Read the current schema version. Uses a portable {@code schema_versions}
+     * table (single row, single column) rather than SQLite's
+     * {@code PRAGMA user_version} so the same code path works for PostgreSQL.
+     * Returns 0 if the table doesn't exist (= legacy / fresh DB).
+     */
+    private static int readSchemaVersion() throws SQLException {
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute("CREATE TABLE IF NOT EXISTS schema_versions (version INTEGER NOT NULL)");
+        }
+        // SQLite legacy DBs may have PRAGMA user_version set even though the
+        // table is empty; honour that so existing dev/prod DBs migrate cleanly.
+        if (!isPostgres) {
+            try (Statement stmt = connection.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM schema_versions")) {
+                if (rs.next() && rs.getInt(1) == 0) {
+                    try (ResultSet pragmaRs = stmt.executeQuery("PRAGMA user_version")) {
+                        if (pragmaRs.next() && pragmaRs.getInt(1) > 0) {
+                            return pragmaRs.getInt(1);
+                        }
+                    }
+                }
+            }
+        }
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT MAX(version) FROM schema_versions")) {
+            if (rs.next()) {
+                int v = rs.getInt(1);
+                return rs.wasNull() ? 0 : v;
+            }
+        }
+        return 0;
+    }
+
+    private static void writeSchemaVersion(int v) throws SQLException {
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute("DELETE FROM schema_versions");
+            stmt.execute("INSERT INTO schema_versions (version) VALUES (" + v + ")");
+            if (!isPostgres) {
+                stmt.execute("PRAGMA user_version = " + v);
+            }
+        }
+    }
+
+    /**
+     * Read the set of existing column names on a table.
+     * Backend-specific: PRAGMA table_info for SQLite, information_schema for PostgreSQL.
      */
     private static Set<String> getExistingColumns(String table) throws SQLException {
         Set<String> cols = new HashSet<>();
-        try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery("PRAGMA table_info(" + table + ")")) {
-            while (rs.next()) {
-                cols.add(rs.getString("name"));
+        if (isPostgres) {
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT column_name FROM information_schema.columns "
+                    + "WHERE table_schema = current_schema() AND table_name = ?")) {
+                ps.setString(1, table);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) cols.add(rs.getString(1));
+                }
+            }
+        } else {
+            try (Statement stmt = connection.createStatement();
+                 ResultSet rs = stmt.executeQuery("PRAGMA table_info(" + table + ")")) {
+                while (rs.next()) cols.add(rs.getString("name"));
             }
         }
         return cols;

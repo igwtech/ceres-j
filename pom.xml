@@ -7,6 +7,12 @@
     <packaging>jar</packaging>
     <dependencies>
         <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.4</version>
+        </dependency>
+        <!-- SQLite kept for one-shot data migration only (see SqliteToPostgresMigrator). -->
+        <dependency>
             <groupId>org.xerial</groupId>
             <artifactId>sqlite-jdbc</artifactId>
             <version>3.47.2.0</version>

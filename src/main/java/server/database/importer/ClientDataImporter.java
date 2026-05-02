@@ -109,7 +109,13 @@ public final class ClientDataImporter {
             return;
         }
 
-        String sql = "INSERT OR REPLACE INTO world_defs (id, path, bsp_name) VALUES (?, ?, ?)";
+        // Cross-backend upsert: SQLite supports `INSERT OR REPLACE` while
+        // PostgreSQL requires `ON CONFLICT (...) DO UPDATE`. Both forms are
+        // semantically equivalent for this id-keyed table.
+        String sql = server.database.SqliteDatabase.isPostgres()
+            ? "INSERT INTO world_defs (id, path, bsp_name) VALUES (?, ?, ?) "
+              + "ON CONFLICT (id) DO UPDATE SET path = EXCLUDED.path, bsp_name = EXCLUDED.bsp_name"
+            : "INSERT OR REPLACE INTO world_defs (id, path, bsp_name) VALUES (?, ?, ?)";
         boolean prevAutoCommit = true;
         try {
             prevAutoCommit = conn.getAutoCommit();
