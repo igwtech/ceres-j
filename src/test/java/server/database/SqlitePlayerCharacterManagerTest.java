@@ -128,15 +128,13 @@ public class SqlitePlayerCharacterManagerTest {
         assertEquals(2, pc.getSkillLVL(PlayerCharacter.INT));
         assertEquals(1, pc.getSkillLVL(PlayerCharacter.PSI));
 
-        // Check subskills (non-null entries)
+        // Check subskills (non-null entries). Each was set to its index value.
+        // Hardcoded `if(i == 3) return 5` override removed 2026-05-02 (was a
+        // legacy Irata-era bug that prevented stored TRA from sticking).
         for (int i = 1; i < PlayerCharacter.SUBSKILLS.length; i++) {
             if (PlayerCharacter.SUBSKILLS[i] != null) {
-                // We set each subskill to its index value
-                int expected = i;
-                // Note: getSubskillLVL(3) has a hardcoded override returning 5
-                if (i == 3) expected = 5;
                 assertEquals("Subskill " + PlayerCharacter.SUBSKILLS[i] + " at index " + i,
-                        expected, pc.getSubskillLVL(i));
+                        i, pc.getSubskillLVL(i));
             }
         }
 

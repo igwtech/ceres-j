@@ -17,17 +17,22 @@ public class PlayerCharacter {
 	public static final int PSI = 5;
 
 	
-	// Subskill slot index = position in CharInfo Section 4. Verified
-	// against retail by 5-char F1 differential analysis (2026-05-01).
+	// Subskill slot index = position in CharInfo Section 4.
+	// Verified against retail via 6-char F1 differential analysis (2026-05-01)
+	// + live HUD verification on Ceres-J (2026-05-02): WPW lives at slot 45
+	// (legacy NC1 position), NOT slot 37 as initial analysis suggested.
+	// Both 37 and 45 are zero across our retail captures, but the live
+	// client confirms slot 45 is the WPW position.
 	// FOR/PCR are STR resists (Resist Force / Resist Piercing) despite
-	// living in slots 22 and 6 respectively. WPW is at slot 37 (INT block),
-	// not 45 — slot 45 is an unused padding slot inherited from NC1.
+	// living in slots 22 and 6 respectively, mixed into the CON-resist run.
+	// Slots 4, 5, 7, 8, 9, 18, 19, 28, 29, 37, 38, 39 are NC1-era padding
+	// (always 0 in retail, no client display).
 	public static final String[] SUBSKILLS = {
 		null,  "mc",  "hc",  "tra", null,  null,  "pcr", null,  null, null,
 		"pc",  "rc",  "tc",  "vhc", "agl", "rep", "rec", "rcl", null, null,
 		"atl", "end", "for", "fir", "enr", "xrr", "por", "hlt", null, null,
-		"hck", "brt", "psu", "wep", "cst", "res", "imp", "wpw", null, null,
-		"ppu", "apu", "mst", "ppw", "psr", null
+		"hck", "brt", "psu", "wep", "cst", "res", "imp", null,  null, null,
+		"ppu", "apu", "mst", "ppw", "psr", "wpw"
 	};
 
 	public static final int SUBSKILL_MC = 1;
@@ -60,13 +65,13 @@ public class PlayerCharacter {
 	public static final int SUBSKILL_CST = 34;
 	public static final int SUBSKILL_RES = 35;
 	public static final int SUBSKILL_IMP = 36;
-	public static final int SUBSKILL_WPW = 37;
 
 	public static final int SUBSKILL_PPU = 40;
 	public static final int SUBSKILL_APU = 41;
 	public static final int SUBSKILL_MST = 42;
 	public static final int SUBSKILL_PPW = 43;
 	public static final int SUBSKILL_PSR = 44;
+	public static final int SUBSKILL_WPW = 45;
 	
 	//evo 2.1
 /*	public static final String[] SUBSKILLSSQL = {
@@ -278,8 +283,6 @@ public class PlayerCharacter {
 	}
 
 	public int getSubskillLVL(int i) {
-		if(i == 3)
-			return 5;
 		return subskillslvl[i];
 	}
 
