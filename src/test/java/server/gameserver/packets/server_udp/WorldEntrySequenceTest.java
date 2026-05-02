@@ -88,31 +88,29 @@ public class WorldEntrySequenceTest {
     }
 
     @Test
-    public void charInfoFragmentsIntoMultipart() {
+    public void charInfoUsesSinglePacketForSmallBody() {
+        // A fresh character (no inventory, no quest log, no faction reps)
+        // produces a CharInfo body well under the ~900-byte multipart
+        // threshold. Verified retail behavior 2026-05-01: small bodies ride
+        // reliable_type 0x2c as a single packet (Dr.Stone fresh char in
+        // Genesis Dungeon AND Plaza Sec-1 both used 0x2c).
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
         DatagramPacket[] dps = new CharInfo(pl).getDatagramPackets();
 
-        // CharInfo is a 0x13->0x03->0x07 multi-part packet; even for an empty
-        // inventory the payload is big enough to fragment into 2+ chunks.
-        assertTrue("CharInfo must fragment; got " + dps.length + " datagram(s)",
-                dps.length >= 2);
+        assertEquals("small CharInfo must be a single packet, got "
+                + dps.length + " datagram(s)", 1, dps.length);
 
-        // Every fragment must be framed as 0x13 + 0x03 reliable + 0x07 multipart.
-        // Offsets shifted +1 due to 2-byte LE sub-packet length at offset 5-6.
-        for (DatagramPacket dp : dps) {
-            byte[] data = dp.getData();
-            assertEquals(0x13, data[0] & 0xFF);
-            assertEquals("reliable wrapper at offset 7", 0x03, data[7] & 0xFF);
-            // 0x07 multipart sub-type lives at offset 10 (after
-            // 0x13+counter+counter+2B_size+0x03+seq = 10 bytes).
-            assertEquals("multipart sub-type at offset 10", 0x07, data[10] & 0xFF);
-        }
+        // Frame: 0x13 + counter + size + 0x03 reliable wrapper + 0x2c sub-type.
+        byte[] data = dps[0].getData();
+        assertEquals(0x13, data[0] & 0xFF);
+        assertEquals("reliable wrapper at offset 7", 0x03, data[7] & 0xFF);
+        assertEquals("single-packet sub-type at offset 10", 0x2c, data[10] & 0xFF);
 
-        // Fragment index / total in multipart header are at offsets 11..14.
-        byte[] last = dps[dps.length - 1].getData();
-        int fragIdx = (last[11] & 0xFF) | ((last[12] & 0xFF) << 8);
-        int total   = (last[13] & 0xFF) | ((last[14] & 0xFF) << 8);
-        assertEquals("last fragment index must equal total - 1",
-                total - 1, fragIdx);
+        // Inner data starts immediately after offset 10. Retail single-mode
+        // prefix is `02 01` (replaces multipart's `00 22 02 01` chain_key+magic).
+        assertEquals("single-mode prefix byte 0", 0x02, data[11] & 0xFF);
+        assertEquals("single-mode prefix byte 1", 0x01, data[12] & 0xFF);
+        // Section 1 ID immediately follows the 2-byte prefix.
+        assertEquals("section 1 id at offset 13", 0x01, data[13] & 0xFF);
     }
 }

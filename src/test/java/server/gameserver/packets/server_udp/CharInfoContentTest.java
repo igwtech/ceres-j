@@ -137,12 +137,17 @@ public class CharInfoContentTest {
         assertEquals(80,  readShortLE(sec2, 10));  // cur stamina
         assertEquals(120, readShortLE(sec2, 12));  // max stamina
 
-        // 5 out-of-scope padding shorts: 255, 255, 101, 101, 101 (offsets 14..23)
+        // 4th-pool sentinels: 255, 255 (offsets 14..17)
         assertEquals(255, readShortLE(sec2, 14));
         assertEquals(255, readShortLE(sec2, 16));
-        assertEquals(101, readShortLE(sec2, 18));
-        assertEquals(101, readShortLE(sec2, 20));
-        assertEquals(101, readShortLE(sec2, 22));
+        // HP bar zone markers (verified retail 2026-05-01): HP_max split
+        // into 35%/45%/20% for HUD bar rendering. With max_health=300:
+        //   green = 300*7/20 = 105
+        //   yellow = 300*9/20 = 135
+        //   red    = 300*4/20 = 60
+        assertEquals(105, readShortLE(sec2, 18));
+        assertEquals(135, readShortLE(sec2, 20));
+        assertEquals(60,  readShortLE(sec2, 22));
 
         // Synaptic byte at offset 24
         assertEquals(42, sec2[24] & 0xff);

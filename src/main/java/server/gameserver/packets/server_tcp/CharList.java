@@ -18,8 +18,14 @@ public class CharList extends PacketBuilderTCP {
 	public CharList(Account account) {
 		write(0x83);// packet id
 		write(0x85);
-		write(0);// unknown
-		write(0);
+		// Modern NCE 2.5.x client signature bytes — verified against retail
+		// TCP capture 2026-05-01 (msn4wolf account, char list `Repairman Jack`,
+		// `Hanibal Lecture`, `Drstone`, empty slot). Without these two bytes
+		// the client silently discards the CharList and stays stuck on the
+		// "updating data" screen, retrying with `a0 03` keepalive pings.
+		// Legacy Ceres-J emitted `00 00` here; retail emits `fe 02`.
+		write(0xfe);
+		write(0x02);
 		writeShort(4); // number of chars
 		writeShort(0x29); //size of charstructure??
 

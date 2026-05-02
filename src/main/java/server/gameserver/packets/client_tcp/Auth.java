@@ -5,7 +5,9 @@ import server.database.accounts.AccountManager;
 import server.gameserver.GameServerTCPConnection;
 import server.gameserver.packets.GamePacketDecoderTCP;
 import server.gameserver.packets.server_tcp.AuthAck;
+import server.gameserver.packets.server_tcp.CharList;
 import server.gameserver.packets.server_tcp.RequestFailed;
+import server.gameserver.packets.server_tcp.SessionReady;
 import server.tools.Out;
 
 public final class Auth extends GamePacketDecoderTCP {
@@ -57,7 +59,15 @@ public final class Auth extends GamePacketDecoderTCP {
 			Account ua = AccountManager.getAccount(username, password);
 			tcp.setAccount(ua);
 			if (ua != null) {
+				// Retail post-Auth sequence (verified TCP capture 2026-05-01):
+				//   AuthAck (0x83 0x81) → SessionReady (0xa0 0x01) → CharList (0x83 0x85)
+				// The modern NCE 2.5.x client requires SessionReady between
+				// AuthAck and CharList; without it the CharList is silently
+				// dropped and the client stays stuck on "updating data"
+				// retrying with `a0 03` keepalive pings.
 				tcp.send(new AuthAck(ua));
+				tcp.send(new SessionReady());
+				tcp.send(new CharList(ua));
 			} else {
 				tcp.send(new RequestFailed("ERROR"));
 			}

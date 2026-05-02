@@ -10,8 +10,11 @@ import server.gameserver.PlayerManager;
 import server.gameserver.PlayerUdpListener;
 import server.gameserver.UdpPortPool;
 import server.gameserver.packets.GamePacketDecoderTCP;
-import server.gameserver.packets.server_tcp.UDPServerData;
+import server.gameserver.packets.server_tcp.Location;
+import server.gameserver.packets.server_tcp.Packet830D;
 import server.gameserver.packets.server_tcp.RequestFailed;
+import server.gameserver.packets.server_tcp.SessionReady;
+import server.gameserver.packets.server_tcp.UDPServerData;
 import server.tools.Out;
 
 public class AuthB extends GamePacketDecoderTCP {
@@ -101,14 +104,23 @@ public class AuthB extends GamePacketDecoderTCP {
 						}
 					}
 
-					// Retail does NOT respond to AuthB with UDPServerData.
-					// Only GetUDPConnection (0x87 0x3c) triggers the
-					// UDPServerData response. Sending it here too causes the
-					// modern client to initialise TWO UDP sessions back to
-					// back — the second one manifests as a "zone handoff"
-					// socket reopen that never finishes syncing, producing
-					// the long-standing "Connection to worldserver failed"
-					// crash after the client loads the zone BSP.
+					// Retail post-AuthB sequence (verified TCP capture
+					// of Drstone connecting to Plaza Sec-1 via port 5008,
+					// 2026-05-01):
+					//   SessionReady (0xa0 0x01) →
+					//   UDPServerData (0x83 0x05) →
+					//   GameinfoReady (0x83 0x0d) →
+					//   Location (0x83 0x0c, with zone BSP name) →
+					//   ... then 0x83 0x8f keepalives ...
+					// The modern NCE 2.5.x client does NOT request these
+					// via GetGamedata — the server pushes them proactively.
+					// Without this push the client times out with
+					// "connect to nethost failed" while waiting for UDP
+					// handover info.
+					tcp.send(new SessionReady());
+					tcp.send(new UDPServerData(pl));
+					tcp.send(new Packet830D());
+					tcp.send(new Location(pl));
 				} else {
 					Out.writeln(Out.Error, "AuthB: player not found after activation");
 					tcp.send(new RequestFailed("ERROR"));

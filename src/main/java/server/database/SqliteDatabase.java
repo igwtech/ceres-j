@@ -33,7 +33,7 @@ public final class SqliteDatabase {
      *           faction_sympathies (JSON) and per-skill xp/rate/max.</li>
      * </ul>
      */         
-    public static final int CURRENT_SCHEMA_VERSION = 2;
+    public static final int CURRENT_SCHEMA_VERSION = 4;
 
     /**
      * CharInfo fidelity columns added in schema v1. Each entry is
@@ -258,6 +258,8 @@ public final class SqliteDatabase {
                 "  zone_id INTEGER NOT NULL," +
                 "  type INTEGER NOT NULL," +
                 "  name TEXT DEFAULT ''," +
+                "  script_name TEXT DEFAULT ''," +
+                "  model_name TEXT DEFAULT ''," +
                 "  x INTEGER DEFAULT 0," +
                 "  y INTEGER DEFAULT 0," +
                 "  z INTEGER DEFAULT 0," +
@@ -268,23 +270,28 @@ public final class SqliteDatabase {
             );
 
             // Seed default plaza_p1 (zone 1) NPCs if the table is empty.
-            // These are decorative NPCs at positions derived from the
-            // retail ACC1_CHAR1 capture's 0x1b position broadcast data.
-            // IDs 257–270 (0x101–0x10E) match the retail convention.
+            // Type IDs and script/model names sourced from pak_npc.def.
+            // Positions from retail ACC1_CHAR1 0x1b broadcasts.
+            // IDs 257–264 (0x101–0x108) are in the retail 0x101–0x1FF range.
             java.sql.ResultSet rs = stmt.executeQuery(
                 "SELECT COUNT(*) FROM npc_spawns");
             rs.next();
             if (rs.getInt(1) == 0) {
                 stmt.execute(
-                    "INSERT INTO npc_spawns (id, zone_id, type, name, x, y, z, angle, hp, armor) VALUES " +
-                    "(257, 1, 33900, 'CityMercs Guard', 32186, 31551, 32827, 64, 500, 50)," +
-                    "(258, 1, 33900, 'CityMercs Guard', 32301, 31488, 32835, 64, 500, 50)," +
-                    "(259, 1, 33900, 'CityMercs Guard', 31768, 31523, 32899, 64, 500, 50)," +
-                    "(260, 1, 33900, 'CityMercs Guard', 32135, 31487, 32653, 64, 500, 50)," +
-                    "(261, 1, 33901, 'City Admin', 32384, 31604, 32593, 64, 200, 0)," +
-                    "(262, 1, 33902, 'Trader', 31890, 31492, 32706, 64, 200, 0)," +
-                    "(263, 1, 33903, 'Tech Dealer', 32242, 31399, 32809, 64, 200, 0)," +
-                    "(264, 1, 33904, 'Drug Dealer', 31900, 31587, 32482, 64, 200, 0)"
+                    "INSERT INTO npc_spawns (id, zone_id, type, name, script_name, model_name, x, y, z, angle, hp, armor) VALUES " +
+                    // type 191 = S_CITYMERCS_0, WLDK model (CityMercs faction security guard)
+                    "(257, 1, 191, 'CityMercs Guard', 'S_CITYMERCS_0', 'WLDK', 32186, 31551, 32827, 64, 500, 50)," +
+                    "(258, 1, 191, 'CityMercs Guard', 'S_CITYMERCS_0', 'WLDK', 32301, 31488, 32835, 64, 500, 50)," +
+                    "(259, 1, 191, 'CityMercs Guard', 'S_CITYMERCS_0', 'WLDK', 31768, 31523, 32899, 64, 500, 50)," +
+                    "(260, 1, 191, 'CityMercs Guard', 'S_CITYMERCS_0', 'WLDK', 32135, 31487, 32653, 64, 500, 50)," +
+                    // type 20 = S_CITYADMIN, WSK model (city administrator)
+                    "(261, 1, 20,  'City Admin',      'S_CITYADMIN',   'WSK',  32384, 31604, 32593, 64, 200, 0)," +
+                    // type 29 = trader_pa, WSK model (personal assistant trader)
+                    "(262, 1, 29,  'Trader',          'trader_pa',     'WSK',  31890, 31492, 32706, 64, 200, 0)," +
+                    // type 2600 = TECHFREAK, WSK model (tech dealer)
+                    "(263, 1, 2600,'Tech Dealer',     'TECHFREAK',     'WSK',  32242, 31399, 32809, 64, 200, 0)," +
+                    // type 215 = DRUGDEALER, WSK model
+                    "(264, 1, 215, 'Drug Dealer',     'DRUGDEALER',    'WSK',  31900, 31587, 32482, 64, 200, 0)"
                 );
             }
             rs.close();
@@ -299,6 +306,9 @@ public final class SqliteDatabase {
      * {@code PRAGMA table_info('player_characters')} to detect existing columns so
      * the migration is idempotent — freshly-created tables already contain the
      * columns via {@link #createTables()} and this method is a no-op for them.
+     *
+     * <p>v2 → v3: add {@code script_name} and {@code model_name} TEXT columns to
+     * {@code npc_spawns}. Existing rows default to empty string.
      *
      * <p>The migration is one-way (no downgrade). On completion,
      * {@code PRAGMA user_version} is bumped to {@link #CURRENT_SCHEMA_VERSION}.
@@ -323,6 +333,37 @@ public final class SqliteDatabase {
                             + q(col[0]) + " " + col[1] + " " + col[2];
                         stmt.execute(ddl);
                     }
+                }
+            }
+        }
+
+        if (currentVersion < 3) {
+            Set<String> existing = getExistingColumns("npc_spawns");
+            try (Statement stmt = connection.createStatement()) {
+                if (!existing.contains("script_name")) {
+                    stmt.execute("ALTER TABLE npc_spawns ADD COLUMN script_name TEXT DEFAULT ''");
+                }
+                if (!existing.contains("model_name")) {
+                    stmt.execute("ALTER TABLE npc_spawns ADD COLUMN model_name TEXT DEFAULT ''");
+                }
+                // Fix seed rows that were created with invalid type IDs (33900-33904).
+                stmt.execute("UPDATE npc_spawns SET type=191, script_name='S_CITYMERCS_0', model_name='WLDK' WHERE type=33900");
+                stmt.execute("UPDATE npc_spawns SET type=20,  script_name='S_CITYADMIN',   model_name='WSK'  WHERE type=33901");
+                stmt.execute("UPDATE npc_spawns SET type=29,  script_name='trader_pa',     model_name='WSK'  WHERE type=33902");
+                stmt.execute("UPDATE npc_spawns SET type=2600,script_name='TECHFREAK',     model_name='WSK'  WHERE type=33903");
+                stmt.execute("UPDATE npc_spawns SET type=215, script_name='DRUGDEALER',    model_name='WSK'  WHERE type=33904");
+            }
+        }
+
+        if (currentVersion < 4) {
+            // v3 → v4: add `pcr` (Resist Piercing) subskill column. Earlier
+            // SUBSKILLS array had null at slot 6; SUBSKILL_PCR=6 was added
+            // 2026-05-01 after retail differential analysis confirmed PCR
+            // lives at S4 position 6. Existing characters default to 0.
+            Set<String> existing = getExistingColumns("player_characters");
+            try (Statement stmt = connection.createStatement()) {
+                if (!existing.contains("pcr")) {
+                    stmt.execute("ALTER TABLE player_characters ADD COLUMN \"pcr\" INTEGER DEFAULT 0");
                 }
             }
         }

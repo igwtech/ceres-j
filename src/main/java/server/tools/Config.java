@@ -200,8 +200,14 @@ public final class Config {
 		String ip;
 		byte[] clientip = socket.getInetAddress().getAddress();
 
-		if (clientip[0] == 127 && localIp != null) { //localhost
-			ip = localIp;
+		if (clientip[0] == 127) { //localhost
+			// Client on loopback (e.g. wine on the same host as Ceres-J).
+			// Return 127.0.0.1 so the UDP handover stays on loopback —
+			// otherwise we'd hand the client a LAN IP it can't always
+			// reach (firewall, docker namespace edge cases, wine network
+			// stack quirks). Verified fix for "connect to nethost failed"
+			// from wine client during char-select → world-enter handoff.
+			ip = "127.0.0.1";
 		} else if ( clientip[0] == 10 //lan
 				|| (clientip[0] == (byte)172 && (clientip[1] & 240) == 16) //lan
 				|| (clientip[0] == (byte)192 && clientip[1] == (byte)168)) { //lan
