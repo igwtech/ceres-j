@@ -315,6 +315,46 @@ public class WorldDatParserTest {
         assertEquals(0x0017, r.id);
     }
 
+    // ─── Type 1000016 (decorated marker) functional ────────────────
+
+    @Test
+    public void plazaApp4ParsesExtraEntries() throws Exception {
+        // Fixture has 2 type-1000016 + 23 type-1000002 + 2 type-1000003.
+        byte[] raw = readResource("/worlds/pak_plaza_app_4.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        assertEquals(2, pw.extras.size());
+        assertEquals(23, pw.passives.size());
+    }
+
+    @Test
+    public void extraEntryFirstSampleMatchesOfflineDecode() throws Exception {
+        // Offline Python decoded the first 1000016 entry as:
+        //   pos = (Y=602.0, Z=18.43, X=-387.73)
+        //   entry_id = 0x000105de
+        byte[] raw = readResource("/worlds/pak_plaza_app_4.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        WorldDatParser.ExtraEntry e = pw.extras.get(0);
+        assertEquals(602.0f, e.posY, 0.01f);
+        assertEquals(18.43f, e.posZ, 0.01f);
+        assertEquals(-387.73f, e.posX, 0.01f);
+        assertEquals(0x000105de, e.entryId);
+        assertEquals(68, e.raw.length);
+    }
+
+    @Test
+    public void extraEntryHighIdHalfMatchesPattern() throws Exception {
+        // High 16 bits of entry_id are constant 0x0001 across the
+        // observed corpus — verify the assertion holds for our
+        // fixture entries.
+        byte[] raw = readResource("/worlds/pak_plaza_app_4.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        for (WorldDatParser.ExtraEntry e : pw.extras) {
+            int high16 = (e.entryId >>> 16) & 0xffff;
+            assertEquals("entry_id high 16 bits should be 0x0001",
+                    0x0001, high16);
+        }
+    }
+
     @Test
     public void totalElementsMatchesAllDecodedAndRawSec2() throws Exception {
         byte[] raw = readResource("/worlds/pak_reaktor_nc.dat");
@@ -323,7 +363,7 @@ public class WorldDatParserTest {
         // whether it was decoded or stashed as a raw blob.
         int decoded = pw.objects.size() + pw.doors.size() + pw.npcs.size()
                     + pw.passives.size() + pw.markers.size()
-                    + pw.regions.size();
+                    + pw.regions.size() + pw.extras.size();
         // raw blobs from section-2 unknown types are counted too.
         long sec2RawBlobs = pw.rawBlobs.stream()
                 .filter(b -> b.elementType > 0)

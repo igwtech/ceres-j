@@ -88,6 +88,16 @@ public final class WorldDatParser {
     public static final int TYPE_REGION = 1000013;
     private static final int REGION_SIZE = 24;
 
+    /** Type 1000016 — 68-byte decorated marker. 47 entries in the
+     *  corpus, mostly in the_neocronstruct + apartments. Layout:
+     *  position + 3 zero rotations + 1.0 scale + (dim1, dim2) +
+     *  (modifier1, modifier2) + 0 + RGBA quadruple (stored as 4
+     *  floats, each clamped 0-255) + 0x00010000 + entry_id uint32.
+     *  Likely interpretation: tinted billboard / lightmap signpost /
+     *  colored decoration marker. */
+    public static final int TYPE_EXTRA = 1000016;
+    private static final int EXTRA_SIZE = 68;
+
     /** PSec2ElemType3a — mandatory portion. */
     private static final int OBJECT_HEADER_SIZE = 52;
     /** PSec2ElemType3b — optional bbox portion. */
@@ -222,6 +232,22 @@ public final class WorldDatParser {
         public int   id;
     }
 
+    /**
+     * Type 1000016 — 68-byte decorated marker. Surfaces only the
+     * high-confidence fields (position + entry id); the remaining
+     * 52 bytes (rotations, scale, two dimension floats, modifier
+     * pair, RGBA-shaped quadruple, constant 0x00010000) are
+     * preserved verbatim in {@code raw} for future RE.
+     */
+    public static final class ExtraEntry {
+        public float posY, posZ, posX;
+        /** uint32 at offset 64 — varying per entry (e.g. 0x0001052d,
+         *  0x0001053a). High two bytes appear constant (0x0001) and
+         *  the low two bytes appear to be a per-zone counter. */
+        public int   entryId;
+        public byte[] raw;
+    }
+
     public static final class RawBlob {
         public int sectionId;
         public int elementType;
@@ -235,6 +261,7 @@ public final class WorldDatParser {
         public final List<PassiveEntry> passives = new ArrayList<>();
         public final List<PositionMarker> markers = new ArrayList<>();
         public final List<RegionEntry>   regions = new ArrayList<>();
+        public final List<ExtraEntry>    extras  = new ArrayList<>();
         public final List<RawBlob>     rawBlobs = new ArrayList<>();
         /** Section IDs encountered, in order. */
         public final List<Integer>     sectionIds = new ArrayList<>();
@@ -353,6 +380,9 @@ public final class WorldDatParser {
         case TYPE_REGION:
             decodeRegion(in, off, size, out);
             return;
+        case TYPE_EXTRA:
+            decodeExtra(in, off, size, out);
+            return;
         case TYPE_OBJECT:
             decodeObject(bb, size, out);
             return;
@@ -389,6 +419,22 @@ public final class WorldDatParser {
         m.posX = Float.intBitsToFloat(leInt(in, off + 8));
         m.trailer = Arrays.copyOfRange(in, off + 12, off + 20);
         out.markers.add(m);
+    }
+
+    private static void decodeExtra(byte[] in, int off, int size,
+                                     ParsedWorld out)
+            throws ParseException {
+        if (size != EXTRA_SIZE) {
+            throw new ParseException("extra size " + size
+                    + " expected " + EXTRA_SIZE);
+        }
+        ExtraEntry e = new ExtraEntry();
+        e.posY    = Float.intBitsToFloat(leInt(in, off));
+        e.posZ    = Float.intBitsToFloat(leInt(in, off + 4));
+        e.posX    = Float.intBitsToFloat(leInt(in, off + 8));
+        e.entryId = leInt(in, off + 64);
+        e.raw     = Arrays.copyOfRange(in, off, off + size);
+        out.extras.add(e);
     }
 
     private static void decodeRegion(byte[] in, int off, int size,
