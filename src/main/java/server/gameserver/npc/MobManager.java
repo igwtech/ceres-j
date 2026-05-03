@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import server.gameserver.NPC;
 import server.gameserver.Player;
 import server.gameserver.WorldMessageBus;
 import server.gameserver.Zone;
@@ -50,6 +51,14 @@ public final class MobManager {
         void send(Player recipient, MobStateChangeIntent intent);
     }
 
+    /** Strategy for resolving a mob's NPC instance by id. Default
+     *  scans every {@link Zone} via {@link ZoneManager}. Tests
+     *  inject a fake to avoid booting the real zone graph. */
+    @FunctionalInterface
+    public interface NpcLookup {
+        NPC findById(int npcId);
+    }
+
     /** Snapshot of a mob's last broadcast state. Held in the state
      *  map so unchanged-state writes can be elided. */
     public static final class Snapshot {
@@ -69,12 +78,15 @@ public final class MobManager {
     private static final Map<Integer, Snapshot> STATES = new ConcurrentHashMap<>();
     private static RecipientFinder recipientFinder = MobManager::defaultRecipients;
     private static PacketSink      packetSink      = MobManager::defaultSend;
+    private static NpcLookup       npcLookup       = MobManager::defaultFindNpc;
 
     private MobManager() {}
 
     public static void installBusHandlers(WorldMessageBus bus) {
         bus.registerHandler(MobStateChangeIntent.class,
                 MobManager::dispatchStateChange);
+        bus.registerHandler(MobDamageIntent.class,
+                MobManager::dispatchDamage);
     }
 
     /** Set a mob's state and post a broadcast intent if the state
@@ -124,6 +136,49 @@ public final class MobManager {
     /** Number of mobs currently tracked. */
     public static int trackedCount() { return STATES.size(); }
 
+    /**
+     * Apply incoming damage to a mob and trigger the AI consequences.
+     *
+     * <ol>
+     *   <li>Look up the {@link NPC} instance and decrement HP.</li>
+     *   <li>If the mob is now dead, set state to {@link MobState#TRANSITION}
+     *       (the next AI tick will sweep it; the death packet path
+     *       is owned by the kill / loot subsystem in a later phase).</li>
+     *   <li>Otherwise force {@link MobState#COMBAT} with the attacker
+     *       as target — bypasses the proximity-based aggro check so a
+     *       sniper attacking from outside aggroRange still draws fire.</li>
+     * </ol>
+     *
+     * <p>If the npcId is unknown, the intent is logged and dropped.
+     * No exception escapes — the bus tick must remain robust against
+     * stale damage intents (mob already despawned, etc).
+     */
+    public static void dispatchDamage(MobDamageIntent intent) {
+        if (intent == null) return;
+        NPC npc = npcLookup.findById(intent.npcId);
+        if (npc == null) {
+            Out.writeln(Out.Warning,
+                "MobManager: damage to unknown npc=" + intent.npcId);
+            return;
+        }
+        if (intent.amount > 0) {
+            npc.takeDamage(intent.amount);
+        }
+        WorldMessageBus bus = server.gameserver.GameServer.getBus();
+        Snapshot prev = STATES.get(intent.npcId);
+        float altitude = (prev != null) ? prev.altitude : npc.getZpos();
+        if (npc.isDead()) {
+            // Forget targeting; AI tick will sweep next frame.
+            setState(bus, intent.npcId, intent.zoneIdField,
+                    MobState.TRANSITION, 0x00, altitude,
+                    MobAI.NO_TARGET);
+        } else {
+            setState(bus, intent.npcId, intent.zoneIdField,
+                    MobState.COMBAT, 0x00, altitude,
+                    intent.attackerUid);
+        }
+    }
+
     /** Package-private: dispatch a single intent. Public for tests. */
     public static void dispatchStateChange(MobStateChangeIntent intent) {
         if (intent == null) return;
@@ -154,6 +209,16 @@ public final class MobManager {
         return z.getAllPlayers();
     }
 
+    private static NPC defaultFindNpc(int npcId) {
+        for (Zone z : ZoneManager.getAllZones()) {
+            if (z == null) continue;
+            for (NPC npc : z.getAllNPCs()) {
+                if (npc != null && npc.getMapID() == npcId) return npc;
+            }
+        }
+        return null;
+    }
+
     private static void defaultSend(Player recipient,
                                      MobStateChangeIntent intent) {
         recipient.send(new MobStateBroadcast(recipient,
@@ -172,9 +237,14 @@ public final class MobManager {
         packetSink = (s == null) ? MobManager::defaultSend : s;
     }
 
+    public static void setNpcLookupForTesting(NpcLookup l) {
+        npcLookup = (l == null) ? MobManager::defaultFindNpc : l;
+    }
+
     public static void resetForTesting() {
         recipientFinder = MobManager::defaultRecipients;
         packetSink      = MobManager::defaultSend;
+        npcLookup       = MobManager::defaultFindNpc;
         STATES.clear();
     }
 }
