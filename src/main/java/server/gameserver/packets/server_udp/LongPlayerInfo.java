@@ -47,12 +47,12 @@ public class LongPlayerInfo extends PacketBuilderUDP1303{
 		write(pc.getName().getBytes());
 		write(0x00);
 		write(0x00);
-		//write(0x00);
+		// Trailing 5 bytes: 0x04 tag + LE32. NC1 (TinNS) uses 0x04 as
+		// the cash tag in CharMoneyUpdate; the hardcoded 0xd3 0x4b 0x00
+		// 0x00 (=19411) here is suspected to be the "cash on hand" the
+		// HUD reads at login. Test 2026-04-26: replace with pc.getCash().
 		write(0x04);
-		write(0xd3);
-		write(0x4b);
-		write(0x00);
-		write(0x00);
+		writeInt(pc.getCash());
 	}
 
 }

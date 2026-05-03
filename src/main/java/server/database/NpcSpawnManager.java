@@ -29,7 +29,7 @@ public class NpcSpawnManager {
         if (conn == null) return npcs;
 
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT id, zone_id, type, name, x, y, z, angle, hp, armor " +
+                "SELECT id, zone_id, type, name, script_name, model_name, x, y, z, angle, hp, armor " +
                 "FROM npc_spawns WHERE zone_id = ?")) {
             ps.setInt(1, zoneId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -39,6 +39,8 @@ public class NpcSpawnManager {
                         rs.getInt("zone_id"),
                         rs.getInt("type"),
                         rs.getString("name"),
+                        rs.getString("script_name"),
+                        rs.getString("model_name"),
                         rs.getInt("x"),
                         rs.getInt("y"),
                         rs.getInt("z"),

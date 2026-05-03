@@ -8,6 +8,11 @@ import server.gameserver.packets.server_tcp.Sync;
 import server.gameserver.packets.server_udp.UDPAlive;
 import server.tools.Timer;
 
+/**
+ * Client "ready to load new zone" packet (reliable {@code 0x03/0x22}
+ * sub {@code 0x03}). Restored to the legacy handler while we figure
+ * out the retail two-phase Zoning1+Zoning2 flow.
+ */
 public class Zoning2 extends GamePacketDecoderUDP {
 
 	public Zoning2(byte[] subPacket) {
@@ -17,19 +22,16 @@ public class Zoning2 extends GamePacketDecoderUDP {
 	public void execute(Player pl) {
 		pl.send(new Sync());
 		pl.send(new Location(pl));
-		
 		pl.addEvent(new Zoning2Answer());
 	}
-	
+
 	class Zoning2Answer extends DummyEvent {
 		public Zoning2Answer() {
 			eventTime = Timer.getRealtime() + 20;
 		}
-		
+
 		public void execute(Player pl) {
 			pl.send(new UDPAlive(pl));
-			//pl.send(new UpdateModel(pl)); <--- TODO: should be added here but is not correct yet
 		}
 	}
-
 }

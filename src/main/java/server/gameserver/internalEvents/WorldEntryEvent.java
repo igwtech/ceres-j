@@ -14,7 +14,6 @@ import server.gameserver.packets.server_udp.InitWeather02;
 import server.gameserver.packets.server_udp.LongPlayerInfo;
 import server.gameserver.packets.server_udp.PlayerPositionUpdate;
 import server.gameserver.packets.server_udp.PositionUpdate;
-import server.gameserver.packets.server_udp.ShortPlayerInfo;
 import server.gameserver.packets.server_udp.TimeSync;
 import server.gameserver.packets.server_udp.UDPAlive;
 import server.gameserver.packets.server_udp.UpdateModel;
@@ -118,7 +117,6 @@ public class WorldEntryEvent extends DummyEvent {
 
         // The player's own long/short info + position.
         safeSend(pl, () -> new LongPlayerInfo(pl, pc, mapId), "LongPlayerInfo (self)");
-        safeSend(pl, () -> new ShortPlayerInfo(pl, pc, mapId), "ShortPlayerInfo (self)");
         safeSend(pl, () -> new PlayerPositionUpdate(pl, pc, mapId), "PlayerPositionUpdate (self)");
 
         // ── Phase 4: UpdateModel (retail sends via 0x02 wrapper, we use 0x03) ──
@@ -167,6 +165,17 @@ public class WorldEntryEvent extends DummyEvent {
         // Retail sends this on the TCP connection for the entire
         // session. Without it the client's TCP layer may time out.
         pl.addEvent(new TcpKeepaliveEvent());
+
+        // ── Resource probe (one-shot RE harness, disabled) ──
+        // ResourceProbeEvent cycles HP/PSI/STA/Soullight/Cash through
+        // known distinct values to correlate server send-order with HUD
+        // response. Test on 2026-04-25 confirmed PoolUpdate / PoolStatus /
+        // SoullightUpdate / CashUpdateProbe(sub=0x04) DO NOT move the
+        // self-HUD — those packets target foreign entities only. The
+        // probe code is kept in the tree (commented out here) so it can
+        // be re-enabled to test future candidate sub-opcodes.
+        // Disabled: ResourceProbeEvent — see PROTOCOL.md "ResourceProbe test".
+        // pl.addEvent(new ResourceProbeEvent());
 
         // Mark the player as waiting for a UDP zone-handoff handshake.
         // Once the client finishes loading the zone descriptor it closes

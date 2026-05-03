@@ -20,49 +20,74 @@ public class NPC {
 	private int type;
 	private int mapID;
 	private String name;
+	private String scriptName;
+	private String modelName;
 	private int angle;
 	private int zoneId;
 
 	public NPC(int x, int y, int z, int hp, int armor, int type, int id) {
-		this.xpos   = x;
-		this.ypos   = y;
-		this.zpos   = z;
-		this.hp     = hp;
-		this.maxHp  = hp;
-		this.armor  = armor;
-		this.type   = type;
-		this.mapID  = id;
-		this.name   = "";
-		this.angle  = 0;
-		this.zoneId = 0;
+		this.xpos       = x;
+		this.ypos       = y;
+		this.zpos       = z;
+		this.hp         = hp;
+		this.maxHp      = hp;
+		this.armor      = armor;
+		this.type       = type;
+		this.mapID      = id;
+		this.name       = "";
+		this.scriptName = "";
+		this.modelName  = "";
+		this.angle      = 0;
+		this.zoneId     = 0;
 	}
 
 	public NPC(int id, int zoneId, int type, String name,
 			   int x, int y, int z, int angle, int hp, int armor) {
-		this.mapID  = id;
-		this.zoneId = zoneId;
-		this.type   = type;
-		this.name   = name != null ? name : "";
-		this.xpos   = x;
-		this.ypos   = y;
-		this.zpos   = z;
-		this.angle  = angle;
-		this.hp     = hp;
-		this.maxHp  = hp;
-		this.armor  = armor;
+		this.mapID      = id;
+		this.zoneId     = zoneId;
+		this.type       = type;
+		this.name       = name != null ? name : "";
+		this.scriptName = "";
+		this.modelName  = "";
+		this.xpos       = x;
+		this.ypos       = y;
+		this.zpos       = z;
+		this.angle      = angle;
+		this.hp         = hp;
+		this.maxHp      = hp;
+		this.armor      = armor;
 	}
 
-	public int getArmor()  { return armor; }
-	public int getHP()     { return hp; }
-	public int getMaxHP()  { return maxHp; }
-	public int getMapID()  { return mapID; }
-	public int getType()   { return type; }
-	public int getXpos()   { return xpos; }
-	public int getYpos()   { return ypos; }
-	public int getZpos()   { return zpos; }
-	public String getName(){ return name; }
-	public int getAngle()  { return angle; }
-	public int getZoneId() { return zoneId; }
+	public NPC(int id, int zoneId, int type, String name, String scriptName, String modelName,
+			   int x, int y, int z, int angle, int hp, int armor) {
+		this.mapID      = id;
+		this.zoneId     = zoneId;
+		this.type       = type;
+		this.name       = name != null ? name : "";
+		this.scriptName = scriptName != null ? scriptName : "";
+		this.modelName  = modelName != null ? modelName : "";
+		this.xpos       = x;
+		this.ypos       = y;
+		this.zpos       = z;
+		this.angle      = angle;
+		this.hp         = hp;
+		this.maxHp      = hp;
+		this.armor      = armor;
+	}
+
+	public int getArmor()        { return armor; }
+	public int getHP()           { return hp; }
+	public int getMaxHP()        { return maxHp; }
+	public int getMapID()        { return mapID; }
+	public int getType()         { return type; }
+	public int getXpos()         { return xpos; }
+	public int getYpos()         { return ypos; }
+	public int getZpos()         { return zpos; }
+	public String getName()      { return name; }
+	public String getScriptName(){ return scriptName; }
+	public String getModelName() { return modelName; }
+	public int getAngle()        { return angle; }
+	public int getZoneId()       { return zoneId; }
 
 	public void setMapID(int id)    { this.mapID = id; }
 	public void setHP(int hp)       { this.hp = hp; }

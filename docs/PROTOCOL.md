@@ -2,6 +2,16 @@
 
 Reverse-engineered protocol documentation for the Neocron 2 (NCE 2.5.766) game client.
 
+> **Note (2026-05-02):** the canonical catalog is now under
+> [`docs/protocol/`](protocol/INDEX.md). It is auto-generated from
+> retail pcaps via `tools/catalog_extract.py` and tracks every
+> observed packet type with evidence pointers. Per-packet structure
+> docs live in [`docs/protocol/packets/`](protocol/packets/INDEX.md);
+> capture corpus map is in
+> [`docs/protocol/captures/`](protocol/captures/INDEX.md). This file
+> is preserved as the legacy reference while per-packet hand-curated
+> content gets folded into the new structure.
+
 ## Architecture
 
 The game uses three network layers:

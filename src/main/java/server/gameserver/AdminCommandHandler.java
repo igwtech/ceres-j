@@ -1,8 +1,19 @@
 package server.gameserver;
 
 import server.database.playerCharacters.PlayerCharacter;
+import server.gameserver.packets.server_tcp.Location;
+import server.gameserver.packets.server_tcp.Packet830D;
 import server.gameserver.packets.server_udp.ForcedZoning;
 import server.gameserver.packets.server_udp.LocalChatMessage;
+import server.gameserver.packets.server_udp.PoolStatusBroadcast;
+import server.gameserver.packets.server_udp.PoolUpdate;
+import server.gameserver.packets.server_udp.SoullightUpdate;
+import server.gameserver.packets.server_udp.AttributeUpdate3c;
+import server.gameserver.packets.server_udp.CashReceipt;
+import server.gameserver.packets.server_udp.CashSnapshot;
+import server.gameserver.packets.server_udp.CashUpdate;
+import server.gameserver.packets.server_udp.CashUpdateProbe;
+import server.gameserver.packets.server_udp.LongPlayerInfo;
 import server.tools.Out;
 
 /**
@@ -54,6 +65,10 @@ public class AdminCommandHandler {
         case "zone":
             cmdWarp(pl, args);
             return true;
+        case "warpforce":
+        case "fwarp":
+            cmdWarpForce(pl, args);
+            return true;
         case "hp":
         case "stats":
             cmdStats(pl);
@@ -78,6 +93,17 @@ public class AdminCommandHandler {
         case "players":
             cmdOnline(pl);
             return true;
+        case "sethp":   cmdSetHp(pl, args);   return true;
+        case "setpsi":  cmdSetPsi(pl, args);  return true;
+        case "setsta":  cmdSetSta(pl, args);  return true;
+        case "setsl":   cmdSetSoullight(pl, args); return true;
+        case "setcash": cmdSetCash(pl, args); return true;
+        case "setcashslot": cmdSetCashSlot(pl, args); return true;
+        case "setcashreceipt": cmdSetCashReceipt(pl, args); return true;
+        case "attr3c": cmdAttr3c(pl, args); return true;
+        case "probecash": cmdProbeCash(pl, args); return true;
+        case "setsub":  cmdSetSubskill(pl, args); return true;
+        case "setmaxhp":cmdSetMaxHp(pl, args); return true;
         case "help":
         case "?":
             cmdHelp(pl);
@@ -112,9 +138,29 @@ public class AdminCommandHandler {
                 + pl.getCharacter().getHealth() + "/" + pl.getCharacter().getMaxHealth());
     }
 
+    /**
+     * Smooth zone transition matching retail's TCP `0x83 0x0d` +
+     * `0x83 0x0c` flow (verified 2026-05-02 against retail walk
+     * pepper_p3 → pepper_p2 → pepper_p1 + GenRep teleport). No splash,
+     * no CharInfo redelivery, no UDP ForcedZoning — client loads the
+     * new BSP locally and keeps its existing CharInfo state.
+     *
+     * <p><b>CONSTRAINT:</b> the client only accepts this smooth path
+     * when it has already entered the "leaving zone" movement-authority
+     * state — i.e., it's physically crossing a zone boundary. Issuing
+     * {@code !warp} from arbitrary positions leaves the client stuck
+     * on the "SYNCHRONIZING INTO CITY ZONE" overlay because the boundary
+     * trigger never fired client-side. Use this command as the future
+     * server-side response to detected boundary crossings, NOT as a
+     * generic admin teleport.
+     *
+     * <p>For arbitrary admin teleport from anywhere, use
+     * {@code !warpforce} (UDP ForcedZoning, full splash + state
+     * re-stream).
+     */
     private static void cmdWarp(Player pl, String args) {
         if (args.isEmpty()) {
-            reply(pl, "Usage: /warp <zoneId>");
+            reply(pl, "Usage: !warp <zoneId>  (smooth TCP — requires being at a zone boundary; use !warpforce for splash)");
             return;
         }
         try {
@@ -123,7 +169,28 @@ public class AdminCommandHandler {
                 reply(pl, "Invalid zone ID: " + zoneId);
                 return;
             }
-            reply(pl, "Warping to zone " + zoneId + "...");
+            reply(pl, "Warping to zone " + zoneId + " (smooth TCP — only works at boundary)...");
+            pl.getCharacter().setMisc(PlayerCharacter.MISC_LOCATION, zoneId);
+            pl.updateZone();
+            pl.getTcpConnection().send(new Packet830D());
+            pl.getTcpConnection().send(new Location(pl));
+        } catch (NumberFormatException e) {
+            reply(pl, "Invalid zone ID: " + args);
+        }
+    }
+
+    private static void cmdWarpForce(Player pl, String args) {
+        if (args.isEmpty()) {
+            reply(pl, "Usage: !warpforce <zoneId>  (UDP ForcedZoning, splash screen)");
+            return;
+        }
+        try {
+            int zoneId = Integer.parseInt(args.split("\\s+")[0]);
+            if (zoneId <= 0) {
+                reply(pl, "Invalid zone ID: " + zoneId);
+                return;
+            }
+            reply(pl, "Force-warping to zone " + zoneId + " (UDP, splash)...");
             pl.send(new ForcedZoning(pl, zoneId));
         } catch (NumberFormatException e) {
             reply(pl, "Invalid zone ID: " + args);
@@ -193,6 +260,269 @@ public class AdminCommandHandler {
     }
 
     private static void cmdHelp(Player pl) {
-        reply(pl, "Commands: !pos !warp !hp !heal !kill !damage !god !spawn !online !help");
+        reply(pl, "Commands: !pos !warp !hp !heal !kill !damage !god !spawn !online "
+                + "!sethp !setpsi !setsta !setsl !setcash !probecash !help");
+    }
+
+    /**
+     * Set HP to an absolute value and push a signed delta packet so the
+     * client reacts immediately (PoolStatusBroadcast also re-syncs at ~1 Hz).
+     */
+    private static void cmdSetHp(Player pl, String args) {
+        if (args.isEmpty()) { reply(pl, "Usage: !sethp <value>"); return; }
+        try {
+            int target = Integer.parseInt(args.split("\\s+")[0]);
+            PlayerCharacter pc = pl.getCharacter();
+            int delta = target - pc.getHealth();
+            pc.setHealth(target);
+            pl.send(new PoolUpdate(pl, PoolUpdate.POOL_HP, delta, pc.getMaxHealth()));
+            pl.send(new PoolStatusBroadcast(pl));
+            reply(pl, "HP -> " + target + " (delta=" + delta + ", max=" + pc.getMaxHealth() + ")");
+        } catch (NumberFormatException e) {
+            reply(pl, "Invalid HP value: " + args);
+        }
+    }
+
+    private static void cmdSetPsi(Player pl, String args) {
+        if (args.isEmpty()) { reply(pl, "Usage: !setpsi <value>"); return; }
+        try {
+            int target = Integer.parseInt(args.split("\\s+")[0]);
+            PlayerCharacter pc = pl.getCharacter();
+            int delta = target - pc.getPsi();
+            pc.setPsi(target);
+            pl.send(new PoolUpdate(pl, PoolUpdate.POOL_PSI, delta, pc.getMaxPsi()));
+            pl.send(new PoolStatusBroadcast(pl));
+            reply(pl, "PSI -> " + target + " (delta=" + delta + ", max=" + pc.getMaxPsi() + ")");
+        } catch (NumberFormatException e) {
+            reply(pl, "Invalid PSI value: " + args);
+        }
+    }
+
+    private static void cmdSetSta(Player pl, String args) {
+        if (args.isEmpty()) { reply(pl, "Usage: !setsta <value>"); return; }
+        try {
+            int target = Integer.parseInt(args.split("\\s+")[0]);
+            PlayerCharacter pc = pl.getCharacter();
+            int delta = target - pc.getStamina();
+            pc.setStamina(target);
+            pl.send(new PoolUpdate(pl, PoolUpdate.POOL_STA, delta, pc.getMaxStamina()));
+            pl.send(new PoolStatusBroadcast(pl));
+            reply(pl, "STA -> " + target + " (delta=" + delta + ", max=" + pc.getMaxStamina() + ")");
+        } catch (NumberFormatException e) {
+            reply(pl, "Invalid STA value: " + args);
+        }
+    }
+
+    private static void cmdSetSoullight(Player pl, String args) {
+        if (args.isEmpty()) { reply(pl, "Usage: !setsl <float 0..100>"); return; }
+        try {
+            float v = Float.parseFloat(args.split("\\s+")[0]);
+            pl.send(new SoullightUpdate(pl, v));
+            reply(pl, "Soullight -> " + v + " (0x02->0x1f->0x25 0x1f path)");
+        } catch (NumberFormatException e) {
+            reply(pl, "Invalid Soullight value: " + args);
+        }
+    }
+
+    private static void cmdSetCash(Player pl, String args) {
+        if (args.isEmpty()) { reply(pl, "Usage: !setcash <value>"); return; }
+        try {
+            int target = Integer.parseInt(args.split("\\s+")[0]);
+            PlayerCharacter pc = pl.getCharacter();
+            pc.setCash(target);
+            // Retail-traced 2026-04-26: 1f 01 00 25 19 [LE32]×5 unreliable
+            // snapshot. Slot 0 = wallet; remaining slots are bank/safe/locker
+            // balances that Ceres-J doesn't model yet — send the same value
+            // in all five slots so HUD shows a consistent number regardless
+            // of which slot the client actually reads for the cash readout.
+            // 2026-04-26 retail pcap finding (with HUD-screenshot ground
+            // truth from 3 mob kills): authoritative cash carrier is
+            //   0x03→0x1f→[01 00 25 13 [txn_id 3B] [cash LE32]]
+            // Confirmed against retail packets where the LE32 value
+            // exactly matched the new HUD CASH readout.
+            pl.send(new CashUpdate(pl, target));
+            reply(pl, "Cash -> " + target + " (0x03→0x1f→25 13 reliable).");
+        } catch (NumberFormatException e) {
+            reply(pl, "Invalid cash value: " + args);
+        }
+    }
+
+    /**
+     * Send the same 0x1f→0x25 19 snapshot but with only ONE slot set to
+     * the given value (the others stay at 0). Used to bisect which of
+     * the five LE32 fields the HUD actually reads for the cash readout.
+     * Usage: !setcashslot &lt;slot 0..4&gt; &lt;value&gt;
+     */
+    private static void cmdSetCashSlot(Player pl, String args) {
+        String[] p = args.split("\\s+");
+        if (p.length < 2) {
+            reply(pl, "Usage: !setcashslot <slot 0..4> <value>");
+            return;
+        }
+        try {
+            int slot = Integer.parseInt(p[0]);
+            int value = Integer.parseInt(p[1]);
+            if (slot < 0 || slot > 4) {
+                reply(pl, "slot must be 0..4");
+                return;
+            }
+            int[] s = new int[5];
+            s[slot] = value;
+            pl.send(new CashSnapshot(pl, s[0], s[1], s[2], s[3], s[4]));
+            reply(pl, "snapshot sent — slot " + slot + " = " + value
+                    + ", others = 0");
+        } catch (NumberFormatException e) {
+            reply(pl, "Invalid args: " + args);
+        }
+    }
+
+    /**
+     * Set a specific subskill index to (lvl, pts) and force CharInfo
+     * redelivery via zone change. Confirmed 2026-04-26 to update HUD
+     * pool max for HLT (27) / ATL (20) / END (21) / PSU (32).
+     * Usage: !setsub <index> <lvl> <pts>
+     */
+    private static void cmdSetSubskill(Player pl, String args) {
+        String[] p = args.split("\\s+");
+        if (p.length < 3) {
+            reply(pl, "Usage: !setsub <index> <lvl> <pts>  e.g. !setsub 27 200 250 (HLT)");
+            return;
+        }
+        try {
+            int idx = Integer.parseInt(p[0]);
+            int lvl = Integer.parseInt(p[1]);
+            int pts = Integer.parseInt(p[2]);
+            PlayerCharacter pc = pl.getCharacter();
+            pc.setSubskillLVL(idx, lvl);
+            // setSubskillPtsPerLvl getter exists; setter would need to be added.
+            // For now, log + warp to force CharInfo redelivery.
+            reply(pl, "Subskill[" + idx + "] = (" + lvl + ", " + pts + "). Re-zone for HUD update.");
+            pl.send(new ForcedZoning(pl, pl.getMapID()));
+        } catch (NumberFormatException e) {
+            reply(pl, "Invalid args: " + args);
+        }
+    }
+
+    /**
+     * Set HLT subskill to a target value and force-zone — the canonical
+     * server-side path to change displayed max HP. The actual displayed
+     * value is then computed as f(lvl, pts) by client tick FUN_007e87d0.
+     */
+    private static void cmdSetMaxHp(Player pl, String args) {
+        if (args.isEmpty()) { reply(pl, "Usage: !setmaxhp <lvl 0..200>"); return; }
+        try {
+            int lvl = Math.max(0, Math.min(200, Integer.parseInt(args.split("\\s+")[0])));
+            PlayerCharacter pc = pl.getCharacter();
+            pc.setSubskillLVL(PlayerCharacter.SUBSKILL_HLT, lvl);
+            reply(pl, "HLT subskill -> " + lvl + ". Re-zoning to apply.");
+            pl.send(new ForcedZoning(pl, pl.getMapID()));
+        } catch (NumberFormatException e) {
+            reply(pl, "Invalid lvl: " + args);
+        }
+    }
+
+    /**
+     * Send a raw {@code 0x3c} attribute-update packet: <br>
+     * {@code !attr3c <tag_hex> <a> <b>} where {@code a},{@code b} are
+     * decimal LE32 values and {@code tag_hex} is the attribute byte
+     * (0x04=cash, 0x09=HP, 0x01/0x02=unknown). Used to identify what
+     * each tag drives on the HUD by setting recognizable values.
+     */
+    private static void cmdAttr3c(Player pl, String args) {
+        String[] p = args.split("\\s+");
+        if (p.length < 3) {
+            reply(pl, "Usage: !attr3c <tag_hex> <valueA> <valueB>  "
+                    + "(e.g. !attr3c 04 999999 999999 for cash)");
+            return;
+        }
+        try {
+            int tag = Integer.parseInt(p[0], 16);
+            int a = Integer.parseInt(p[1]);
+            int b = Integer.parseInt(p[2]);
+            pl.send(new AttributeUpdate3c(pl, tag, a, b));
+            reply(pl, "0x3c tag=0x" + Integer.toHexString(tag)
+                    + " a=" + a + " b=" + b);
+        } catch (NumberFormatException e) {
+            reply(pl, "Bad args: " + args);
+        }
+    }
+
+    /**
+     * Send the retail-traced 41-byte reliable receipt
+     * {@code 0x03→0x1f→01 00 25 13 …}. Two modes:
+     * <ul>
+     *   <li>{@code !setcashreceipt} — emit the retail bytes verbatim
+     *       (so we can see which on-screen number, if any, matches a
+     *       known retail value: 530915 / 51847635 / 968225 / 2017617).</li>
+     *   <li>{@code !setcashreceipt <value>} — send retail bytes with
+     *       ALL FOUR candidate LE32 fields overwritten by {@code value};
+     *       if the HUD displays {@code value}, we found the carrier
+     *       (we'll then bisect which of the four slots).</li>
+     *   <li>{@code !setcashreceipt <slot A|B|C|D> <value>} — substitute
+     *       only one slot (for the bisection phase).</li>
+     * </ul>
+     */
+    private static void cmdSetCashReceipt(Player pl, String args) {
+        String[] p = args.isEmpty() ? new String[0] : args.split("\\s+");
+        try {
+            if (p.length == 0) {
+                pl.send(new CashReceipt(pl));
+                reply(pl, "receipt sent verbatim. expect HUD to read one of "
+                        + "530915 / 51847635 / 968225 / 2017617 if 0x13 "
+                        + "carries cash.");
+                return;
+            }
+            if (p.length == 1) {
+                int v = Integer.parseInt(p[0]);
+                pl.send(new CashReceipt(pl, CashReceipt.FIELD_A_OFFSET_530K, v));
+                pl.send(new CashReceipt(pl, CashReceipt.FIELD_B_OFFSET_51M, v));
+                pl.send(new CashReceipt(pl, CashReceipt.FIELD_C_OFFSET_968K, v));
+                pl.send(new CashReceipt(pl, CashReceipt.FIELD_D_OFFSET_2M, v));
+                reply(pl, "sent 4 receipts (one per candidate slot) with value "
+                        + v + ". HUD should show " + v + " if any slot is cash.");
+                return;
+            }
+            // Two args: slot letter + value
+            String slot = p[0].toUpperCase();
+            int v = Integer.parseInt(p[1]);
+            int off;
+            switch (slot) {
+                case "A": off = CashReceipt.FIELD_A_OFFSET_530K; break;
+                case "B": off = CashReceipt.FIELD_B_OFFSET_51M;  break;
+                case "C": off = CashReceipt.FIELD_C_OFFSET_968K; break;
+                case "D": off = CashReceipt.FIELD_D_OFFSET_2M;   break;
+                default:
+                    reply(pl, "slot must be A, B, C, or D");
+                    return;
+            }
+            pl.send(new CashReceipt(pl, off, v));
+            reply(pl, "sent receipt with slot " + slot + " = " + v);
+        } catch (NumberFormatException e) {
+            reply(pl, "Usage: !setcashreceipt [<value> | <A|B|C|D> <value>]");
+        }
+    }
+
+    /**
+     * Send an experimental cash-update packet with a chosen discriminator
+     * byte. Used to bisect the unknown NC2 cash sub-opcode.
+     * Usage: !probecash <sub_hex> [reliable]
+     *   sub_hex   — hex byte to use as the cash discriminator (e.g. 04, 13)
+     *   reliable  — if "0" use the 0x02 wrapper, else use 0x03 reliable
+     */
+    private static void cmdProbeCash(Player pl, String args) {
+        String[] p = args.split("\\s+");
+        if (p.length < 1 || p[0].isEmpty()) {
+            reply(pl, "Usage: !probecash <sub_hex> [r=1|u=0]"); return;
+        }
+        try {
+            int sub = Integer.parseInt(p[0], 16) & 0xFF;
+            boolean reliable = p.length < 2 || !"u".equals(p[1]) && !"0".equals(p[1]);
+            int target = pl.getCharacter().getCash();
+            CashUpdateProbe.send(pl, target, sub, !reliable);
+            reply(pl, "Probe cash sent: sub=0x" + Integer.toHexString(sub)
+                    + " wrapper=" + (reliable ? "0x03" : "0x02") + " value=" + target);
+        } catch (NumberFormatException e) {
+            reply(pl, "Bad sub byte: " + p[0]);
+        }
     }
 }

@@ -5,7 +5,11 @@ import server.ecs.Components;
 import server.ecs.EcsRegistry;
 import server.ecs.World;
 import server.gameserver.Player;
+import server.gameserver.ZoneBoundaries;
 import server.gameserver.packets.GamePacketDecoderUDP;
+import server.gameserver.packets.server_tcp.Location;
+import server.gameserver.packets.server_tcp.Packet830D;
+import server.tools.Out;
 
 /**
  * Client-&gt;server movement packet.
@@ -68,6 +72,29 @@ public class Movement extends GamePacketDecoderUDP {
 			// ?? :(
 		}
 		pl.getZone().sendPlayerMovement(pl);
+
+		// Server-side zone-boundary detection. After each position update,
+		// check whether the player has crossed into a different zone's
+		// territory. If yes, switch their tracked zone and emit the retail-
+		// matched TCP transition (`0x83 0x0d` + `0x83 0x0c`) so the client
+		// loads the new BSP without the "Synchronizing" splash. See
+		// docs/zoning_protocol_2026-05-02.md + ZoneBoundaries.java.
+		int curZone = pc.getMisc(PlayerCharacter.MISC_LOCATION);
+		int newZone = ZoneBoundaries.resolveTransition(curZone,
+			pc.getMisc(PlayerCharacter.MISC_X_COORDINATE),
+			pc.getMisc(PlayerCharacter.MISC_Y_COORDINATE),
+			pc.getMisc(PlayerCharacter.MISC_Z_COORDINATE));
+		if (newZone != ZoneBoundaries.NO_TRANSITION && newZone != curZone) {
+			Out.writeln(Out.Info, "ZoneBoundary: " + pc.getName()
+				+ " crossed zone " + curZone + " -> " + newZone
+				+ " at x=" + pc.getMisc(PlayerCharacter.MISC_X_COORDINATE)
+				+ " y=" + pc.getMisc(PlayerCharacter.MISC_Y_COORDINATE)
+				+ " z=" + pc.getMisc(PlayerCharacter.MISC_Z_COORDINATE));
+			pc.setMisc(PlayerCharacter.MISC_LOCATION, newZone);
+			pl.updateZone();
+			pl.getTcpConnection().send(new Packet830D());
+			pl.getTcpConnection().send(new Location(pl));
+		}
 
 		// Previously attempted: echo a reliable 0x03->0x1b PlayerPositionUpdate
 		// back to the moving player every 500 ms. That REGRESSED movement

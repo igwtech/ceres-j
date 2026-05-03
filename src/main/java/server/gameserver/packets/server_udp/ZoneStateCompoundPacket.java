@@ -79,38 +79,47 @@ public class ZoneStateCompoundPacket extends PacketBuilderUDP13 {
         write(0x00);
 
         // ── Sub-packet 3: reliable 0x03→0x28 WorldInfo ──
-        // Reuse WorldNPCInfo's structure but inline it here to avoid
-        // creating a separate PacketBuilderUDP1303 instance.
+        // Layout confirmed from retail pepper_p3 captures — see WorldNPCInfo.java.
         newSubPacket();
         write(0x03);                                  // reliable wrapper
         writeShort(pl.getUdpConnection().incandgetSessionCounter());
         write(0x28);                                  // WorldInfo sub-type
+        // inner[0-1]
         write(0x00);
-        write(0x01);                                  // unknown
-        writeShort(npcId);                            // MapID
+        write(0x01);
+        // inner[2-3] world-object ID
+        writeShort(npcId);
+        // inner[4-5]
         write(0x00);
         write(0x00);
-        writeInt(8958887);                            // fixed constant (from WorldNPCInfo)
-        writeShort(npc.getType());                    // NPC type
-        writeShort(npc.getYpos());                    // Y-Pos
-        writeShort(npc.getZpos());                    // Z-Pos
-        writeShort(npc.getXpos());                    // X-Pos
-        write(0x00);                                  // Status
-        writeShort(npc.getHP());                      // HP
+        // inner[6-9] world instance ref
+        writeInt(8958887);
+        // inner[10-11] NPC type ID (pak_npc.def setentry index)
+        writeShort(npc.getType());
+        // inner[12-17] Y / Z / X
+        writeShort(npc.getYpos());
+        writeShort(npc.getZpos());
+        writeShort(npc.getXpos());
+        // inner[18] padding
         write(0x00);
-        writeShort(2828);                             // fixed constant
-        write(0x07);                                  // fixed constant
-        writeShort(2313);                             // fixed constant
-        // NPC name (null-terminated, padded to 16 bytes like WorldNPCInfo)
-        byte[] nameBytes = npc.getName().getBytes();
-        int nameLen = Math.min(nameBytes.length, 15);
-        write(0x05); write(0x00); write(0x00); write(0x00);
-        write(0x00); write(0x00);
-        for (int i = 0; i < nameLen; i++) {
-            write(nameBytes[i]);
-        }
-        write(0x00); // null terminator
-        // Pad to align with WorldNPCInfo's trailing structure
-        write(new byte[]{0x31, 0x38, 0x30, 0x00});
+        // inner[19] unknown variable byte
+        write(0x00);
+        // inner[20] zone area
+        write(0x22);
+        // inner[21-23] padding
+        write(0x00); write(0x00); write(0x00);
+        // inner[24-28] stats (unknown, zeroed)
+        write(0x00); write(0x00); write(0x00); write(0x00); write(0x00);
+        // inner[29] combat class
+        write(0x00);
+        // inner[30-34] padding
+        write(0x00); write(0x00); write(0x00); write(0x00); write(0x00);
+        // inner[35+] script_name\0 model_name\0
+        byte[] scriptBytes = npc.getScriptName().getBytes();
+        write(scriptBytes);
+        write(0x00);
+        byte[] modelBytes = npc.getModelName().getBytes();
+        write(modelBytes);
+        write(0x00);
     }
 }
