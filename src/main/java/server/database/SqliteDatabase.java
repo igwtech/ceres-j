@@ -128,6 +128,16 @@ public final class SqliteDatabase {
                     "ClientDataImporter crashed, continuing startup: " + e.getMessage());
             }
 
+            // Mine the rest of the client's def files (~50 files, see
+            // DefImporter.CORE_DEFS) into a generic JSONB table.
+            // Cheap idempotent — skips already-imported defs.
+            try {
+                server.database.importer.DefImporter.runIfNeeded(connection);
+            } catch (RuntimeException e) {
+                Out.writeln(Out.Error,
+                    "DefImporter crashed, continuing startup: " + e.getMessage());
+            }
+
             migrateSchema();
             migrateFromCsv();
 

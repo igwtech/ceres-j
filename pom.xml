@@ -32,6 +32,16 @@
             <artifactId>gson</artifactId>
             <version>2.11.0</version>
         </dependency>
+        <!-- LuaJ runtime — hosts the dialog/mission scripts that the
+             client also runs from scripts.pak. Used for NPC dialog
+             trees and the mission state machine. See
+             docs/protocol/IMPLEMENTATION_PLAN.md § Phase 0.2 for
+             rationale (LuaJ + reuse client scripts vs. Java rewrite). -->
+        <dependency>
+            <groupId>org.luaj</groupId>
+            <artifactId>luaj-jse</artifactId>
+            <version>3.0.1</version>
+        </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
