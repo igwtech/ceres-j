@@ -50,6 +50,8 @@ public class WorldDatImporterTest {
                 worldsDir.resolve("pak_datalink_nc.dat"));
         copyFixture("/worlds/pak_mainframe.dat",
                 worldsDir.resolve("pak_mainframe.dat"));
+        copyFixture("/worlds/pak_out_app_1_c.dat",
+                worldsDir.resolve("pak_out_app_1_c.dat"));
     }
 
     @After
@@ -92,15 +94,17 @@ public class WorldDatImporterTest {
         WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
                 new String[]{"worlds"});
 
-        // arena    (4 obj, 0 door, 0 npc, 0 passive,  0 marker)
-        // reaktor  (9, 2, 2, 0,  6)   — 1×type-9 + 5×type-10
-        // datalink (2, 0, 1, 16, 0)
-        // mainframe(2, 0, 8, 0,  13)  — 1×type-9 + 12×type-10
-        assertEquals(17, countRows("world_objects"));
-        assertEquals(2,  countRows("world_doors"));
+        // arena       (4 obj, 0 door, 0 npc, 0 passive,  0 marker, 0 region)
+        // reaktor     (9, 2, 2, 0,  6,  0)
+        // datalink    (2, 0, 1, 16, 0,  0)
+        // mainframe   (2, 0, 8, 0,  13, 0)
+        // out_app_1_c (4, 3, 0, 0,  0,  4)
+        assertEquals(21, countRows("world_objects"));
+        assertEquals(5,  countRows("world_doors"));
         assertEquals(11, countRows("world_npcs"));
         assertEquals(16, countRows("world_passive_objects"));
         assertEquals(19, countRows("world_position_markers"));
+        assertEquals(4,  countRows("world_regions"));
     }
 
     @Test
@@ -163,7 +167,7 @@ public class WorldDatImporterTest {
         WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
                 new String[]{"worlds"});
         // The valid fixtures are still imported.
-        assertEquals(17, countRows("world_objects"));
+        assertEquals(21, countRows("world_objects"));
         // The bogus file produced no rows (since it failed parse).
         assertEquals(0, countRowsWhere("world_objects",
                 "world_path = 'worlds/pak_bogus.dat'"));
@@ -208,6 +212,38 @@ public class WorldDatImporterTest {
             assertEquals(17, rs.getInt(2));
             assertFalse(rs.next());
         }
+    }
+
+    @Test
+    public void regionFieldsRoundTripIntoTable() throws Exception {
+        WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
+                new String[]{"worlds"});
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(
+                     "SELECT pos_x, pos_y, pos_z, dim1, dim2, flag, region_id"
+                   + " FROM world_regions"
+                   + " WHERE world_path = 'worlds/pak_out_app_1_c.dat'"
+                   + " ORDER BY id LIMIT 1")) {
+            assertTrue(rs.next());
+            assertEquals(214.62f, rs.getFloat(1), 0.01f);
+            assertEquals(137.18f, rs.getFloat(2), 0.01f);
+            assertEquals(-218.0f, rs.getFloat(3), 0.01f);
+            assertEquals(110.0f,  rs.getFloat(4), 0.01f);
+            assertEquals(92.0f,   rs.getFloat(5), 0.01f);
+            assertEquals(0x0002,  rs.getInt(6));
+            assertEquals(0x0017,  rs.getInt(7));
+        }
+    }
+
+    @Test
+    public void regionsAreScopedByWorldPath() throws Exception {
+        WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
+                new String[]{"worlds"});
+        // Only out_app_1_c has regions in our fixture set.
+        assertEquals(4, countRowsWhere("world_regions",
+                "world_path = 'worlds/pak_out_app_1_c.dat'"));
+        assertEquals(0, countRowsWhere("world_regions",
+                "world_path = 'worlds/pak_arena001.dat'"));
     }
 
     @Test

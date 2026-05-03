@@ -260,6 +260,61 @@ public class WorldDatParserTest {
         assertEquals(8, m.trailer.length);
     }
 
+    // ─── Type 1000013 (region marker) functional ────────────────────
+
+    @Test
+    public void outAppCParsesRegions() throws Exception {
+        // Fixture has 4 type-1000013 regions, 4 objects, 3 doors.
+        byte[] raw = readResource("/worlds/pak_out_app_1_c.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        assertEquals(4, pw.regions.size());
+        assertEquals(4, pw.objects.size());
+        assertEquals(3, pw.doors.size());
+    }
+
+    @Test
+    public void regionFieldsAreFinite() throws Exception {
+        byte[] raw = readResource("/worlds/pak_out_app_1_c.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        for (WorldDatParser.RegionEntry r : pw.regions) {
+            assertFalse(Float.isInfinite(r.posX) || Float.isNaN(r.posX));
+            assertFalse(Float.isInfinite(r.posY) || Float.isNaN(r.posY));
+            assertFalse(Float.isInfinite(r.posZ) || Float.isNaN(r.posZ));
+            assertFalse(Float.isInfinite(r.dim1) || Float.isNaN(r.dim1));
+            assertFalse(Float.isInfinite(r.dim2) || Float.isNaN(r.dim2));
+            // u16 fields stay in 16-bit range
+            assertTrue(r.flag >= 0 && r.flag <= 0xffff);
+            assertTrue(r.id   >= 0 && r.id   <= 0xffff);
+        }
+    }
+
+    @Test
+    public void regionFlagIsTwoForCommonCase() throws Exception {
+        // pak_out_app_1_c samples all observed with flag = 0x0002.
+        byte[] raw = readResource("/worlds/pak_out_app_1_c.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        for (WorldDatParser.RegionEntry r : pw.regions) {
+            assertEquals(0x0002, r.flag);
+        }
+    }
+
+    @Test
+    public void regionFirstEntryMatchesOfflineDecode() throws Exception {
+        // Offline Python decode of pak_out_app_1_c first 1000013 entry:
+        //   pos = (Y=137.18, Z=-218.0, X=214.62)
+        //   dims = (110.0, 92.0)  flag=0x0002  id=0x0017
+        byte[] raw = readResource("/worlds/pak_out_app_1_c.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        WorldDatParser.RegionEntry r = pw.regions.get(0);
+        assertEquals(137.18f, r.posY, 0.01f);
+        assertEquals(-218.0f, r.posZ, 0.01f);
+        assertEquals(214.62f, r.posX, 0.01f);
+        assertEquals(110.0f,  r.dim1, 0.01f);
+        assertEquals(92.0f,   r.dim2, 0.01f);
+        assertEquals(0x0002, r.flag);
+        assertEquals(0x0017, r.id);
+    }
+
     @Test
     public void totalElementsMatchesAllDecodedAndRawSec2() throws Exception {
         byte[] raw = readResource("/worlds/pak_reaktor_nc.dat");
@@ -267,7 +322,8 @@ public class WorldDatParserTest {
         // totalElements counts every section-2 element regardless of
         // whether it was decoded or stashed as a raw blob.
         int decoded = pw.objects.size() + pw.doors.size() + pw.npcs.size()
-                    + pw.passives.size() + pw.markers.size();
+                    + pw.passives.size() + pw.markers.size()
+                    + pw.regions.size();
         // raw blobs from section-2 unknown types are counted too.
         long sec2RawBlobs = pw.rawBlobs.stream()
                 .filter(b -> b.elementType > 0)

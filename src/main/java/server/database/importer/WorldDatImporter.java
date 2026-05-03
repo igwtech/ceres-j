@@ -180,7 +180,7 @@ public final class WorldDatImporter {
         // could legitimately have only NPCs or only raw blobs.
         String[] tables = {"world_objects", "world_doors",
                            "world_npcs", "world_passive_objects",
-                           "world_position_markers",
+                           "world_position_markers", "world_regions",
                            "world_raw_elements"};
         for (String t : tables) {
             try (PreparedStatement ps = conn.prepareStatement(
@@ -245,6 +245,14 @@ public final class WorldDatImporter {
               + " ON world_position_markers (world_path)",
             "CREATE INDEX IF NOT EXISTS world_position_markers_type_ix"
               + " ON world_position_markers (element_type)",
+            "CREATE TABLE IF NOT EXISTS world_regions ("
+              + "id " + idType + ","
+              + " world_path TEXT NOT NULL,"
+              + " pos_x REAL, pos_y REAL, pos_z REAL,"
+              + " dim1 REAL, dim2 REAL,"
+              + " flag INTEGER, region_id INTEGER)",
+            "CREATE INDEX IF NOT EXISTS world_regions_path_ix"
+              + " ON world_regions (world_path)",
             "CREATE TABLE IF NOT EXISTS world_npcs ("
               + "id " + idType + ","
               + " world_path TEXT NOT NULL,"
@@ -291,6 +299,7 @@ public final class WorldDatImporter {
             insertNpcs(conn, worldPath, pw);
             insertPassives(conn, worldPath, pw);
             insertMarkers(conn, worldPath, pw);
+            insertRegions(conn, worldPath, pw);
             insertRawBlobs(conn, worldPath, pw);
             conn.commit();
         } catch (SQLException e) {
@@ -446,6 +455,28 @@ public final class WorldDatImporter {
                 ps.setFloat(4, m.posY);
                 ps.setFloat(5, m.posZ);
                 ps.setBytes(6, m.trailer);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private static void insertRegions(Connection conn, String worldPath,
+                                       WorldDatParser.ParsedWorld pw)
+            throws SQLException {
+        if (pw.regions.isEmpty()) return;
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO world_regions (world_path, pos_x, pos_y, pos_z,"
+              + " dim1, dim2, flag, region_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
+            for (WorldDatParser.RegionEntry r : pw.regions) {
+                ps.setString(1, worldPath);
+                ps.setFloat(2, r.posX);
+                ps.setFloat(3, r.posY);
+                ps.setFloat(4, r.posZ);
+                ps.setFloat(5, r.dim1);
+                ps.setFloat(6, r.dim2);
+                ps.setInt(7, r.flag);
+                ps.setInt(8, r.id);
                 ps.addBatch();
             }
             ps.executeBatch();

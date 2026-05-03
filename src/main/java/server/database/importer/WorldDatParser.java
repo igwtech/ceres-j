@@ -81,6 +81,13 @@ public final class WorldDatParser {
     /** All position-marker variants are exactly this many bytes. */
     private static final int POS_MARKER_SIZE = 20;
 
+    /** Type 1000013 — 24-byte tagged region marker. 914 entries
+     *  across the corpus, concentrated in city / military / techtown
+     *  zones. Likely interpretation: trigger volume / sound radius /
+     *  named zone marker — position + 2D dimensions + (flag, id). */
+    public static final int TYPE_REGION = 1000013;
+    private static final int REGION_SIZE = 24;
+
     /** PSec2ElemType3a — mandatory portion. */
     private static final int OBJECT_HEADER_SIZE = 52;
     /** PSec2ElemType3b — optional bbox portion. */
@@ -187,6 +194,34 @@ public final class WorldDatParser {
         public byte[] trailer;
     }
 
+    /**
+     * Type 1000013 — 24-byte tagged region marker.
+     *
+     * <p>Layout:
+     * <pre>
+     *   off 0-3  : posY  LE32 float
+     *   off 4-7  : posZ  LE32 float
+     *   off 8-11 : posX  LE32 float
+     *   off 12-15: dim1  LE32 float (likely radius / width)
+     *   off 16-19: dim2  LE32 float (likely depth / height)
+     *   off 20-21: flag  LE16   (0x0002 in 94% of samples; 0x0001 in 6%)
+     *   off 22-23: id    LE16   (per-region identifier)
+     * </pre>
+     *
+     * <p>The semantic meaning is unverified. Patterns across the
+     * 914 in-corpus samples (subway, plaza, military, techtown
+     * concentration; dimensions in the 50–200 range; flag clearly
+     * a small enum) suggest a trigger volume / sound radius / named
+     * area construct. Fields are named neutrally so callers don't
+     * lock in a wrong interpretation.
+     */
+    public static final class RegionEntry {
+        public float posY, posZ, posX;
+        public float dim1, dim2;
+        public int   flag;
+        public int   id;
+    }
+
     public static final class RawBlob {
         public int sectionId;
         public int elementType;
@@ -199,6 +234,7 @@ public final class WorldDatParser {
         public final List<NpcEntry>    npcs    = new ArrayList<>();
         public final List<PassiveEntry> passives = new ArrayList<>();
         public final List<PositionMarker> markers = new ArrayList<>();
+        public final List<RegionEntry>   regions = new ArrayList<>();
         public final List<RawBlob>     rawBlobs = new ArrayList<>();
         /** Section IDs encountered, in order. */
         public final List<Integer>     sectionIds = new ArrayList<>();
@@ -314,6 +350,9 @@ public final class WorldDatParser {
         case TYPE_POS_MARKER_14:
             decodePosMarker(in, off, size, elementType, out);
             return;
+        case TYPE_REGION:
+            decodeRegion(in, off, size, out);
+            return;
         case TYPE_OBJECT:
             decodeObject(bb, size, out);
             return;
@@ -350,6 +389,24 @@ public final class WorldDatParser {
         m.posX = Float.intBitsToFloat(leInt(in, off + 8));
         m.trailer = Arrays.copyOfRange(in, off + 12, off + 20);
         out.markers.add(m);
+    }
+
+    private static void decodeRegion(byte[] in, int off, int size,
+                                      ParsedWorld out)
+            throws ParseException {
+        if (size != REGION_SIZE) {
+            throw new ParseException("region size " + size
+                    + " expected " + REGION_SIZE);
+        }
+        RegionEntry r = new RegionEntry();
+        r.posY = Float.intBitsToFloat(leInt(in, off));
+        r.posZ = Float.intBitsToFloat(leInt(in, off + 4));
+        r.posX = Float.intBitsToFloat(leInt(in, off + 8));
+        r.dim1 = Float.intBitsToFloat(leInt(in, off + 12));
+        r.dim2 = Float.intBitsToFloat(leInt(in, off + 16));
+        r.flag = (in[off + 20] & 0xff) | ((in[off + 21] & 0xff) << 8);
+        r.id   = (in[off + 22] & 0xff) | ((in[off + 23] & 0xff) << 8);
+        out.regions.add(r);
     }
 
     private static void decodePassive(byte[] in, int off, int size,
