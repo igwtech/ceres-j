@@ -24,6 +24,15 @@ public final class GameServer {
 		return worldBus;
 	}
 
+	/** Test-only: install a bus instance so unit tests can verify
+	 *  code paths that consult {@link #getBus()} (admin commands,
+	 *  ad-hoc producers) without booting the real server. Always
+	 *  pair with a {@code setBusForTesting(null)} in tearDown so
+	 *  later tests don't see leaked state. */
+	public static void setBusForTesting(WorldMessageBus b) {
+		worldBus = b;
+	}
+
 	public static void init() throws StartupException {
 		if (instanceTCP == null) {
 			Out.writeln(Out.Info, "Starting Game Server");

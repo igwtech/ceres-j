@@ -86,6 +86,16 @@ public class AdminCommandHandler {
         case "god":
             cmdGod(pl);
             return true;
+        case "hurtmob":
+        case "mobdmg":
+            cmdHurtMob(pl, args);
+            return true;
+        case "mobtick":
+            cmdMobTick(pl);
+            return true;
+        case "mobstate":
+            cmdMobState(pl, args);
+            return true;
         case "spawn":
             cmdSpawn(pl, args);
             return true;
@@ -244,6 +254,104 @@ public class AdminCommandHandler {
         }
     }
 
+    /**
+     * {@code !hurtmob <npcId> <amount>} — post a {@link
+     * server.gameserver.npc.MobDamageIntent} for the given mob.
+     * Verifies the damage→aggro path end-to-end without needing a
+     * weapon-fire packet.
+     *
+     * <p>Both arguments parse as decimal or 0x-prefixed hex.
+     */
+    static void cmdHurtMob(Player pl, String args) {
+        String[] p = args == null ? new String[0] : args.split("\\s+");
+        if (p.length < 2 || p[0].isEmpty()) {
+            reply(pl, "Usage: !hurtmob <npcId> <amount>");
+            return;
+        }
+        int npcId; int amount;
+        try {
+            npcId  = parseIntFlex(p[0]);
+            amount = parseIntFlex(p[1]);
+        } catch (NumberFormatException e) {
+            reply(pl, "Bad argument: " + e.getMessage());
+            return;
+        }
+        WorldMessageBus bus = GameServer.getBus();
+        if (bus == null) {
+            reply(pl, "World bus not running (no GameServer.init()).");
+            return;
+        }
+        PlayerCharacter pc = pl.getCharacter();
+        int attackerUid = (pc == null) ? 0
+                : pc.getMisc(PlayerCharacter.MISC_ID);
+        Zone z = pl.getZone();
+        int zoneId = (z == null) ? -1 : z.getZoneId();
+        bus.post(new server.gameserver.npc.MobDamageIntent(
+                npcId, zoneId, attackerUid, amount));
+        reply(pl, "Posted damage intent: npc=0x"
+                + Integer.toHexString(npcId)
+                + " amount=" + amount);
+    }
+
+    /**
+     * {@code !mobtick} — force a {@link server.gameserver.npc.MobAIScheduler}
+     * tick across the caller's zone. Useful when developing AI rules
+     * to trigger a transition without waiting for the 50 ms heartbeat.
+     */
+    static void cmdMobTick(Player pl) {
+        WorldMessageBus bus = GameServer.getBus();
+        if (bus == null) {
+            reply(pl, "World bus not running.");
+            return;
+        }
+        Zone z = pl.getZone();
+        if (z == null) {
+            reply(pl, "Player has no zone yet.");
+            return;
+        }
+        int n = server.gameserver.npc.MobAIScheduler.tickZone(bus, z);
+        reply(pl, "MobAIScheduler tick: " + n + " state changes in zone "
+                + z.getZoneId());
+    }
+
+    /**
+     * {@code !mobstate <npcId>} — print the {@link
+     * server.gameserver.npc.MobManager} snapshot for a mob.
+     */
+    static void cmdMobState(Player pl, String args) {
+        if (args == null || args.isEmpty()) {
+            reply(pl, "Usage: !mobstate <npcId>");
+            return;
+        }
+        int npcId;
+        try {
+            npcId = parseIntFlex(args.trim());
+        } catch (NumberFormatException e) {
+            reply(pl, "Bad npcId: " + e.getMessage());
+            return;
+        }
+        server.gameserver.npc.MobManager.Snapshot s =
+                server.gameserver.npc.MobManager.getSnapshot(npcId);
+        if (s == null) {
+            reply(pl, "Mob 0x" + Integer.toHexString(npcId) + " not tracked");
+            return;
+        }
+        reply(pl, "Mob 0x" + Integer.toHexString(npcId)
+                + ": state=" + s.state
+                + " target=0x" + Integer.toHexString(s.targetId)
+                + " alt=" + s.altitude);
+    }
+
+    /** Parse "0x..." as hex, otherwise as decimal. */
+    static int parseIntFlex(String s) {
+        if (s == null) throw new NumberFormatException("null");
+        s = s.trim();
+        if (s.startsWith("0x") || s.startsWith("0X")) {
+            return (int) Long.parseLong(s.substring(2), 16);
+        }
+        return Integer.parseInt(s);
+    }
+
     private static void cmdOnline(Player pl) {
         java.util.List<Player> players = PlayerManager.getOnlinePlayers();
         if (players == null || players.isEmpty()) {
@@ -261,7 +369,8 @@ public class AdminCommandHandler {
 
     private static void cmdHelp(Player pl) {
         reply(pl, "Commands: !pos !warp !hp !heal !kill !damage !god !spawn !online "
-                + "!sethp !setpsi !setsta !setsl !setcash !probecash !help");
+                + "!sethp !setpsi !setsta !setsl !setcash !probecash "
+                + "!hurtmob !mobtick !mobstate !help");
     }
 
     /**
