@@ -179,7 +179,8 @@ public final class WorldDatImporter {
         // Probe across all four tables: a world with zero objects
         // could legitimately have only NPCs or only raw blobs.
         String[] tables = {"world_objects", "world_doors",
-                           "world_npcs", "world_raw_elements"};
+                           "world_npcs", "world_passive_objects",
+                           "world_raw_elements"};
         for (String t : tables) {
             try (PreparedStatement ps = conn.prepareStatement(
                     "SELECT 1 FROM " + t + " WHERE world_path = ? LIMIT 1")) {
@@ -224,6 +225,15 @@ public final class WorldDatImporter {
               + " params TEXT)",
             "CREATE INDEX IF NOT EXISTS world_doors_path_ix"
               + " ON world_doors (world_path)",
+            "CREATE TABLE IF NOT EXISTS world_passive_objects ("
+              + "id " + idType + ","
+              + " world_path TEXT NOT NULL,"
+              + " entry_id BIGINT,"
+              + " worldmodel_id INTEGER,"
+              + " pos_x REAL, pos_y REAL, pos_z REAL,"
+              + " raw " + blobType + ")",
+            "CREATE INDEX IF NOT EXISTS world_passive_objects_path_ix"
+              + " ON world_passive_objects (world_path)",
             "CREATE TABLE IF NOT EXISTS world_npcs ("
               + "id " + idType + ","
               + " world_path TEXT NOT NULL,"
@@ -268,6 +278,7 @@ public final class WorldDatImporter {
             insertObjects(conn, worldPath, pw);
             insertDoors(conn, worldPath, pw);
             insertNpcs(conn, worldPath, pw);
+            insertPassives(conn, worldPath, pw);
             insertRawBlobs(conn, worldPath, pw);
             conn.commit();
         } catch (SQLException e) {
@@ -383,6 +394,28 @@ public final class WorldDatImporter {
                     wp.executeBatch();
                 }
             }
+        }
+    }
+
+    private static void insertPassives(Connection conn, String worldPath,
+                                        WorldDatParser.ParsedWorld pw)
+            throws SQLException {
+        if (pw.passives.isEmpty()) return;
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO world_passive_objects (world_path, entry_id,"
+              + " worldmodel_id, pos_x, pos_y, pos_z, raw)"
+              + " VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+            for (WorldDatParser.PassiveEntry p : pw.passives) {
+                ps.setString(1, worldPath);
+                ps.setLong(2, p.entryId & 0xffffffffL);
+                ps.setInt(3, p.worldmodelId);
+                ps.setFloat(4, p.posX);
+                ps.setFloat(5, p.posY);
+                ps.setFloat(6, p.posZ);
+                ps.setBytes(7, p.raw);
+                ps.addBatch();
+            }
+            ps.executeBatch();
         }
     }
 

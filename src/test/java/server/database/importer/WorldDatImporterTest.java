@@ -46,6 +46,8 @@ public class WorldDatImporterTest {
                 worldsDir.resolve("pak_arena001.dat"));
         copyFixture("/worlds/pak_reaktor_nc.dat",
                 worldsDir.resolve("pak_reaktor_nc.dat"));
+        copyFixture("/worlds/pak_datalink_nc.dat",
+                worldsDir.resolve("pak_datalink_nc.dat"));
     }
 
     @After
@@ -88,12 +90,13 @@ public class WorldDatImporterTest {
         WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
                 new String[]{"worlds"});
 
-        // 4 (arena) + 9 (reaktor) = 13 objects
-        assertEquals(13, countRows("world_objects"));
-        // 0 (arena) + 2 (reaktor) = 2 doors
-        assertEquals(2, countRows("world_doors"));
-        // 0 (arena) + 2 (reaktor) = 2 NPCs
-        assertEquals(2, countRows("world_npcs"));
+        // arena (4 obj, 0 door, 0 npc, 0 passive)
+        // + reaktor (9, 2, 2, 0)
+        // + datalink (2, 0, 1, 16)
+        assertEquals(15, countRows("world_objects"));
+        assertEquals(2,  countRows("world_doors"));
+        assertEquals(3,  countRows("world_npcs"));
+        assertEquals(16, countRows("world_passive_objects"));
     }
 
     @Test
@@ -156,10 +159,46 @@ public class WorldDatImporterTest {
         WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
                 new String[]{"worlds"});
         // The valid fixtures are still imported.
-        assertEquals(13, countRows("world_objects"));
+        assertEquals(15, countRows("world_objects"));
         // The bogus file produced no rows (since it failed parse).
         assertEquals(0, countRowsWhere("world_objects",
                 "world_path = 'worlds/pak_bogus.dat'"));
+    }
+
+    @Test
+    public void passiveObjectsHaveValidPositions() throws Exception {
+        WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
+                new String[]{"worlds"});
+        // Every passive row has finite position floats.
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(
+                     "SELECT pos_x, pos_y, pos_z FROM world_passive_objects"
+                   + " WHERE world_path='worlds/pak_datalink_nc.dat'")) {
+            int rows = 0;
+            while (rs.next()) {
+                rows++;
+                float x = rs.getFloat(1), y = rs.getFloat(2), z = rs.getFloat(3);
+                assertFalse(Float.isInfinite(x) || Float.isNaN(x));
+                assertFalse(Float.isInfinite(y) || Float.isNaN(y));
+                assertFalse(Float.isInfinite(z) || Float.isNaN(z));
+            }
+            assertEquals(16, rows);
+        }
+    }
+
+    @Test
+    public void passiveRawByteBlobIsPreserved() throws Exception {
+        WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
+                new String[]{"worlds"});
+        // Every passive row carries the verbatim 76-byte payload so
+        // future RE can refine the schema without re-walking the FS.
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(
+                     "SELECT raw FROM world_passive_objects LIMIT 1")) {
+            assertTrue(rs.next());
+            byte[] raw = rs.getBytes(1);
+            assertEquals(76, raw.length);
+        }
     }
 
     @Test
@@ -170,7 +209,7 @@ public class WorldDatImporterTest {
         // each (verified offline; the byte at offset 24 is the
         // waypoint count, not a "moving" flag — even STATIC actors
         // can have it set to 1).
-        assertEquals(2, countRows("world_npc_waypoints"));
+        assertEquals(3, countRows("world_npc_waypoints"));
         try (Statement st = conn.createStatement();
              ResultSet rs = st.executeQuery(
                      "SELECT actor_name FROM world_npcs"
@@ -191,7 +230,7 @@ public class WorldDatImporterTest {
                      "SELECT COUNT(*) FROM world_npc_waypoints w"
                    + "  JOIN world_npcs n ON w.npc_row_id = n.id")) {
             assertTrue(rs.next());
-            assertEquals(2, rs.getInt(1));
+            assertEquals(3, rs.getInt(1));
         }
     }
 }

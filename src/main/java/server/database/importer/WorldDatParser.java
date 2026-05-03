@@ -95,6 +95,39 @@ public final class WorldDatParser {
         public float bboxUpperX, bboxUpperY, bboxUpperZ;
     }
 
+    /**
+     * Type 1000002 — passive scenery / non-interactive props.
+     *
+     * <p>The 76-byte payload has the same physical size as a
+     * {@link ObjectEntry} with a bounding box, and the first 12
+     * bytes parse cleanly as Y/Z/X position floats across every
+     * element observed in the corpus (3946 entries across 774
+     * files). The remaining 64 bytes share structural similarities
+     * with {@link ObjectEntry} — same default rotations of zero,
+     * same uint32-ID pattern at offset 40-43 — but the field
+     * <em>meanings</em> differ: scale=20.0 and rotX=1.0 in passive
+     * samples don't fit a typical "static furniture" interpretation.
+     *
+     * <p>v1 surfaces only the high-confidence fields (position,
+     * the entry id at offset 40, and the worldmodel-shaped uint16
+     * pair at offset 44) and preserves the full 76-byte payload as
+     * {@code raw} so future RE passes can refine without re-reading
+     * the file system. The other fields are nullable for now.
+     */
+    public static final class PassiveEntry {
+        public float posY, posZ, posX;
+        /** uint32 at offset 40 — the same slot that {@link ObjectEntry}
+         *  carries {@code mUnknown4} (or {@code worldmodelID}'s u32
+         *  alias). Most-likely-but-unverified template ID. */
+        public int entryId;
+        /** uint16 at offset 44, the worldmodel slot in the 1000003
+         *  layout. Value range fits but semantics unverified. */
+        public int worldmodelId;
+        /** Verbatim 76-byte payload — keep around so refined decoding
+         *  can run later without re-walking the source files. */
+        public byte[] raw;
+    }
+
     public static final class DoorEntry {
         public int doorId;
         public int worldmodelId;
@@ -127,6 +160,7 @@ public final class WorldDatParser {
         public final List<ObjectEntry> objects = new ArrayList<>();
         public final List<DoorEntry>   doors   = new ArrayList<>();
         public final List<NpcEntry>    npcs    = new ArrayList<>();
+        public final List<PassiveEntry> passives = new ArrayList<>();
         public final List<RawBlob>     rawBlobs = new ArrayList<>();
         /** Section IDs encountered, in order. */
         public final List<Integer>     sectionIds = new ArrayList<>();
@@ -234,6 +268,9 @@ public final class WorldDatParser {
             throws ParseException {
         ByteBuffer bb = ByteBuffer.wrap(in, off, size).order(ByteOrder.LITTLE_ENDIAN);
         switch (elementType) {
+        case TYPE_PASSIVE:
+            decodePassive(in, off, size, out);
+            return;
         case TYPE_OBJECT:
             decodeObject(bb, size, out);
             return;
@@ -253,6 +290,26 @@ public final class WorldDatParser {
             blob.data = Arrays.copyOfRange(in, off, off + size);
             out.rawBlobs.add(blob);
         }
+    }
+
+    private static void decodePassive(byte[] in, int off, int size,
+                                       ParsedWorld out)
+            throws ParseException {
+        // Empirically every observed type-1000002 element is exactly
+        // 76 bytes — same physical size as an OBJECT_HEADER + bbox.
+        if (size != OBJECT_HEADER_SIZE + OBJECT_BBOX_SIZE) {
+            throw new ParseException("passive size " + size
+                    + " expected " + (OBJECT_HEADER_SIZE + OBJECT_BBOX_SIZE));
+        }
+        PassiveEntry p = new PassiveEntry();
+        p.posY        = Float.intBitsToFloat(leInt(in, off));
+        p.posZ        = Float.intBitsToFloat(leInt(in, off + 4));
+        p.posX        = Float.intBitsToFloat(leInt(in, off + 8));
+        p.entryId     = leInt(in, off + 40);
+        p.worldmodelId = (in[off + 44] & 0xff)
+                       | ((in[off + 45] & 0xff) << 8);
+        p.raw         = Arrays.copyOfRange(in, off, off + size);
+        out.passives.add(p);
     }
 
     private static void decodeObject(ByteBuffer bb, int size, ParsedWorld out)

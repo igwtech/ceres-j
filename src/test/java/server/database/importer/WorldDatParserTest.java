@@ -158,6 +158,58 @@ public class WorldDatParserTest {
         assertEquals(7139, n.npcTypeId);
     }
 
+    // ─── Type 1000002 (passive) functional ─────────────────────────
+
+    @Test
+    public void datalinkParsesPassiveEntries() throws Exception {
+        // Fixture has 16 passives, 2 objects, 1 NPC, 0 doors.
+        byte[] raw = readResource("/worlds/pak_datalink_nc.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        assertEquals(16, pw.passives.size());
+        assertEquals(2, pw.objects.size());
+        assertEquals(1, pw.npcs.size());
+        assertEquals(0, pw.doors.size());
+    }
+
+    @Test
+    public void passiveEntryExposesPositionFloats() throws Exception {
+        byte[] raw = readResource("/worlds/pak_datalink_nc.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        // First passive entry — position floats decode to plausible
+        // world coordinates (NaN / Infinity are signs of misalignment).
+        WorldDatParser.PassiveEntry p = pw.passives.get(0);
+        assertFalse("posX must be finite", Float.isInfinite(p.posX) || Float.isNaN(p.posX));
+        assertFalse("posY must be finite", Float.isInfinite(p.posY) || Float.isNaN(p.posY));
+        assertFalse("posZ must be finite", Float.isInfinite(p.posZ) || Float.isNaN(p.posZ));
+        // Raw byte payload preserved verbatim.
+        assertEquals(76, p.raw.length);
+    }
+
+    @Test
+    public void passiveEntryRawByteOffsetsAreConsistent() throws Exception {
+        byte[] raw = readResource("/worlds/pak_datalink_nc.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        // For every passive entry, the position decoded from the raw
+        // byte payload at offsets 0/4/8 must match the surfaced
+        // float fields. This guards against future field-order
+        // refactors silently breaking the decode.
+        for (WorldDatParser.PassiveEntry p : pw.passives) {
+            byte[] r = p.raw;
+            float py = Float.intBitsToFloat(
+                  (r[0] & 0xff) | ((r[1] & 0xff) << 8)
+                | ((r[2] & 0xff) << 16) | ((r[3] & 0xff) << 24));
+            float pz = Float.intBitsToFloat(
+                  (r[4] & 0xff) | ((r[5] & 0xff) << 8)
+                | ((r[6] & 0xff) << 16) | ((r[7] & 0xff) << 24));
+            float px = Float.intBitsToFloat(
+                  (r[8] & 0xff) | ((r[9] & 0xff) << 8)
+                | ((r[10] & 0xff) << 16) | ((r[11] & 0xff) << 24));
+            assertEquals(py, p.posY, 0.0001f);
+            assertEquals(pz, p.posZ, 0.0001f);
+            assertEquals(px, p.posX, 0.0001f);
+        }
+    }
+
     @Test
     public void totalElementsMatchesObjectsDoorsAndNpcs() throws Exception {
         byte[] raw = readResource("/worlds/pak_reaktor_nc.dat");
