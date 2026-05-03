@@ -26,3 +26,13 @@ Thumbs.db
 # Python tooling
 tools/__pycache__/
 *.pyc
+
+# Capture corpus — pcaps, strace logs, screenshots (tens of GB)
+# Raw captures stay local; the analyzed catalog is in docs/protocol/.
+strace/
+
+# Lock files from open editors
+docs/.~lock.*
+
+# Auto-generated per-capture timelines (large, regenerable from pcaps)
+docs/protocol/_data/timelines/
