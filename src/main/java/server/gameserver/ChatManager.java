@@ -3,7 +3,12 @@ package server.gameserver;
 import java.util.Iterator;
 import java.util.LinkedList;
 
+import server.database.playerCharacters.PlayerCharacter;
+import server.gameserver.chat.Chat3bDecoder;
+import server.gameserver.chat.ChatBroadcastIntent;
+import server.gameserver.packets.server_tcp.Chat8317;
 import server.gameserver.packets.server_tcp.GlobalChat_TCP;
+import server.tools.Out;
 
 public class ChatManager {	//TODO: complete chanmanager
 
@@ -235,6 +240,71 @@ public class ChatManager {	//TODO: complete chanmanager
 		}
 	}
 	
+	/**
+	 * Register the {@link ChatBroadcastIntent} handler on the world
+	 * bus. Called once at server startup. The handler runs on the
+	 * tick thread (single consumer) and emits {@link Chat8317} to
+	 * each recipient identified by the channel byte.
+	 *
+	 * <p>Audience routing rules:
+	 * <ul>
+	 *   <li>{@link Chat3bDecoder#CHANNEL_WHISPER} → exactly one
+	 *       recipient identified by {@code targetUid}</li>
+	 *   <li>{@link Chat3bDecoder#CHANNEL_TEAM} /
+	 *       {@link Chat3bDecoder#CHANNEL_CLAN} /
+	 *       {@link Chat3bDecoder#CHANNEL_BUDDY} →
+	 *       all currently-online players except the sender. Real
+	 *       roster filtering lands in Phase 4 (group/buddy/clan).</li>
+	 * </ul>
+	 */
+	public static void installBusHandlers(WorldMessageBus bus) {
+		bus.registerHandler(ChatBroadcastIntent.class,
+				ChatManager::dispatchChatIntent);
+	}
+
+	/** Package-private for tests: dispatch a single chat intent. */
+	static void dispatchChatIntent(ChatBroadcastIntent intent) {
+		if (intent == null) return;
+		Chat8317 packet = new Chat8317(intent.senderUid,
+				intent.senderName, intent.channel, intent.message);
+
+		if (intent.channel == Chat3bDecoder.CHANNEL_WHISPER) {
+			Player target = findPlayerByUid(intent.targetUid);
+			if (target == null) {
+				Out.writeln(Out.Warning,
+						"ChatManager: whisper target uid="
+						+ Integer.toHexString(intent.targetUid)
+						+ " not online");
+				return;
+			}
+			target.send(packet);
+			return;
+		}
+
+		// Team / clan / buddy: broadcast to everyone but the sender.
+		// Real roster filtering will replace this in a later phase.
+		LinkedList<Player> all = PlayerManager.getPlayers();
+		for (Player pl : all) {
+			if (pl == null) continue;
+			PlayerCharacter pc = pl.getCharacter();
+			if (pc == null) continue;
+			if (pc.getMisc(PlayerCharacter.MISC_ID) == intent.senderUid) {
+				continue; // skip sender
+			}
+			pl.send(packet);
+		}
+	}
+
+	private static Player findPlayerByUid(int uid) {
+		for (Player pl : PlayerManager.getPlayers()) {
+			if (pl == null) continue;
+			PlayerCharacter pc = pl.getCharacter();
+			if (pc == null) continue;
+			if (pc.getMisc(PlayerCharacter.MISC_ID) == uid) return pl;
+		}
+		return null;
+	}
+
 	// handles messages, checks for listeners, sends messages to players
 	public static void NewMessage(Player sender, String message, int channel){
 		// TODO: the channelnumbers seem to be different from the ones above

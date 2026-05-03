@@ -147,8 +147,18 @@ public final class GamePacketReaderUDP {
 						return pd;
 					}
 				}
-				case 0x3b:
+				case 0x3b: {
+					// Cross-channel chat (whisper / team / clan / buddy).
+					// Routed through the SubtagRouter so the chat
+					// subsystem owns its own decoder factory. Falls
+					// back to the legacy GlobalChat decoder if no
+					// route is registered (e.g. unit tests that don't
+					// boot GameServer).
+					GameServerEvent routed = SubtagRouter.dispatch(
+							subPacket, 0x03, 0x1f, 0x3b, -1);
+					if (routed != null) return routed;
 					return new GlobalChat(subPacket);
+				}
 				case 0x4c:
 					return new ChangedChannels(subPacket);
 				default:
