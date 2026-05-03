@@ -70,6 +70,17 @@ public final class WorldDatParser {
     public static final int TYPE_DOOR     = 1000005;
     public static final int TYPE_NPC      = 1000006;
 
+    /** Three element types share an identical 20-byte structure:
+     *  3 LE32 floats (Y/Z/X) + 8 bytes of type-specific trailer.
+     *  They are distinct semantic categories (navigation, scenery
+     *  attach points, subway markers — exact meanings unverified)
+     *  but share enough structure to share a parser and table. */
+    public static final int TYPE_POS_MARKER_9  = 1000009;
+    public static final int TYPE_POS_MARKER_10 = 1000010;
+    public static final int TYPE_POS_MARKER_14 = 1000014;
+    /** All position-marker variants are exactly this many bytes. */
+    private static final int POS_MARKER_SIZE = 20;
+
     /** PSec2ElemType3a — mandatory portion. */
     private static final int OBJECT_HEADER_SIZE = 52;
     /** PSec2ElemType3b — optional bbox portion. */
@@ -150,6 +161,32 @@ public final class WorldDatParser {
         public List<NpcWaypoint> waypoints = new ArrayList<>();
     }
 
+    /**
+     * Type 1000009 / 1000010 / 1000014 — 20-byte position marker.
+     *
+     * <p>Bytes 0-11: position floats (Y/Z/X). Bytes 12-19: 8-byte
+     * opaque trailer whose semantics depend on {@link #elementType}:
+     * <ul>
+     *   <li>{@code 1000010}: trailer is mostly zero (3112 of 34224
+     *       entries) — looks like a navigation waypoint or
+     *       lightmap-probe marker. Non-zero entries carry
+     *       {@code 0x00000001} as a flag at offset 12.</li>
+     *   <li>{@code 1000009}: trailer carries a per-marker counter
+     *       at offset 12 (e.g. {@code 0x28f30000}, {@code 0x28f30001},
+     *       {@code 0x28f30002}) and a small uint32 at offset 16.</li>
+     *   <li>{@code 1000014}: trailer mostly fixed
+     *       ({@code 0x43480000}) with a per-marker uint32 at
+     *       offset 16 (zone-region encoding inferred from
+     *       {@code pak_subway.dat}'s clustered values).</li>
+     * </ul>
+     */
+    public static final class PositionMarker {
+        public int   elementType;
+        public float posY, posZ, posX;
+        /** Verbatim 8-byte trailer (offsets 12-19). */
+        public byte[] trailer;
+    }
+
     public static final class RawBlob {
         public int sectionId;
         public int elementType;
@@ -161,6 +198,7 @@ public final class WorldDatParser {
         public final List<DoorEntry>   doors   = new ArrayList<>();
         public final List<NpcEntry>    npcs    = new ArrayList<>();
         public final List<PassiveEntry> passives = new ArrayList<>();
+        public final List<PositionMarker> markers = new ArrayList<>();
         public final List<RawBlob>     rawBlobs = new ArrayList<>();
         /** Section IDs encountered, in order. */
         public final List<Integer>     sectionIds = new ArrayList<>();
@@ -271,6 +309,11 @@ public final class WorldDatParser {
         case TYPE_PASSIVE:
             decodePassive(in, off, size, out);
             return;
+        case TYPE_POS_MARKER_9:
+        case TYPE_POS_MARKER_10:
+        case TYPE_POS_MARKER_14:
+            decodePosMarker(in, off, size, elementType, out);
+            return;
         case TYPE_OBJECT:
             decodeObject(bb, size, out);
             return;
@@ -290,6 +333,23 @@ public final class WorldDatParser {
             blob.data = Arrays.copyOfRange(in, off, off + size);
             out.rawBlobs.add(blob);
         }
+    }
+
+    private static void decodePosMarker(byte[] in, int off, int size,
+                                         int elementType, ParsedWorld out)
+            throws ParseException {
+        if (size != POS_MARKER_SIZE) {
+            throw new ParseException("pos-marker size " + size
+                    + " expected " + POS_MARKER_SIZE
+                    + " (type=" + elementType + ")");
+        }
+        PositionMarker m = new PositionMarker();
+        m.elementType = elementType;
+        m.posY = Float.intBitsToFloat(leInt(in, off));
+        m.posZ = Float.intBitsToFloat(leInt(in, off + 4));
+        m.posX = Float.intBitsToFloat(leInt(in, off + 8));
+        m.trailer = Arrays.copyOfRange(in, off + 12, off + 20);
+        out.markers.add(m);
     }
 
     private static void decodePassive(byte[] in, int off, int size,

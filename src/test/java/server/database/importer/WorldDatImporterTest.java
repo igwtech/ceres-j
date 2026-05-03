@@ -48,6 +48,8 @@ public class WorldDatImporterTest {
                 worldsDir.resolve("pak_reaktor_nc.dat"));
         copyFixture("/worlds/pak_datalink_nc.dat",
                 worldsDir.resolve("pak_datalink_nc.dat"));
+        copyFixture("/worlds/pak_mainframe.dat",
+                worldsDir.resolve("pak_mainframe.dat"));
     }
 
     @After
@@ -90,13 +92,15 @@ public class WorldDatImporterTest {
         WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
                 new String[]{"worlds"});
 
-        // arena (4 obj, 0 door, 0 npc, 0 passive)
-        // + reaktor (9, 2, 2, 0)
-        // + datalink (2, 0, 1, 16)
-        assertEquals(15, countRows("world_objects"));
+        // arena    (4 obj, 0 door, 0 npc, 0 passive,  0 marker)
+        // reaktor  (9, 2, 2, 0,  6)   — 1×type-9 + 5×type-10
+        // datalink (2, 0, 1, 16, 0)
+        // mainframe(2, 0, 8, 0,  13)  — 1×type-9 + 12×type-10
+        assertEquals(17, countRows("world_objects"));
         assertEquals(2,  countRows("world_doors"));
-        assertEquals(3,  countRows("world_npcs"));
+        assertEquals(11, countRows("world_npcs"));
         assertEquals(16, countRows("world_passive_objects"));
+        assertEquals(19, countRows("world_position_markers"));
     }
 
     @Test
@@ -159,7 +163,7 @@ public class WorldDatImporterTest {
         WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
                 new String[]{"worlds"});
         // The valid fixtures are still imported.
-        assertEquals(15, countRows("world_objects"));
+        assertEquals(17, countRows("world_objects"));
         // The bogus file produced no rows (since it failed parse).
         assertEquals(0, countRowsWhere("world_objects",
                 "world_path = 'worlds/pak_bogus.dat'"));
@@ -187,6 +191,39 @@ public class WorldDatImporterTest {
     }
 
     @Test
+    public void positionMarkersAreTaggedByElementType() throws Exception {
+        WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
+                new String[]{"worlds"});
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(
+                     "SELECT element_type, COUNT(*) FROM world_position_markers"
+                   + " GROUP BY element_type ORDER BY element_type")) {
+            assertTrue(rs.next());
+            assertEquals(WorldDatParser.TYPE_POS_MARKER_9,  rs.getInt(1));
+            // 1 from reaktor + 1 from mainframe = 2.
+            assertEquals(2, rs.getInt(2));
+            assertTrue(rs.next());
+            assertEquals(WorldDatParser.TYPE_POS_MARKER_10, rs.getInt(1));
+            // 5 from reaktor + 12 from mainframe = 17.
+            assertEquals(17, rs.getInt(2));
+            assertFalse(rs.next());
+        }
+    }
+
+    @Test
+    public void positionMarkerTrailerPreserved() throws Exception {
+        WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
+                new String[]{"worlds"});
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(
+                     "SELECT trailer FROM world_position_markers LIMIT 1")) {
+            assertTrue(rs.next());
+            byte[] trailer = rs.getBytes(1);
+            assertEquals(8, trailer.length);
+        }
+    }
+
+    @Test
     public void passiveRawByteBlobIsPreserved() throws Exception {
         WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
                 new String[]{"worlds"});
@@ -209,7 +246,7 @@ public class WorldDatImporterTest {
         // each (verified offline; the byte at offset 24 is the
         // waypoint count, not a "moving" flag — even STATIC actors
         // can have it set to 1).
-        assertEquals(3, countRows("world_npc_waypoints"));
+        assertEquals(11, countRows("world_npc_waypoints"));
         try (Statement st = conn.createStatement();
              ResultSet rs = st.executeQuery(
                      "SELECT actor_name FROM world_npcs"
@@ -230,7 +267,7 @@ public class WorldDatImporterTest {
                      "SELECT COUNT(*) FROM world_npc_waypoints w"
                    + "  JOIN world_npcs n ON w.npc_row_id = n.id")) {
             assertTrue(rs.next());
-            assertEquals(3, rs.getInt(1));
+            assertEquals(11, rs.getInt(1));
         }
     }
 }

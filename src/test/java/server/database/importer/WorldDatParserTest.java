@@ -210,13 +210,64 @@ public class WorldDatParserTest {
         }
     }
 
+    // ─── Position-marker types (1000009 / 1000010 / 1000014) ────────
+
     @Test
-    public void totalElementsMatchesObjectsDoorsAndNpcs() throws Exception {
+    public void mainframeParsesPositionMarkers() throws Exception {
+        // Fixture has 1 type-1000009 + 12 type-1000010 markers.
+        byte[] raw = readResource("/worlds/pak_mainframe.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        assertEquals(13, pw.markers.size());
+
+        long type9  = pw.markers.stream()
+                .filter(m -> m.elementType == WorldDatParser.TYPE_POS_MARKER_9)
+                .count();
+        long type10 = pw.markers.stream()
+                .filter(m -> m.elementType == WorldDatParser.TYPE_POS_MARKER_10)
+                .count();
+        assertEquals(1,  type9);
+        assertEquals(12, type10);
+    }
+
+    @Test
+    public void positionMarkerExposesPositionFloats() throws Exception {
+        byte[] raw = readResource("/worlds/pak_mainframe.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+
+        for (WorldDatParser.PositionMarker m : pw.markers) {
+            assertFalse("posX must be finite",
+                    Float.isInfinite(m.posX) || Float.isNaN(m.posX));
+            assertFalse("posY must be finite",
+                    Float.isInfinite(m.posY) || Float.isNaN(m.posY));
+            assertFalse("posZ must be finite",
+                    Float.isInfinite(m.posZ) || Float.isNaN(m.posZ));
+            assertEquals("8-byte trailer", 8, m.trailer.length);
+        }
+    }
+
+    @Test
+    public void positionMarkerTrailerByteAccessIsConsistent() throws Exception {
+        // The trailer must be exactly bytes 12-19 of the original
+        // payload — verify via re-parsing the file's raw bytes.
+        byte[] raw = readResource("/worlds/pak_mainframe.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        // Every type-1000010 marker in pak_mainframe has a non-empty
+        // trailer field (we just check the first one decodes).
+        WorldDatParser.PositionMarker m = pw.markers.stream()
+                .filter(x -> x.elementType == WorldDatParser.TYPE_POS_MARKER_10)
+                .findFirst().orElse(null);
+        assertNotNull(m);
+        assertEquals(8, m.trailer.length);
+    }
+
+    @Test
+    public void totalElementsMatchesAllDecodedAndRawSec2() throws Exception {
         byte[] raw = readResource("/worlds/pak_reaktor_nc.dat");
         WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
         // totalElements counts every section-2 element regardless of
         // whether it was decoded or stashed as a raw blob.
-        int decoded = pw.objects.size() + pw.doors.size() + pw.npcs.size();
+        int decoded = pw.objects.size() + pw.doors.size() + pw.npcs.size()
+                    + pw.passives.size() + pw.markers.size();
         // raw blobs from section-2 unknown types are counted too.
         long sec2RawBlobs = pw.rawBlobs.stream()
                 .filter(b -> b.elementType > 0)

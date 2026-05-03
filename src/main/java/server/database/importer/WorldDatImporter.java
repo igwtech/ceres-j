@@ -180,6 +180,7 @@ public final class WorldDatImporter {
         // could legitimately have only NPCs or only raw blobs.
         String[] tables = {"world_objects", "world_doors",
                            "world_npcs", "world_passive_objects",
+                           "world_position_markers",
                            "world_raw_elements"};
         for (String t : tables) {
             try (PreparedStatement ps = conn.prepareStatement(
@@ -234,6 +235,16 @@ public final class WorldDatImporter {
               + " raw " + blobType + ")",
             "CREATE INDEX IF NOT EXISTS world_passive_objects_path_ix"
               + " ON world_passive_objects (world_path)",
+            "CREATE TABLE IF NOT EXISTS world_position_markers ("
+              + "id " + idType + ","
+              + " world_path TEXT NOT NULL,"
+              + " element_type INTEGER NOT NULL,"
+              + " pos_x REAL, pos_y REAL, pos_z REAL,"
+              + " trailer " + blobType + ")",
+            "CREATE INDEX IF NOT EXISTS world_position_markers_path_ix"
+              + " ON world_position_markers (world_path)",
+            "CREATE INDEX IF NOT EXISTS world_position_markers_type_ix"
+              + " ON world_position_markers (element_type)",
             "CREATE TABLE IF NOT EXISTS world_npcs ("
               + "id " + idType + ","
               + " world_path TEXT NOT NULL,"
@@ -279,6 +290,7 @@ public final class WorldDatImporter {
             insertDoors(conn, worldPath, pw);
             insertNpcs(conn, worldPath, pw);
             insertPassives(conn, worldPath, pw);
+            insertMarkers(conn, worldPath, pw);
             insertRawBlobs(conn, worldPath, pw);
             conn.commit();
         } catch (SQLException e) {
@@ -413,6 +425,27 @@ public final class WorldDatImporter {
                 ps.setFloat(5, p.posY);
                 ps.setFloat(6, p.posZ);
                 ps.setBytes(7, p.raw);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private static void insertMarkers(Connection conn, String worldPath,
+                                       WorldDatParser.ParsedWorld pw)
+            throws SQLException {
+        if (pw.markers.isEmpty()) return;
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO world_position_markers (world_path,"
+              + " element_type, pos_x, pos_y, pos_z, trailer)"
+              + " VALUES (?, ?, ?, ?, ?, ?)")) {
+            for (WorldDatParser.PositionMarker m : pw.markers) {
+                ps.setString(1, worldPath);
+                ps.setInt(2, m.elementType);
+                ps.setFloat(3, m.posX);
+                ps.setFloat(4, m.posY);
+                ps.setFloat(5, m.posZ);
+                ps.setBytes(6, m.trailer);
                 ps.addBatch();
             }
             ps.executeBatch();
