@@ -4,6 +4,7 @@ import java.io.IOException;
 import server.exceptions.StartupException;
 import server.gameserver.npc.DroneManager;
 import server.gameserver.npc.MobManager;
+import server.gameserver.team.GroupManager;
 import server.gameserver.packets.SubtagRouter;
 import server.gameserver.packets.client_udp.ChatBroadcast;
 import server.gameserver.packets.client_udp.DroneControlPacket;
@@ -43,6 +44,7 @@ public final class GameServer {
 			ChatManager.installBusHandlers(worldBus);
 			DroneManager.installBusHandlers(worldBus);
 			MobManager.installBusHandlers(worldBus);
+			GroupManager.installBusHandlers(worldBus);
 			registerSubtagRoutes();
 			tickScheduler = new WorldTickScheduler(worldBus);
 			tickScheduler.start();
