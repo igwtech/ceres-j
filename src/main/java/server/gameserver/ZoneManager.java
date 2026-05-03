@@ -21,6 +21,12 @@ public class ZoneManager {	//TODO implement Zone Manager
 		else
 			return zoneList.get(id);
 	}
+
+	/** Snapshot of all zones currently registered. Defensive copy
+	 *  so callers can iterate without holding the internal lock. */
+	public static java.util.Collection<Zone> getAllZones() {
+		return new java.util.ArrayList<>(zoneList.values());
+	}
 	
 	public static void stop(){
 		

@@ -68,8 +68,19 @@ public final class WorldTickScheduler {
         Out.writeln(Out.Info, "WorldTickScheduler: stopped");
     }
 
-    /** One tick. Package-private for tests. */
+    /** One tick. Package-private for tests.
+     *
+     *  <p>Order of operations matters: AI runs first so that intents
+     *  it posts ({@link server.gameserver.npc.MobStateChangeIntent})
+     *  are drained on the SAME tick rather than waiting one extra
+     *  cadence. */
     void tick() {
+        try {
+            server.gameserver.npc.MobAIScheduler.tickOnce(bus);
+        } catch (Exception e) {
+            Out.writeln(Out.Error,
+                    "WorldTickScheduler: AI tick threw " + e.getMessage());
+        }
         try {
             bus.drain(-1); // global
         } catch (Exception e) {
