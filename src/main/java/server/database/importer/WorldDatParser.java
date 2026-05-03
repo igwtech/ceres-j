@@ -98,6 +98,14 @@ public final class WorldDatParser {
     public static final int TYPE_EXTRA = 1000016;
     private static final int EXTRA_SIZE = 68;
 
+    /** Type 1000015 — labeled region. Variable-length:
+     *  {@code [u16 strlen][N ASCII bytes][3 pos floats][2 dim floats]}.
+     *  319 entries in the corpus; strings are mostly {@code AMB_*}
+     *  ambient sound zone names ({@code AMB_SUBWAY}, {@code AMB_DOY},
+     *  {@code AMB_INDA}, …) plus a few non-prefix map labels like
+     *  {@code NEWDM}. Total = 2 + strlen + 20 bytes. */
+    public static final int TYPE_LABELED_REGION = 1000015;
+
     /** PSec2ElemType3a — mandatory portion. */
     private static final int OBJECT_HEADER_SIZE = 52;
     /** PSec2ElemType3b — optional bbox portion. */
@@ -248,6 +256,24 @@ public final class WorldDatParser {
         public byte[] raw;
     }
 
+    /**
+     * Type 1000015 — labeled region. Carries an ASCII name plus a
+     * 3D anchor position and a (radius, falloff)-shaped dimension
+     * pair. Most names are ambient-sound triggers ({@code AMB_*})
+     * but a small population of generic map labels also use this
+     * type, so the name field is left untyped.
+     */
+    public static final class LabeledRegionEntry {
+        public String name;
+        public float  posY, posZ, posX;
+        /** First dimension float — typically 100.0 (likely outer
+         *  trigger radius). */
+        public float  dim1;
+        /** Second dimension float — typically 0.1 (likely volume
+         *  falloff or fade ratio). */
+        public float  dim2;
+    }
+
     public static final class RawBlob {
         public int sectionId;
         public int elementType;
@@ -262,6 +288,7 @@ public final class WorldDatParser {
         public final List<PositionMarker> markers = new ArrayList<>();
         public final List<RegionEntry>   regions = new ArrayList<>();
         public final List<ExtraEntry>    extras  = new ArrayList<>();
+        public final List<LabeledRegionEntry> labeledRegions = new ArrayList<>();
         public final List<RawBlob>     rawBlobs = new ArrayList<>();
         /** Section IDs encountered, in order. */
         public final List<Integer>     sectionIds = new ArrayList<>();
@@ -383,6 +410,9 @@ public final class WorldDatParser {
         case TYPE_EXTRA:
             decodeExtra(in, off, size, out);
             return;
+        case TYPE_LABELED_REGION:
+            decodeLabeledRegion(in, off, size, out);
+            return;
         case TYPE_OBJECT:
             decodeObject(bb, size, out);
             return;
@@ -419,6 +449,31 @@ public final class WorldDatParser {
         m.posX = Float.intBitsToFloat(leInt(in, off + 8));
         m.trailer = Arrays.copyOfRange(in, off + 12, off + 20);
         out.markers.add(m);
+    }
+
+    private static void decodeLabeledRegion(byte[] in, int off, int size,
+                                              ParsedWorld out)
+            throws ParseException {
+        // Layout: [u16 strlen][N ASCII bytes][3 pos floats][2 dim floats]
+        //   total = 2 + strlen + 20
+        if (size < 2 + 20) {
+            throw new ParseException("labeled-region size " + size + " too short");
+        }
+        int strlen = (in[off] & 0xff) | ((in[off + 1] & 0xff) << 8);
+        if (size != 2 + strlen + 20) {
+            throw new ParseException("labeled-region size " + size
+                    + " != 2 + strlen(" + strlen + ") + 20");
+        }
+        LabeledRegionEntry r = new LabeledRegionEntry();
+        r.name = new String(in, off + 2, strlen,
+                java.nio.charset.StandardCharsets.US_ASCII);
+        int b = off + 2 + strlen;
+        r.posY = Float.intBitsToFloat(leInt(in, b));
+        r.posZ = Float.intBitsToFloat(leInt(in, b + 4));
+        r.posX = Float.intBitsToFloat(leInt(in, b + 8));
+        r.dim1 = Float.intBitsToFloat(leInt(in, b + 12));
+        r.dim2 = Float.intBitsToFloat(leInt(in, b + 16));
+        out.labeledRegions.add(r);
     }
 
     private static void decodeExtra(byte[] in, int off, int size,

@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -54,6 +55,8 @@ public class WorldDatImporterTest {
                 worldsDir.resolve("pak_out_app_1_c.dat"));
         copyFixture("/worlds/pak_plaza_app_4.dat",
                 worldsDir.resolve("pak_plaza_app_4.dat"));
+        copyFixture("/worlds/pak_tech_clan_1_c.dat",
+                worldsDir.resolve("pak_tech_clan_1_c.dat"));
     }
 
     @After
@@ -96,19 +99,21 @@ public class WorldDatImporterTest {
         WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
                 new String[]{"worlds"});
 
-        // arena        (4 obj,0 door,0 npc,  0 passive,0 marker,0 region,0 extra)
-        // reaktor      (9, 2, 2, 0,  6,  0,  0)
-        // datalink     (2, 0, 1, 16, 0,  0,  0)
-        // mainframe    (2, 0, 8, 0,  13, 0,  0)
-        // out_app_1_c  (4, 3, 0, 0,  0,  4,  0)
-        // plaza_app_4  (2, 0, 0, 23, 0,  0,  2)
-        assertEquals(23, countRows("world_objects"));
-        assertEquals(5,  countRows("world_doors"));
+        // arena         (4 obj,0 door,0 npc,  0 passive,0 marker,0 region,0 extra,0 labeled)
+        // reaktor       (9, 2, 2, 0,  6,  0,  0,  0)
+        // datalink      (2, 0, 1, 16, 0,  0,  0,  0)
+        // mainframe     (2, 0, 8, 0,  13, 0,  0,  0)
+        // out_app_1_c   (4, 3, 0, 0,  0,  4,  0,  0)
+        // plaza_app_4   (2, 0, 0, 23, 0,  0,  2,  0)
+        // tech_clan_1_c (4, 3, 0, 0,  0,  0,  0,  1)
+        assertEquals(27, countRows("world_objects"));
+        assertEquals(8,  countRows("world_doors"));
         assertEquals(11, countRows("world_npcs"));
         assertEquals(39, countRows("world_passive_objects"));
         assertEquals(19, countRows("world_position_markers"));
         assertEquals(4,  countRows("world_regions"));
         assertEquals(2,  countRows("world_extras"));
+        assertEquals(1,  countRows("world_labeled_regions"));
     }
 
     @Test
@@ -171,7 +176,7 @@ public class WorldDatImporterTest {
         WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
                 new String[]{"worlds"});
         // The valid fixtures are still imported.
-        assertEquals(23, countRows("world_objects"));
+        assertEquals(27, countRows("world_objects"));
         // The bogus file produced no rows (since it failed parse).
         assertEquals(0, countRowsWhere("world_objects",
                 "world_path = 'worlds/pak_bogus.dat'"));
@@ -248,6 +253,28 @@ public class WorldDatImporterTest {
                 "world_path = 'worlds/pak_out_app_1_c.dat'"));
         assertEquals(0, countRowsWhere("world_regions",
                 "world_path = 'worlds/pak_arena001.dat'"));
+    }
+
+    @Test
+    public void labeledRegionByNameLookup() throws Exception {
+        WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
+                new String[]{"worlds"});
+        // The name index is the primary use case — find regions by
+        // tag like AMB_TECHHAVEN.
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT world_path, pos_x, pos_y, pos_z, dim1, dim2"
+              + " FROM world_labeled_regions WHERE name = ?")) {
+            ps.setString(1, "AMB_TECHHAVEN");
+            try (ResultSet rs = ps.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals("worlds/pak_tech_clan_1_c.dat", rs.getString(1));
+                assertEquals(-521.97f, rs.getFloat(2), 0.01f);
+                assertEquals(81.92f,   rs.getFloat(3), 0.01f);
+                assertEquals(-106.0f,  rs.getFloat(4), 0.01f);
+                assertEquals(90.0f,    rs.getFloat(5), 0.01f);
+                assertEquals(0.1f,     rs.getFloat(6), 0.01f);
+            }
+        }
     }
 
     @Test

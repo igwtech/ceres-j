@@ -355,6 +355,64 @@ public class WorldDatParserTest {
         }
     }
 
+    // ─── Type 1000015 (labeled region) functional ──────────────────
+
+    @Test
+    public void techClanCParsesLabeledRegion() throws Exception {
+        byte[] raw = readResource("/worlds/pak_tech_clan_1_c.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        assertEquals(1, pw.labeledRegions.size());
+        WorldDatParser.LabeledRegionEntry r = pw.labeledRegions.get(0);
+        // Offline Python decode:
+        //   name = "AMB_TECHHAVEN"
+        //   pos  = (Y=81.92, Z=-106.0, X=-521.97)
+        //   dim1 = 90.0  dim2 = 0.1
+        assertEquals("AMB_TECHHAVEN", r.name);
+        assertEquals(81.92f, r.posY, 0.01f);
+        assertEquals(-106.0f, r.posZ, 0.01f);
+        assertEquals(-521.97f, r.posX, 0.01f);
+        assertEquals(90.0f, r.dim1, 0.01f);
+        assertEquals(0.1f,  r.dim2, 0.01f);
+    }
+
+    @Test
+    public void labeledRegionRejectsBadSizeFormat() throws Exception {
+        // Synthetic inflated body with a labeled-region element whose
+        // declared strlen+20 doesn't match dataSize. Forces the size-
+        // mismatch error path in decodeLabeledRegion.
+        // [file header 12B][section hdr 16B][elem hdr 16B + payload]
+        byte[] inner = new byte[12 + 16 + 16 + 30];
+        // file header
+        inner[0] = 0x08;
+        inner[4] = (byte) 0xcf; inner[5] = (byte) 0xcf; inner[6] = 0x0f;
+        inner[8] = 0x01;
+        // section header: section=2 dataSize=46
+        inner[12] = 0x0c;
+        inner[16] = (byte) 0xcf; inner[17] = (byte) 0xff;
+        inner[20] = 0x02;
+        inner[24] = 46; // 16 elem header + 30 payload
+        // element header: size=12 sig=0x0ffefef1 type=1000015 dataSize=30
+        int eo = 28;
+        inner[eo] = 0x0c;
+        inner[eo+4] = (byte) 0xf1; inner[eo+5] = (byte) 0xfe;
+        inner[eo+6] = (byte) 0xfe; inner[eo+7] = 0x0f;
+        int t = 1000015;
+        inner[eo+8]  = (byte) (t & 0xff);
+        inner[eo+9]  = (byte) ((t >> 8) & 0xff);
+        inner[eo+10] = (byte) ((t >> 16) & 0xff);
+        inner[eo+11] = (byte) ((t >> 24) & 0xff);
+        inner[eo+12] = 30;
+        // payload: u16 strlen=99 (clearly wrong: 99+22 != 30)
+        int pl = eo + 16;
+        inner[pl] = 99;
+        inner[pl+1] = 0;
+
+        try {
+            WorldDatParser.parseInflated(inner);
+            fail("expected ParseException for size mismatch");
+        } catch (WorldDatParser.ParseException expected) { /* ok */ }
+    }
+
     @Test
     public void totalElementsMatchesAllDecodedAndRawSec2() throws Exception {
         byte[] raw = readResource("/worlds/pak_reaktor_nc.dat");
@@ -363,7 +421,8 @@ public class WorldDatParserTest {
         // whether it was decoded or stashed as a raw blob.
         int decoded = pw.objects.size() + pw.doors.size() + pw.npcs.size()
                     + pw.passives.size() + pw.markers.size()
-                    + pw.regions.size() + pw.extras.size();
+                    + pw.regions.size() + pw.extras.size()
+                    + pw.labeledRegions.size();
         // raw blobs from section-2 unknown types are counted too.
         long sec2RawBlobs = pw.rawBlobs.stream()
                 .filter(b -> b.elementType > 0)
