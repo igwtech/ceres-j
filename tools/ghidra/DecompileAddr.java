@@ -14,18 +14,15 @@ import java.io.PrintWriter;
 
 public class DecompileAddr extends GhidraScript {
 
-    // Functions to decompile — the UDP receive processing chain
+    // Functions to decompile — the SCRIPTEDPLAYER spawn lookup chain
     private static final String[] ADDRS = {
-        "0055ec10",  // FUN_0055ec10 — called from recv handler to process data
-        "0055e2f0",  // FUN_0055e2f0 — station lookup
-        "0055f260",  // FUN_0055f260 — recvfrom wrapper
-        "00560090",  // FUN_00560090 — sendto wrapper
-        "005602f0",  // FUN_005602f0 — referenced by WINSOCKMGR
-        "005609a0",  // FUN_005609a0 — referenced by WINSOCKMGR
+        "005b66c0",  // ONLY writer of DAT_011633c0 — sets up the HUD pool source pointer
+        "00726c50",  // HUD pool render function (uses "%d / %d")
+        "0070e100",  // alt pool render with byte values
     };
 
     private static final String OUT_PATH =
-        "/home/javier/Documents/Projects/Neocron/ceres-j/docs/udp_recv_chain.txt";
+        "/home/javier/Documents/Projects/Neocron/ceres-j/docs/hud_pool_setup.txt";
 
     @Override
     protected void run() throws Exception {

@@ -54,20 +54,12 @@ import java.util.TreeMap;
 public class FindCallers extends GhidraScript {
 
     private static final String[] TARGETS = {
-        "00559920",  // gamedata dispatcher
-        "0055c270",  // CharInfo/CharsysInfo handler
-        "0055bdc0",  // state machine variant (Joining session log)
-        "00558950",  // world-change handler
-        "0055b6f0",  // state machine variant (active)
-        "0055aa30",  // NetMgr msg pump — case 0x05 "Client accepted" unblock
-        "0055a5e0",  // NetHost bootstrap variant 1
-        "005592d0",  // NetHost bootstrap variant 2 (actually runs)
-        "00559520",  // "Joining session" handler
-        "00557b90",  // WorldClient constructor
+        "008420f0",  // LC stream parser loop — find network packet handlers
+        "00803cd0",  // FULLCHARSYSTEM vtable slot 8 dispatcher
     };
 
     private static final String OUT_PATH =
-        "/home/javier/Documents/Projects/Neocron/ceres-j/docs/call_graph.txt";
+        "/home/javier/Documents/Projects/Neocron/ceres-j/docs/lc_stream_callers.txt";
 
     // Safety valve: stop walking if thunk chains get too deep. Real
     // thunks are rarely more than 2-3 deep; anything beyond 16 is

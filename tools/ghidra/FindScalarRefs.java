@@ -28,10 +28,20 @@ public class FindScalarRefs extends GhidraScript {
 
     // Specific constants we care about. 0x3f3 is the Synchronizing UI
     // event; 0x3f2 is the "connecting please wait" event.
-    private static final long[] TARGETS = {0x3f3L, 0x3f2L};
+    // vtable 00a5d860 contains FUN_00841dc0 at slot 8 (CHARSYS network handler).
+    // Find all code that takes the address of that vtable — those are the
+    // constructors that install it on the dispatching class.
+    // Also check the OTHER vtable at 00a54768 (FUN_00803cd0 at slot 8).
+    // Event IDs fired by FUN_0055c270 (multipart dispatcher):
+    //   0xa7 = CharInfo (disc 0x01) ← already known
+    //   0xa8 = CharsysInfo (disc 0x02) ← we want to find its handler
+    //   0x98, 0x13ef = side events on the CharInfo path
+    // Event 0xb3 fires the FULLCHARSYSTEM buffer parse synchronously +
+    // FullCharsysInfo recompute. Find code that uses this constant.
+    private static final long[] TARGETS = {0xb3L};
 
     private static final String OUT_PATH =
-        "/home/javier/Documents/Projects/Neocron/ceres-j/docs/ui_event_refs.txt";
+        "/home/javier/Documents/Projects/Neocron/ceres-j/docs/event_b3_refs.txt";
 
     @Override
     protected void run() throws Exception {
