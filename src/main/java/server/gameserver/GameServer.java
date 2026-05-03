@@ -2,6 +2,7 @@ package server.gameserver;
 
 import java.io.IOException;
 import server.exceptions.StartupException;
+import server.gameserver.npc.DroneManager;
 import server.gameserver.packets.SubtagRouter;
 import server.gameserver.packets.client_udp.ChatBroadcast;
 import server.gameserver.packets.client_udp.DroneControlPacket;
@@ -39,6 +40,7 @@ public final class GameServer {
 
 			worldBus = new WorldMessageBus();
 			ChatManager.installBusHandlers(worldBus);
+			DroneManager.installBusHandlers(worldBus);
 			registerSubtagRoutes();
 			tickScheduler = new WorldTickScheduler(worldBus);
 			tickScheduler.start();

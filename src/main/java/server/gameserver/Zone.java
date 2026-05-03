@@ -66,6 +66,15 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 	public int getZoneId() {
 		return zoneId;
 	}
+
+	/** Snapshot of all players currently registered in the zone.
+	 *  Returned as a defensive copy so callers can iterate without
+	 *  holding the {@code playerList} lock. */
+	public java.util.List<Player> getAllPlayers() {
+		synchronized (playerList) {
+			return new java.util.ArrayList<>(playerList.values());
+		}
+	}
 	
 	public Player getPlayer(int ID){
 		synchronized(playerList){
