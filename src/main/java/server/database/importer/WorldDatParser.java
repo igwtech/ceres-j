@@ -106,6 +106,16 @@ public final class WorldDatParser {
      *  {@code NEWDM}. Total = 2 + strlen + 20 bytes. */
     public static final int TYPE_LABELED_REGION = 1000015;
 
+    /** Type 1000007 — tagged entity. Variable-length 24-35 bytes
+     *  with a consistent 23-byte header (position + id + counter +
+     *  subtype + sub2 + pad) and a subtype-specific tail. Common
+     *  tails carry a category byte + ASCII species name + null
+     *  (e.g. {@code BIRD}, {@code RAT}). Decoded partially: the
+     *  structured prefix surfaces; the tail stays as a raw blob. */
+    public static final int TYPE_TAGGED_ENTITY = 1000007;
+    /** Bytes consumed by the structured prefix of type 1000007. */
+    private static final int TAGGED_ENTITY_HEADER = 23;
+
     /** PSec2ElemType3a — mandatory portion. */
     private static final int OBJECT_HEADER_SIZE = 52;
     /** PSec2ElemType3b — optional bbox portion. */
@@ -274,6 +284,28 @@ public final class WorldDatParser {
         public float  dim2;
     }
 
+    /**
+     * Type 1000007 — partial decode. Structured prefix surfaces;
+     * tail stays opaque so future RE can refine without re-walking
+     * the file system.
+     */
+    public static final class TaggedEntityEntry {
+        public float posY, posZ, posX;
+        public int   entityId;
+        public int   counter;
+        /** Subtype byte at offset 20 (observed values: 1, 2, 3, 4,
+         *  5, 6, 7, 8, 0x14). */
+        public int   subtype;
+        /** Second discriminator byte at offset 21. For subtype=0x03
+         *  this is the string-region length in bytes (excl. final
+         *  null terminator). */
+        public int   sub2;
+        /** Bytes 23..end. May contain {@code [category byte][ASCII
+         *  species name][0x00]} for subtype=0x03 entries; opaque for
+         *  others. */
+        public byte[] tail;
+    }
+
     public static final class RawBlob {
         public int sectionId;
         public int elementType;
@@ -289,6 +321,7 @@ public final class WorldDatParser {
         public final List<RegionEntry>   regions = new ArrayList<>();
         public final List<ExtraEntry>    extras  = new ArrayList<>();
         public final List<LabeledRegionEntry> labeledRegions = new ArrayList<>();
+        public final List<TaggedEntityEntry>  taggedEntities = new ArrayList<>();
         public final List<RawBlob>     rawBlobs = new ArrayList<>();
         /** Section IDs encountered, in order. */
         public final List<Integer>     sectionIds = new ArrayList<>();
@@ -413,6 +446,9 @@ public final class WorldDatParser {
         case TYPE_LABELED_REGION:
             decodeLabeledRegion(in, off, size, out);
             return;
+        case TYPE_TAGGED_ENTITY:
+            decodeTaggedEntity(in, off, size, out);
+            return;
         case TYPE_OBJECT:
             decodeObject(bb, size, out);
             return;
@@ -449,6 +485,26 @@ public final class WorldDatParser {
         m.posX = Float.intBitsToFloat(leInt(in, off + 8));
         m.trailer = Arrays.copyOfRange(in, off + 12, off + 20);
         out.markers.add(m);
+    }
+
+    private static void decodeTaggedEntity(byte[] in, int off, int size,
+                                             ParsedWorld out)
+            throws ParseException {
+        if (size < TAGGED_ENTITY_HEADER) {
+            throw new ParseException("tagged-entity size " + size
+                    + " < header " + TAGGED_ENTITY_HEADER);
+        }
+        TaggedEntityEntry e = new TaggedEntityEntry();
+        e.posY     = Float.intBitsToFloat(leInt(in, off));
+        e.posZ     = Float.intBitsToFloat(leInt(in, off + 4));
+        e.posX     = Float.intBitsToFloat(leInt(in, off + 8));
+        e.entityId = leInt(in, off + 12);
+        e.counter  = leInt(in, off + 16);
+        e.subtype  = in[off + 20] & 0xff;
+        e.sub2     = in[off + 21] & 0xff;
+        e.tail     = Arrays.copyOfRange(in, off + TAGGED_ENTITY_HEADER,
+                off + size);
+        out.taggedEntities.add(e);
     }
 
     private static void decodeLabeledRegion(byte[] in, int off, int size,

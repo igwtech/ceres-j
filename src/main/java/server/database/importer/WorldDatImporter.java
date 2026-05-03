@@ -182,6 +182,7 @@ public final class WorldDatImporter {
                            "world_npcs", "world_passive_objects",
                            "world_position_markers", "world_regions",
                            "world_extras", "world_labeled_regions",
+                           "world_tagged_entities",
                            "world_raw_elements"};
         for (String t : tables) {
             try (PreparedStatement ps = conn.prepareStatement(
@@ -272,6 +273,19 @@ public final class WorldDatImporter {
               + " ON world_labeled_regions (world_path)",
             "CREATE INDEX IF NOT EXISTS world_labeled_regions_name_ix"
               + " ON world_labeled_regions (name)",
+            "CREATE TABLE IF NOT EXISTS world_tagged_entities ("
+              + "id " + idType + ","
+              + " world_path TEXT NOT NULL,"
+              + " entity_id BIGINT,"
+              + " counter INTEGER,"
+              + " subtype INTEGER,"
+              + " sub2 INTEGER,"
+              + " pos_x REAL, pos_y REAL, pos_z REAL,"
+              + " tail " + blobType + ")",
+            "CREATE INDEX IF NOT EXISTS world_tagged_entities_path_ix"
+              + " ON world_tagged_entities (world_path)",
+            "CREATE INDEX IF NOT EXISTS world_tagged_entities_subtype_ix"
+              + " ON world_tagged_entities (subtype)",
             "CREATE TABLE IF NOT EXISTS world_npcs ("
               + "id " + idType + ","
               + " world_path TEXT NOT NULL,"
@@ -321,6 +335,7 @@ public final class WorldDatImporter {
             insertRegions(conn, worldPath, pw);
             insertExtras(conn, worldPath, pw);
             insertLabeledRegions(conn, worldPath, pw);
+            insertTaggedEntities(conn, worldPath, pw);
             insertRawBlobs(conn, worldPath, pw);
             conn.commit();
         } catch (SQLException e) {
@@ -540,6 +555,30 @@ public final class WorldDatImporter {
                 ps.setFloat(5, r.posZ);
                 ps.setFloat(6, r.dim1);
                 ps.setFloat(7, r.dim2);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private static void insertTaggedEntities(Connection conn, String worldPath,
+                                               WorldDatParser.ParsedWorld pw)
+            throws SQLException {
+        if (pw.taggedEntities.isEmpty()) return;
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO world_tagged_entities (world_path, entity_id,"
+              + " counter, subtype, sub2, pos_x, pos_y, pos_z, tail)"
+              + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+            for (WorldDatParser.TaggedEntityEntry e : pw.taggedEntities) {
+                ps.setString(1, worldPath);
+                ps.setLong(2, e.entityId & 0xffffffffL);
+                ps.setInt(3, e.counter);
+                ps.setInt(4, e.subtype);
+                ps.setInt(5, e.sub2);
+                ps.setFloat(6, e.posX);
+                ps.setFloat(7, e.posY);
+                ps.setFloat(8, e.posZ);
+                ps.setBytes(9, e.tail);
                 ps.addBatch();
             }
             ps.executeBatch();

@@ -413,6 +413,76 @@ public class WorldDatParserTest {
         } catch (WorldDatParser.ParseException expected) { /* ok */ }
     }
 
+    // ─── Type 1000007 (tagged entity) functional ───────────────────
+
+    @Test
+    public void vrApp1CParsesTaggedEntities() throws Exception {
+        // Fixture has 4 type-1000007 entries, all subtype 0x04.
+        byte[] raw = readResource("/worlds/pak_vr_app_1_c.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        assertEquals(4, pw.taggedEntities.size());
+        for (WorldDatParser.TaggedEntityEntry e : pw.taggedEntities) {
+            assertEquals(0x04, e.subtype);
+        }
+    }
+
+    @Test
+    public void taggedEntityFirstSampleMatchesOfflineDecode() throws Exception {
+        // Offline Python decode of pak_vr_app_1_c first 1000007:
+        //   pos = (Y=548.83, Z=-278.0, X=584.01)
+        //   id  = 10103 (0x2775)
+        //   counter = 1
+        //   subtype = 0x04   sub2 = 0x05
+        //   tail = "\x00BIRD\x00" (6 bytes: 0x00 prefix + 4-char
+        //                          species name + null)
+        byte[] raw = readResource("/worlds/pak_vr_app_1_c.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        WorldDatParser.TaggedEntityEntry e = pw.taggedEntities.get(0);
+        assertEquals(548.83f, e.posY, 0.01f);
+        assertEquals(-278.0f, e.posZ, 0.01f);
+        assertEquals(584.01f, e.posX, 0.01f);
+        assertEquals(10103, e.entityId);
+        assertEquals(1, e.counter);
+        assertEquals(0x04, e.subtype);
+        assertEquals(0x05, e.sub2);
+        assertEquals(6, e.tail.length);
+        assertEquals(0x00, e.tail[0] & 0xff);
+        assertEquals("BIRD",
+                new String(e.tail, 1, 4, java.nio.charset.StandardCharsets.US_ASCII));
+        assertEquals(0x00, e.tail[5]);
+    }
+
+    @Test
+    public void taggedEntityTooSmallIsRejected() throws Exception {
+        // Synthetic body smaller than the 23-byte header → reject.
+        // Build a tiny inflated frame so we can call parseInflated.
+        byte[] inner = new byte[12 + 16 + 16 + 22];
+        // file header
+        inner[0] = 0x08;
+        inner[4] = (byte) 0xcf; inner[5] = (byte) 0xcf; inner[6] = 0x0f;
+        inner[8] = 0x01;
+        // section hdr: section=2 dataSize=38
+        inner[12] = 0x0c;
+        inner[16] = (byte) 0xcf; inner[17] = (byte) 0xff;
+        inner[20] = 0x02;
+        inner[24] = 38; // 16 element header + 22 payload
+        // element hdr: type=1000007 dataSize=22 (one byte short)
+        int eo = 28;
+        inner[eo] = 0x0c;
+        inner[eo+4] = (byte) 0xf1; inner[eo+5] = (byte) 0xfe;
+        inner[eo+6] = (byte) 0xfe; inner[eo+7] = 0x0f;
+        int t = 1000007;
+        inner[eo+8]  = (byte) (t & 0xff);
+        inner[eo+9]  = (byte) ((t >> 8) & 0xff);
+        inner[eo+10] = (byte) ((t >> 16) & 0xff);
+        inner[eo+11] = (byte) ((t >> 24) & 0xff);
+        inner[eo+12] = 22;
+        try {
+            WorldDatParser.parseInflated(inner);
+            fail("expected ParseException for size < header");
+        } catch (WorldDatParser.ParseException expected) { /* ok */ }
+    }
+
     @Test
     public void totalElementsMatchesAllDecodedAndRawSec2() throws Exception {
         byte[] raw = readResource("/worlds/pak_reaktor_nc.dat");
@@ -422,7 +492,7 @@ public class WorldDatParserTest {
         int decoded = pw.objects.size() + pw.doors.size() + pw.npcs.size()
                     + pw.passives.size() + pw.markers.size()
                     + pw.regions.size() + pw.extras.size()
-                    + pw.labeledRegions.size();
+                    + pw.labeledRegions.size() + pw.taggedEntities.size();
         // raw blobs from section-2 unknown types are counted too.
         long sec2RawBlobs = pw.rawBlobs.stream()
                 .filter(b -> b.elementType > 0)

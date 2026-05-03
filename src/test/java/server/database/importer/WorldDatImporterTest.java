@@ -57,6 +57,8 @@ public class WorldDatImporterTest {
                 worldsDir.resolve("pak_plaza_app_4.dat"));
         copyFixture("/worlds/pak_tech_clan_1_c.dat",
                 worldsDir.resolve("pak_tech_clan_1_c.dat"));
+        copyFixture("/worlds/pak_vr_app_1_c.dat",
+                worldsDir.resolve("pak_vr_app_1_c.dat"));
     }
 
     @After
@@ -99,21 +101,23 @@ public class WorldDatImporterTest {
         WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
                 new String[]{"worlds"});
 
-        // arena         (4 obj,0 door,0 npc,  0 passive,0 marker,0 region,0 extra,0 labeled)
-        // reaktor       (9, 2, 2, 0,  6,  0,  0,  0)
-        // datalink      (2, 0, 1, 16, 0,  0,  0,  0)
-        // mainframe     (2, 0, 8, 0,  13, 0,  0,  0)
-        // out_app_1_c   (4, 3, 0, 0,  0,  4,  0,  0)
-        // plaza_app_4   (2, 0, 0, 23, 0,  0,  2,  0)
-        // tech_clan_1_c (4, 3, 0, 0,  0,  0,  0,  1)
-        assertEquals(27, countRows("world_objects"));
-        assertEquals(8,  countRows("world_doors"));
+        // arena          (4 obj,0 door,0 npc,  0 pas,0 mrk,0 reg,0 xtr,0 lab,0 tag)
+        // reaktor        (9, 2, 2, 0,  6,  0,  0,  0,  0)
+        // datalink       (2, 0, 1, 16, 0,  0,  0,  0,  0)
+        // mainframe      (2, 0, 8, 0,  13, 0,  0,  0,  0)
+        // out_app_1_c    (4, 3, 0, 0,  0,  4,  0,  0,  0)
+        // plaza_app_4    (2, 0, 0, 23, 0,  0,  2,  0,  0)
+        // tech_clan_1_c  (4, 3, 0, 0,  0,  0,  0,  1,  0)
+        // vr_app_1_c     (4, 4, 0, 0,  0,  2,  0,  1,  4)
+        assertEquals(31, countRows("world_objects"));
+        assertEquals(12, countRows("world_doors"));
         assertEquals(11, countRows("world_npcs"));
         assertEquals(39, countRows("world_passive_objects"));
         assertEquals(19, countRows("world_position_markers"));
-        assertEquals(4,  countRows("world_regions"));
+        assertEquals(6,  countRows("world_regions"));
         assertEquals(2,  countRows("world_extras"));
-        assertEquals(1,  countRows("world_labeled_regions"));
+        assertEquals(2,  countRows("world_labeled_regions"));
+        assertEquals(4,  countRows("world_tagged_entities"));
     }
 
     @Test
@@ -176,7 +180,8 @@ public class WorldDatImporterTest {
         WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
                 new String[]{"worlds"});
         // The valid fixtures are still imported.
-        assertEquals(27, countRows("world_objects"));
+        assertEquals(31, countRows("world_objects"));
+        assertEquals(4, countRows("world_tagged_entities"));
         // The bogus file produced no rows (since it failed parse).
         assertEquals(0, countRowsWhere("world_objects",
                 "world_path = 'worlds/pak_bogus.dat'"));
@@ -253,6 +258,50 @@ public class WorldDatImporterTest {
                 "world_path = 'worlds/pak_out_app_1_c.dat'"));
         assertEquals(0, countRowsWhere("world_regions",
                 "world_path = 'worlds/pak_arena001.dat'"));
+    }
+
+    @Test
+    public void taggedEntityRoundTripsIntoTable() throws Exception {
+        WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
+                new String[]{"worlds"});
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(
+                     "SELECT entity_id, counter, subtype, sub2,"
+                   + " pos_x, pos_y, pos_z, tail FROM world_tagged_entities"
+                   + " WHERE world_path = 'worlds/pak_vr_app_1_c.dat'"
+                   + " ORDER BY id LIMIT 1")) {
+            assertTrue(rs.next());
+            // First entry: pos=(548.83, -278, 584.01), id=10103,
+            // ctr=1, subtype=4, sub2=5, tail = "\x00BIRD\x00".
+            assertEquals(10103L, rs.getLong(1));
+            assertEquals(1,      rs.getInt(2));
+            assertEquals(4,      rs.getInt(3));
+            assertEquals(5,      rs.getInt(4));
+            assertEquals(584.01f, rs.getFloat(5), 0.01f);
+            assertEquals(548.83f, rs.getFloat(6), 0.01f);
+            assertEquals(-278.0f, rs.getFloat(7), 0.01f);
+            byte[] tail = rs.getBytes(8);
+            assertEquals(6, tail.length);
+            assertEquals(0x00, tail[0] & 0xff);
+            assertEquals('B', tail[1]);
+            assertEquals(0x00, tail[5]);
+        }
+    }
+
+    @Test
+    public void taggedEntitySubtypeIndexLookup() throws Exception {
+        WorldDatImporter.runForRoot(conn, tempRoot.toFile(),
+                new String[]{"worlds"});
+        // The subtype index lets queries filter by subtype enum —
+        // all 4 vr_app_1_c entries are subtype 0x04.
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT COUNT(*) FROM world_tagged_entities WHERE subtype = ?")) {
+            ps.setInt(1, 4);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals(4, rs.getInt(1));
+            }
+        }
     }
 
     @Test
