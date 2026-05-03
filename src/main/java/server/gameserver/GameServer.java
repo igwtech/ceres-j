@@ -4,6 +4,7 @@ import java.io.IOException;
 import server.exceptions.StartupException;
 import server.gameserver.packets.SubtagRouter;
 import server.gameserver.packets.client_udp.ChatBroadcast;
+import server.gameserver.packets.client_udp.DroneControlPacket;
 import server.tools.Out;
 
 public final class GameServer {
@@ -54,6 +55,9 @@ public final class GameServer {
 		// Chat (whisper / team / clan / buddy).
 		SubtagRouter.register(0x03, 0x1f, 0x3b, -1,
 				(byte[] b) -> new ChatBroadcast(b));
+		// Drone-control C->S (mob-state-shaped 0x03/0x2d carrier).
+		SubtagRouter.register(0x03, 0x2d, -1, -1,
+				(byte[] b) -> new DroneControlPacket(b));
 	}
 
 	public static void stopServer() {

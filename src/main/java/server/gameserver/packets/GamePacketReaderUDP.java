@@ -197,6 +197,16 @@ public final class GamePacketReaderUDP {
 				return null;
 			case 0x27:
 				return new RequestInfoAboutWordlID(subPacket);
+			case 0x2d: {
+				// Drone-control (and future mob-state C->S, if any).
+				// Routed through SubtagRouter so the npc subsystem
+				// owns its own decoder factory.
+				GameServerEvent routed = SubtagRouter.dispatch(
+						subPacket, 0x03, 0x2d, -1, -1);
+				if (routed != null) return routed;
+				pd.reset();
+				return pd;
+			}
 			case 0x31:
 				return new RequestShortPlayerInfo(subPacket);
 			default:
