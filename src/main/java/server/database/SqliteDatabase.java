@@ -138,6 +138,16 @@ public final class SqliteDatabase {
                     "DefImporter crashed, continuing startup: " + e.getMessage());
             }
 
+            // Mine BSP/DAT world files for objects, doors, NPCs and
+            // navigation waypoints. Idempotent on a per-world_path
+            // basis; skips files that have already been imported.
+            try {
+                server.database.importer.WorldDatImporter.runIfNeeded(connection);
+            } catch (RuntimeException e) {
+                Out.writeln(Out.Error,
+                    "WorldDatImporter crashed, continuing startup: " + e.getMessage());
+            }
+
             migrateSchema();
             migrateFromCsv();
 
