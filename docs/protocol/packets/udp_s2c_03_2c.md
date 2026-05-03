@@ -1,0 +1,69 @@
+# `UDP S->C 0x03/0x2c` — Reliable/StartPos
+
+**Transport:** UDP  
+**Direction:** S->C  
+**Identifier:** `0x03/0x2c`  
+**Status:** verified  
+
+## Evidence
+
+<!-- catalog-evidence (auto-generated; do not edit manually — regenerate via `tools/catalog_extract.py --update-evidence`) -->
+
+- Total observations: **37**
+- Captures with this packet: **17/17**
+- Size (bytes): min **71**, avg **190**, max **826**
+- Top markers (within ±2s):
+  - IN_WORLD × 2
+- Per-capture counts:
+  - `RETAIL_RETAIL_VEHICLE_DRONE_20260503_141715` × 13
+  - `RETAIL_CREATION_LEVELING_LONG_20260502_160841` × 3
+  - `RETAIL_RETAIL_CHARDEL_SUBWAY_20260503_132639` × 2
+  - `RETAIL_DRSTONE4_20260501_193336` × 2
+  - `RETAIL_DRSTONE3_20260501_181349` × 2
+  - `RETAIL_RETAIL_LONG_PARTY_A_20260503_130137` × 2
+  - `RETAIL_DRSTONE_20260501_172522` × 2
+  - `RETAIL_DRSTONE_20260501_175315` × 2
+  - `RETAIL_PLAZA_TO_PEPPER_CROSS_DISTRICT_20260502_103513` × 1
+  - `RETAIL_FULL_PCAP_TRACE_20260426_154648` × 1
+  - `RETAIL_ODA_20260426_202428` × 1
+  - `RETAIL_AUGUSTO_20260426_201952` × 1
+  - `RETAIL_RETAIL_LONG_PARTY_B_20260503_130343` × 1
+  - `RETAIL_ZONING_AND_ITEMS_LONG_20260502_010613` × 1
+  - `RETAIL_HANNIBAL_20260426_201501` × 1
+  - `RETAIL_NORMAN_20260426_200458` × 1
+  - `RETAIL_CASH_VENDOR_PCAP_FRESH_20260426_143918` × 1
+
+Samples (first 32 bytes inner data):
+
+```
+#1: 010401a4496c7ea90dc566e65fc3647d2b440000000000000000000000000203
+```
+```
+#2: 010100fc53b4ee59d24233f3ffc314e50545000000000000000000000000d002
+```
+```
+#3: 01010000000155a5074566e67fc3bea57f44000000000000000000000000bc02
+```
+
+<!-- /catalog-evidence -->
+
+## Structure
+
+_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+
+## Variants
+
+_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+
+## Observed contexts
+
+_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+
+## Open questions
+
+_TODO: list what we don't yet understand._
+
+## Server-side handler
+
+_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+
