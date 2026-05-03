@@ -96,6 +96,31 @@ public class AdminCommandHandler {
         case "mobstate":
             cmdMobState(pl, args);
             return true;
+        case "buddyadd":
+            cmdBuddyAdd(pl, args);
+            return true;
+        case "buddyrm":
+        case "buddyremove":
+            cmdBuddyRm(pl, args);
+            return true;
+        case "buddylist":
+            cmdBuddyList(pl);
+            return true;
+        case "groupcreate":
+        case "groupnew":
+            cmdGroupCreate(pl);
+            return true;
+        case "groupinvite":
+        case "groupadd":
+            cmdGroupInvite(pl, args);
+            return true;
+        case "groupleave":
+        case "groupquit":
+            cmdGroupLeave(pl);
+            return true;
+        case "groupinfo":
+            cmdGroupInfo(pl);
+            return true;
         case "spawn":
             cmdSpawn(pl, args);
             return true;
@@ -342,6 +367,188 @@ public class AdminCommandHandler {
                 + " alt=" + s.altitude);
     }
 
+    // ─── Buddy commands (Phase 4) ──────────────────────────────────
+
+    /** {@code !buddyadd <uid>} — add a buddy to caller's list. */
+    static void cmdBuddyAdd(Player pl, String args) {
+        if (args == null || args.isEmpty()) {
+            reply(pl, "Usage: !buddyadd <uid>");
+            return;
+        }
+        int buddyUid;
+        try {
+            buddyUid = parseIntFlex(args.trim());
+        } catch (NumberFormatException e) {
+            reply(pl, "Bad uid: " + e.getMessage());
+            return;
+        }
+        int ownerUid = ownerUidOf(pl);
+        if (ownerUid == 0) {
+            reply(pl, "No character attached.");
+            return;
+        }
+        boolean added = server.gameserver.team.BuddyManager.add(
+                ownerUid, buddyUid);
+        reply(pl, added ? "Added buddy 0x" + Integer.toHexString(buddyUid)
+                        : "Already on buddy list.");
+    }
+
+    /** {@code !buddyrm <uid>} — remove a buddy. */
+    static void cmdBuddyRm(Player pl, String args) {
+        if (args == null || args.isEmpty()) {
+            reply(pl, "Usage: !buddyrm <uid>");
+            return;
+        }
+        int buddyUid;
+        try {
+            buddyUid = parseIntFlex(args.trim());
+        } catch (NumberFormatException e) {
+            reply(pl, "Bad uid: " + e.getMessage());
+            return;
+        }
+        int ownerUid = ownerUidOf(pl);
+        if (ownerUid == 0) {
+            reply(pl, "No character attached.");
+            return;
+        }
+        boolean removed = server.gameserver.team.BuddyManager.remove(
+                ownerUid, buddyUid);
+        reply(pl, removed ? "Removed buddy 0x" + Integer.toHexString(buddyUid)
+                          : "Not on buddy list.");
+    }
+
+    /** {@code !buddylist} — print the caller's buddy list. */
+    static void cmdBuddyList(Player pl) {
+        int ownerUid = ownerUidOf(pl);
+        if (ownerUid == 0) {
+            reply(pl, "No character attached.");
+            return;
+        }
+        java.util.List<Integer> buddies = server.gameserver.team.BuddyManager
+                .listBuddies(ownerUid);
+        if (buddies.isEmpty()) {
+            reply(pl, "Buddy list empty.");
+            return;
+        }
+        StringBuilder sb = new StringBuilder("Buddies (")
+                .append(buddies.size()).append("): ");
+        for (Integer uid : buddies) {
+            sb.append("0x").append(Integer.toHexString(uid)).append(' ');
+        }
+        reply(pl, sb.toString().trim());
+    }
+
+    // ─── Group commands (Phase 4) ──────────────────────────────────
+
+    /** {@code !groupcreate} — start a new group with caller as leader. */
+    static void cmdGroupCreate(Player pl) {
+        WorldMessageBus bus = GameServer.getBus();
+        if (bus == null) {
+            reply(pl, "World bus not running.");
+            return;
+        }
+        int ownerUid = ownerUidOf(pl);
+        if (ownerUid == 0) {
+            reply(pl, "No character attached.");
+            return;
+        }
+        int gid = server.gameserver.team.GroupManager.createGroup(bus,
+                ownerUid);
+        reply(pl, gid > 0 ? "Created group #" + gid
+                          : "Already in a group.");
+    }
+
+    /** {@code !groupinvite <uid>} — add a member to the caller's group. */
+    static void cmdGroupInvite(Player pl, String args) {
+        if (args == null || args.isEmpty()) {
+            reply(pl, "Usage: !groupinvite <uid>");
+            return;
+        }
+        WorldMessageBus bus = GameServer.getBus();
+        if (bus == null) {
+            reply(pl, "World bus not running.");
+            return;
+        }
+        int memberUid;
+        try {
+            memberUid = parseIntFlex(args.trim());
+        } catch (NumberFormatException e) {
+            reply(pl, "Bad uid: " + e.getMessage());
+            return;
+        }
+        int ownerUid = ownerUidOf(pl);
+        if (ownerUid == 0) {
+            reply(pl, "No character attached.");
+            return;
+        }
+        Integer gid = server.gameserver.team.GroupManager.groupIdOf(ownerUid);
+        if (gid == null) {
+            reply(pl, "You are not in a group. Run !groupcreate first.");
+            return;
+        }
+        boolean ok = server.gameserver.team.GroupManager.addMember(bus, gid,
+                memberUid);
+        reply(pl, ok ? "Invited 0x" + Integer.toHexString(memberUid)
+                       + " to group #" + gid
+                     : "Could not add member (already in a group, or "
+                       + "team is full).");
+    }
+
+    /** {@code !groupleave} — leave the caller's current group. */
+    static void cmdGroupLeave(Player pl) {
+        WorldMessageBus bus = GameServer.getBus();
+        if (bus == null) {
+            reply(pl, "World bus not running.");
+            return;
+        }
+        int ownerUid = ownerUidOf(pl);
+        if (ownerUid == 0) {
+            reply(pl, "No character attached.");
+            return;
+        }
+        boolean removed = server.gameserver.team.GroupManager.removeMember(
+                bus, ownerUid);
+        reply(pl, removed ? "Left group." : "You were not in a group.");
+    }
+
+    /** {@code !groupinfo} — print the caller's group composition. */
+    static void cmdGroupInfo(Player pl) {
+        int ownerUid = ownerUidOf(pl);
+        if (ownerUid == 0) {
+            reply(pl, "No character attached.");
+            return;
+        }
+        Integer gid = server.gameserver.team.GroupManager.groupIdOf(ownerUid);
+        if (gid == null) {
+            reply(pl, "Not in a group.");
+            return;
+        }
+        server.gameserver.team.Group g = server.gameserver.team.GroupManager
+                .getGroup(gid);
+        if (g == null) {
+            reply(pl, "Group #" + gid + " missing.");
+            return;
+        }
+        StringBuilder sb = new StringBuilder("Group #").append(gid)
+                .append(" (").append(g.size()).append("/")
+                .append(server.gameserver.team.Group.MAX_MEMBERS)
+                .append("): ");
+        for (int[] entry : g.snapshot()) {
+            sb.append("0x").append(Integer.toHexString(entry[0]));
+            if (entry[1] == server.gameserver.team.Group.ROLE_LEADER) {
+                sb.append("(L)");
+            }
+            sb.append(' ');
+        }
+        reply(pl, sb.toString().trim());
+    }
+
+    /** Caller's character UID, or 0 if no character is attached. */
+    static int ownerUidOf(Player pl) {
+        PlayerCharacter pc = pl.getCharacter();
+        return (pc == null) ? 0 : pc.getMisc(PlayerCharacter.MISC_ID);
+    }
+
     /** Parse "0x..." as hex, otherwise as decimal. */
     static int parseIntFlex(String s) {
         if (s == null) throw new NumberFormatException("null");
@@ -370,7 +577,10 @@ public class AdminCommandHandler {
     private static void cmdHelp(Player pl) {
         reply(pl, "Commands: !pos !warp !hp !heal !kill !damage !god !spawn !online "
                 + "!sethp !setpsi !setsta !setsl !setcash !probecash "
-                + "!hurtmob !mobtick !mobstate !help");
+                + "!hurtmob !mobtick !mobstate "
+                + "!buddyadd !buddyrm !buddylist "
+                + "!groupcreate !groupinvite !groupleave !groupinfo "
+                + "!help");
     }
 
     /**
