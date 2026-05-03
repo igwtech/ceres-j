@@ -4,8 +4,7 @@ import server.database.playerCharacters.PlayerCharacter;
 import server.database.playerCharacters.PlayerCharacterManager;
 import server.gameserver.GameServerTCPConnection;
 import server.gameserver.packets.GamePacketDecoderTCP;
-import server.gameserver.packets.server_tcp.RequestFailed;
-import server.gameserver.packets.server_tcp.RequestSuccess;
+import server.gameserver.packets.server_tcp.CharOpAck;
 
 public class CreateCharacter extends GamePacketDecoderTCP {
 
@@ -42,10 +41,13 @@ public class CreateCharacter extends GamePacketDecoderTCP {
 			pc.setSubskillLVL(id, pts);
 		}
 
+		// Retail: create-commit returns 0x8386 with status 0x00 on
+		// success, or 0x06 + ASCII reason on failure (e.g. "User
+		// already…"). See docs/protocol/flows/character_creation.md.
 		if (PlayerCharacterManager.createCharacter(pc, tcp.getAccount(), spot)) {
-			tcp.send(new RequestSuccess());
+			tcp.send(CharOpAck.commitSuccess());
 		} else {
-			tcp.send(new RequestFailed("ERROR"));
+			tcp.send(CharOpAck.error("Character creation failed."));
 		}
 	}
 
