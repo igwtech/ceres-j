@@ -1,0 +1,120 @@
+# UDP receive processing chain decompilations
+
+======================================================
+FUNCTION FUN_00841dc0 @ 00841dc0
+======================================================
+
+void FUN_00841dc0(void)
+
+{
+  int in_ECX;
+  
+  if (*(int *)(in_ECX + 0x18) != 0) {
+    thunk_FUN_008033d0(*(int *)(in_ECX + 0x18),*(undefined2 *)(in_ECX + 0x14));
+  }
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_008447d0 @ 008447d0
+======================================================
+
+int FUN_008447d0(int param_1,int param_2)
+
+{
+  int iVar1;
+  uint uVar2;
+  int in_ECX;
+  int iVar3;
+  byte bVar4;
+  bool bVar5;
+  
+  iVar3 = 0;
+  if (0 < param_2) {
+    do {
+      iVar1 = thunk_FUN_00845400(param_1 + iVar3,param_2 - iVar3);
+      if (iVar1 == -1) {
+        return iVar3;
+      }
+      iVar3 = iVar3 + iVar1;
+    } while (iVar3 < param_2);
+  }
+  if (*(char *)(in_ECX + 0x18) == -2) {
+    free(*(void **)(in_ECX + 100));
+    *(undefined4 *)(in_ECX + 0x60) = 0;
+    *(undefined4 *)(in_ECX + 100) = 0;
+    thunk_FUN_0080c450();
+  }
+  if ((*(char *)(*(int *)(in_ECX + 0x14) + 0x28) != '\0') ||
+     (*(char *)(*(int *)(in_ECX + 0x14) + 0x29) != '\0')) {
+    bVar4 = 0;
+    if (*(byte *)(in_ECX + 0x18) < 0xfb) {
+      if (*(byte *)(in_ECX + 0x18) == 0xfa) {
+        bVar4 = -(*(ushort *)(in_ECX + 0x1a) < 5) & 0x1f;
+        if (*(ushort *)(in_ECX + 0x1a) < 7) {
+          thunk_FUN_008025c0();
+          bVar4 = bVar4 | 0x20;
+        }
+        if (*(ushort *)(in_ECX + 0x1a) < 9) {
+          thunk_FUN_008025c0();
+          bVar4 = bVar4 | 0xa0;
+        }
+        if (*(ushort *)(in_ECX + 0x1a) < 10) {
+          thunk_FUN_008025c0();
+          bVar4 = bVar4 | 0xa0;
+        }
+        else if (*(ushort *)(in_ECX + 0x1a) < 0xd) {
+          bVar4 = bVar4 | 0x20;
+        }
+        if (*(ushort *)(in_ECX + 0x1a) < 0xe) {
+          thunk_FUN_008025c0();
+          bVar4 = bVar4 | 0x20;
+        }
+        if (*(ushort *)(in_ECX + 0x1a) < 0x10) {
+          thunk_FUN_008025c0();
+          bVar4 = bVar4 | 0x20;
+        }
+        if (*(ushort *)(in_ECX + 0x1a) < 0x11) {
+          thunk_FUN_008025c0();
+          bVar4 = bVar4 | 0x30;
+        }
+      }
+    }
+    else {
+      bVar4 = 0x1f;
+    }
+    thunk_FUN_00844ac0(bVar4 | 0x40);
+  }
+  uVar2 = rand();
+  uVar2 = uVar2 & 0x8000001f;
+  bVar5 = uVar2 == 0;
+  if ((int)uVar2 < 0) {
+    bVar5 = (uVar2 - 1 | 0xffffffe0) == 0xffffffff;
+  }
+  if (bVar5) {
+    *(undefined2 *)(in_ECX + 0xa1) = 0;
+    thunk_FUN_008025c0();
+  }
+  return iVar3;
+}
+
+
+
+======================================================
+FUNCTION FUN_00841ce0 @ 00841ce0
+======================================================
+
+void FUN_00841ce0(void)
+
+{
+  int in_ECX;
+  
+  thunk_FUN_007f9410(*(undefined2 *)(in_ECX + 0x14),*(undefined2 *)(in_ECX + 0x16),
+                     *(undefined2 *)(in_ECX + 0x18));
+  return;
+}
+
+
+

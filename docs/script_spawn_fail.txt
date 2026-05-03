@@ -1,0 +1,1172 @@
+=== FindScriptSpawnFail ===
+strings located:
+  needle 'NpcId:' @ [00a409d0]
+  needle 'Script spawn failed '%s' NpcId' @ [00a409d0]
+  needle 'spawn failed' @ [00a17d28, 00a17d7c, 00a23eac, 00a24290, 00a242c0, 00a242f4, 00a24334, 00a245d8, 00a2460c, 00a24640, 00a24680, 00a3e9b8, 00a407dc, 00a409d0, 00a42e24, 00a4a384]
+
+====================================================
+function: FUN_0069a580 @ 0069a580
+====================================================
+
+void FUN_0069a580(int param_1,undefined4 param_2,undefined4 *param_3,undefined4 param_4)
+
+{
+  byte bVar1;
+  char cVar2;
+  uint uVar3;
+  void *_Dst;
+  int *piVar4;
+  undefined4 *in_ECX;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009d5b3f;
+  local_10 = ExceptionList;
+  uVar3 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  thunk_FUN_0078a530(param_1);
+  local_8 = 0;
+  thunk_FUN_007aef30(param_1,param_4);
+  *in_ECX = SCRIPTEDPLAYER::vftable;
+  in_ECX[5] = SCRIPTEDPLAYER::vftable;
+  in_ECX[0x5b] = SCRIPTEDPLAYER::vftable;
+  in_ECX[0x136] = SCRIPTEDPLAYER::vftable;
+  in_ECX[0x157] = 0;
+  in_ECX[0x158] = 0;
+  in_ECX[0x159] = 0;
+  in_ECX[0x15a] = 0;
+  in_ECX[0x15b] = 0;
+  in_ECX[0x15c] = 0xf;
+  *(undefined1 *)(in_ECX + 0x157) = 0;
+  in_ECX[0x15d] = 0;
+  in_ECX[0x15e] = 0;
+  in_ECX[0x15f] = 0;
+  in_ECX[0x160] = 0;
+  in_ECX[0x161] = 0;
+  in_ECX[0x162] = 0xf;
+  *(undefined1 *)(in_ECX + 0x15d) = 0;
+  in_ECX[0x16a] = 0;
+  in_ECX[0x16b] = 0;
+  in_ECX[0x16c] = 0;
+  *(undefined1 *)(in_ECX + 0x176) = 0;
+  in_ECX[0x18d] = 0;
+  in_ECX[0x18e] = 0;
+  in_ECX[399] = 0;
+  in_ECX[400] = 0;
+  in_ECX[0x191] = 0;
+  in_ECX[0x192] = 0xf;
+  *(undefined1 *)(in_ECX + 0x18d) = 0;
+  local_8._0_1_ = 5;
+  thunk_FUN_007b9160(uVar3);
+  in_ECX[0x1df] = 0;
+  in_ECX[0x1e0] = 0;
+  in_ECX[0x1e1] = 0;
+  in_ECX[0x1e2] = 0;
+  in_ECX[0x1e3] = 0;
+  in_ECX[0x1e4] = 0xf;
+  *(undefined1 *)(in_ECX + 0x1df) = 0;
+  local_8 = CONCAT31(local_8._1_3_,7);
+  *(undefined2 *)(in_ECX + 0x1f7) = 1;
+  in_ECX[0x151] = 0;
+  thunk_FUN_006a08f0();
+  thunk_FUN_006ad480(param_3[6]);
+  in_ECX[0x1ec] = *param_3;
+  *(undefined2 *)(in_ECX + 0x163) = *(undefined2 *)(param_3 + 1);
+  in_ECX[0x1e6] = (uint)*(ushort *)(param_3 + 0xb);
+  *(char *)(in_ECX + 0x6a) = (char)param_2;
+  in_ECX[2] = param_2;
+  *(undefined8 *)(in_ECX + 0x24) = *(undefined8 *)(param_3 + 2);
+  in_ECX[0x26] = param_3[4];
+  in_ECX[0x25] = (float)in_ECX[0x25] + 10.0;
+  bVar1 = *(byte *)(param_3 + 8);
+  *(byte *)(in_ECX + 0x193) = bVar1;
+  if (bVar1 == 0) {
+    in_ECX[0x194] = 0;
+  }
+  else {
+    _Dst = (void *)thunk_FUN_009ac153((uint)bVar1 * 0xc);
+    in_ECX[0x194] = _Dst;
+    if ((void *)param_3[9] != (void *)0x0) {
+      memcpy(_Dst,(void *)param_3[9],(uint)*(byte *)(in_ECX + 0x193) * 0xc);
+    }
+  }
+  thunk_FUN_0069f460(param_4);
+  if (param_3[6] != 0) {
+    cVar2 = thunk_FUN_007afe80(param_3[6],param_3[7]);
+    if ((cVar2 == '\0') && (*(char *)((int)in_ECX + 0x5d) != '\0')) {
+      piVar4 = in_ECX + 0x13e;
+      if (0xf < (uint)in_ECX[0x143]) {
+        piVar4 = (int *)*piVar4;
+      }
+      (**(code **)(**(int **)(param_1 + 0x24) + 8))
+                (*(int **)(param_1 + 0x24),
+                 "SCRIPTEDPLAYER : Script spawn failed \'%s\' NpcId: %d WorldId: %d",piVar4,
+                 *(undefined2 *)(in_ECX + 0x163),in_ECX[0x14b]);
+    }
+  }
+  if (*(char *)(in_ECX[7] + 0x29) == '\0') {
+    thunk_FUN_0069cb50();
+  }
+  *(undefined1 *)((int)in_ECX + 0x682) = 0;
+  thunk_FUN_006a06e0();
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+====================================================
+function: FUN_00699fd0 @ 00699fd0
+====================================================
+
+void FUN_00699fd0(int param_1,undefined4 param_2,undefined4 *param_3,short param_4,int param_5)
+
+{
+  char *pcVar1;
+  byte bVar2;
+  int iVar3;
+  char cVar4;
+  uint uVar5;
+  int iVar6;
+  uint uVar7;
+  int *piVar8;
+  undefined4 uVar9;
+  undefined4 *in_ECX;
+  char *pcVar10;
+  float10 fVar11;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009d5a8f;
+  local_10 = ExceptionList;
+  uVar5 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  thunk_FUN_0078a530(param_1);
+  local_8 = 0;
+  thunk_FUN_007aef30(param_1,param_5);
+  *in_ECX = SCRIPTEDPLAYER::vftable;
+  in_ECX[5] = SCRIPTEDPLAYER::vftable;
+  in_ECX[0x5b] = SCRIPTEDPLAYER::vftable;
+  in_ECX[0x136] = SCRIPTEDPLAYER::vftable;
+  in_ECX[0x157] = 0;
+  in_ECX[0x158] = 0;
+  in_ECX[0x159] = 0;
+  in_ECX[0x15a] = 0;
+  in_ECX[0x15b] = 0;
+  in_ECX[0x15c] = 0xf;
+  *(undefined1 *)(in_ECX + 0x157) = 0;
+  in_ECX[0x15d] = 0;
+  in_ECX[0x15e] = 0;
+  in_ECX[0x15f] = 0;
+  in_ECX[0x160] = 0;
+  in_ECX[0x161] = 0;
+  in_ECX[0x162] = 0xf;
+  *(undefined1 *)(in_ECX + 0x15d) = 0;
+  in_ECX[0x16a] = 0;
+  in_ECX[0x16b] = 0;
+  in_ECX[0x16c] = 0;
+  *(undefined1 *)(in_ECX + 0x176) = 0;
+  in_ECX[0x18d] = 0;
+  in_ECX[0x18e] = 0;
+  in_ECX[399] = 0;
+  in_ECX[400] = 0;
+  in_ECX[0x191] = 0;
+  in_ECX[0x192] = 0xf;
+  *(undefined1 *)(in_ECX + 0x18d) = 0;
+  local_8._0_1_ = 5;
+  thunk_FUN_007b9160(uVar5);
+  in_ECX[0x1df] = 0;
+  in_ECX[0x1e0] = 0;
+  in_ECX[0x1e1] = 0;
+  in_ECX[0x1e2] = 0;
+  in_ECX[0x1e3] = 0;
+  in_ECX[0x1e4] = 0xf;
+  *(undefined1 *)(in_ECX + 0x1df) = 0;
+  local_8 = CONCAT31(local_8._1_3_,7);
+  *(undefined2 *)(in_ECX + 0x1f7) = 1;
+  in_ECX[0x151] = 0;
+  thunk_FUN_006a08f0();
+  pcVar1 = (char *)((int)param_3 + 0x1d);
+  thunk_FUN_006ad480(pcVar1);
+  in_ECX[0x1ec] = *param_3;
+  *(undefined2 *)(in_ECX + 0x163) = *(undefined2 *)(param_3 + 1);
+  *(char *)(in_ECX + 0x6a) = (char)param_2;
+  in_ECX[2] = param_2;
+  thunk_FUN_0054e210(*(undefined2 *)((int)param_3 + 6),*(undefined2 *)(param_3 + 2),
+                     *(undefined2 *)((int)param_3 + 10),in_ECX + 0x24);
+  in_ECX[0x25] = (float)in_ECX[0x25] + 2.0;
+  in_ECX[0x1e6] = (uint)*(ushort *)((int)param_3 + 0x1b);
+  thunk_FUN_0069f460(param_5);
+  iVar3 = in_ECX[0x166];
+  in_ECX[0x167] = iVar3;
+  iVar6 = iVar3;
+  if ((float)*(int *)((int)param_3 + 0xd) < (float)iVar3) {
+    iVar6 = (int)(float)*(int *)((int)param_3 + 0xd);
+    in_ECX[0x166] = iVar6;
+    if (iVar3 < iVar6) {
+      in_ECX[0x167] = iVar6;
+    }
+  }
+  if (((float)iVar6 == 0.0) && (cVar4 = thunk_FUN_00791aa0(), cVar4 == '\0')) {
+    in_ECX[0x15] = param_5;
+    thunk_FUN_006a1000(0);
+  }
+  if (in_ECX[0x16a] != in_ECX[0x16b]) {
+    in_ECX[0x16b] = in_ECX[0x16a];
+  }
+  uVar5 = 0;
+  in_ECX[0x16d] = in_ECX[0x134];
+  do {
+    bVar2 = *(byte *)((int)param_3 + uVar5 + 0x11);
+    uVar7 = uVar5 & 0xffff;
+    fVar11 = (float10)thunk_FUN_0077f230(uVar7,3);
+    if (((float)bVar2 * 4.0 < (float)fVar11) &&
+       (fVar11 = (float10)thunk_FUN_0077f230(uVar7,3), (float)fVar11 != -1.0)) {
+      thunk_FUN_0077f410(uVar7,(float)*(byte *)((int)param_3 + uVar5 + 0x11) * 4.0,3);
+    }
+    uVar5 = uVar5 + 1;
+  } while ((int)uVar5 < 10);
+  in_ECX[0x194] = 0;
+  cVar4 = *pcVar1;
+  pcVar10 = pcVar1;
+  while (cVar4 != '\0') {
+    pcVar10 = pcVar10 + 1;
+    cVar4 = *pcVar10;
+  }
+  pcVar10 = pcVar10 + 1;
+  cVar4 = thunk_FUN_007afe80(pcVar1,pcVar10);
+  if (cVar4 == '\0') {
+    if (*(char *)((int)in_ECX + 0x5d) != '\0') {
+      piVar8 = in_ECX + 0x13e;
+      if (0xf < (uint)in_ECX[0x143]) {
+        piVar8 = (int *)*piVar8;
+      }
+      (**(code **)(**(int **)(param_1 + 0x24) + 8))
+                (*(int **)(param_1 + 0x24),
+                 "SCRIPTEDPLAYER : Script spawn failed \'%s\' NpcId: %d WorldId: %d",piVar8,
+                 *(undefined2 *)(in_ECX + 0x163),in_ECX[0x14b]);
+    }
+    piVar8 = in_ECX + 0x13e;
+    if (0xf < (uint)in_ECX[0x143]) {
+      piVar8 = (int *)*piVar8;
+    }
+    thunk_FUN_004471c0("SCRIPTEDPLAYER : Script spawn failed \'%s\' NpcId: %d WorldId: %d",piVar8,
+                       *(undefined2 *)(in_ECX + 0x163),in_ECX[0x14b]);
+  }
+  cVar4 = *pcVar10;
+  while (cVar4 != '\0') {
+    pcVar10 = pcVar10 + 1;
+    cVar4 = *pcVar10;
+  }
+  pcVar10 = pcVar10 + 1;
+  bVar2 = *(byte *)(param_3 + 3);
+  *(byte *)(in_ECX + 0x193) = bVar2;
+  if (bVar2 == 0) {
+    in_ECX[0x194] = 0;
+  }
+  else {
+    uVar9 = thunk_FUN_009ac153((uint)bVar2 * 0xc);
+    in_ECX[0x194] = uVar9;
+    param_5 = 0;
+    if (*(char *)(in_ECX + 0x193) != '\0') {
+      param_1 = 0;
+      do {
+        thunk_FUN_0054e210(*(undefined2 *)pcVar10,*(undefined2 *)(pcVar10 + 2),
+                           *(undefined2 *)(pcVar10 + 4),in_ECX[0x194] + param_1);
+        param_5 = param_5 + 1;
+        param_1 = param_1 + 0xc;
+        pcVar10 = pcVar10 + 6;
+      } while (param_5 < (int)(uint)*(byte *)(in_ECX + 0x193));
+    }
+  }
+  if ((short)(((short)param_3 - (short)pcVar10) + param_4) != 0) {
+    thunk_FUN_004509c0(pcVar10);
+  }
+  *(undefined1 *)((int)in_ECX + 0x682) = 0;
+  thunk_FUN_006a06e0();
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+====================================================
+function: FUN_004a76e0 @ 004a76e0
+====================================================
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+void FUN_004a76e0(undefined4 param_1,undefined4 param_2,char *param_3)
+
+{
+  char cVar1;
+  int *piVar2;
+  undefined4 *puVar3;
+  uint uVar4;
+  void *pvVar5;
+  undefined4 *puVar6;
+  int iVar7;
+  int in_ECX;
+  undefined1 *puVar8;
+  char *pcVar9;
+  int local_118;
+  char local_114 [256];
+  uint local_14;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009c0ce7;
+  local_10 = ExceptionList;
+  uVar4 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  pcVar9 = param_3;
+  local_14 = uVar4;
+  do {
+    cVar1 = *pcVar9;
+    pcVar9 = pcVar9 + 1;
+    pcVar9[(int)(local_114 + (-1 - (int)param_3))] = cVar1;
+  } while (cVar1 != '\0');
+  pvVar5 = operator_new(0x18);
+  local_8 = 0;
+  if (pvVar5 == (void *)0x0) {
+    local_118 = 0;
+  }
+  else {
+    local_118 = thunk_FUN_00489ba0(uVar4);
+  }
+  local_8 = 0xffffffff;
+  puVar6 = (undefined4 *)thunk_FUN_0048ac50(local_114,PTR_s____00b0532c);
+  while (puVar6 != (undefined4 *)0x0) {
+    if (puVar6[1] == 1) {
+      iVar7 = thunk_FUN_004a7ad0(*(undefined4 *)(in_ECX + 4),*puVar6);
+      if (iVar7 == 0) {
+        piVar2 = *(int **)(*(int *)(in_ECX + 4) + 0x24);
+        (**(code **)(*piVar2 + 8))(piVar2,"LUADIALOGSCRIPT: Script Header spawn failed %s",*puVar6);
+      }
+      else {
+        puVar8 = &DAT_00a0af83;
+        if (*(undefined1 **)(iVar7 + 0xc) != (undefined1 *)0x0) {
+          puVar8 = *(undefined1 **)(iVar7 + 0xc);
+        }
+        thunk_FUN_004a76e0(param_1,param_2,puVar8);
+        if (*(int *)(iVar7 + 0x10) != 0) {
+          thunk_FUN_008eb280(param_2,*(int *)(iVar7 + 0x10),*(undefined4 *)(iVar7 + 0x14),0);
+        }
+      }
+    }
+    puVar3 = (undefined4 *)puVar6[2];
+    thunk_FUN_00489dd0();
+    thunk_FUN_009ac142(puVar6,0xc);
+    puVar6 = puVar3;
+  }
+  if (local_118 != 0) {
+    thunk_FUN_00489d70();
+    thunk_FUN_009ac142(local_118,0x18);
+  }
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+====================================================
+function: FUN_004a67b0 @ 004a67b0
+====================================================
+
+void FUN_004a67b0(int param_1,undefined4 param_2,int *param_3,int param_4,char *param_5,
+                 undefined4 param_6,undefined4 param_7)
+
+{
+  char cVar1;
+  uint uVar2;
+  void *pvVar3;
+  undefined4 uVar4;
+  int iVar5;
+  undefined4 *in_ECX;
+  char *pcVar6;
+  size_t _Size;
+  undefined4 local_1c;
+  undefined1 local_18;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined1 local_8;
+  undefined3 uStack_7;
+  
+  puStack_c = &LAB_009c0bcf;
+  local_10 = ExceptionList;
+  uVar2 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  *in_ECX = LUASCRIPTDIALOG::vftable;
+  in_ECX[7] = 0;
+  in_ECX[8] = 0;
+  local_8 = 2;
+  uStack_7 = 0;
+  in_ECX[0x31] = 0;
+  in_ECX[0x32] = 0;
+  pvVar3 = operator_new(0x18);
+  *(void **)pvVar3 = pvVar3;
+  *(void **)((int)pvVar3 + 4) = pvVar3;
+  in_ECX[0x31] = pvVar3;
+  local_8 = 3;
+  in_ECX[0x33] = 0;
+  in_ECX[0x34] = 0;
+  pvVar3 = operator_new(0x18);
+  *(void **)pvVar3 = pvVar3;
+  *(void **)((int)pvVar3 + 4) = pvVar3;
+  in_ECX[0x33] = pvVar3;
+  in_ECX[9] = param_2;
+  in_ECX[0xc] = 0;
+  in_ECX[1] = param_1;
+  in_ECX[4] = param_3;
+  in_ECX[2] = param_3[2];
+  _local_8 = CONCAT31(uStack_7,4);
+  local_1c = 0;
+  local_18 = 0;
+  (**(code **)(*param_3 + 0x28))(0x3e85,8,&local_1c,uVar2);
+  in_ECX[5] = param_4;
+  in_ECX[3] = *(undefined4 *)(param_4 + 8);
+  *(undefined2 *)((int)in_ECX + 0xc2) = 0;
+  *(undefined1 *)(in_ECX + 0x30) = 0;
+  *(undefined1 *)(in_ECX + 0xf) = 0;
+  in_ECX[6] = 0;
+  in_ECX[0xd] = param_7;
+  in_ECX[0xe] = param_6;
+  *(undefined1 *)(in_ECX + 0x35) = 0;
+  (**(code **)(**(int **)(param_1 + 0x24) + 8))
+            (*(int **)(param_1 + 0x24),"Dialog started %s, %i",param_5,param_7);
+  free((void *)in_ECX[7]);
+  in_ECX[7] = 0;
+  if ((param_5 != (char *)0x0) && (*param_5 != '\0')) {
+    pcVar6 = param_5;
+    do {
+      cVar1 = *pcVar6;
+      pcVar6 = pcVar6 + 1;
+    } while (cVar1 != '\0');
+    _Size = (int)pcVar6 - (int)(param_5 + 1);
+    pvVar3 = (void *)thunk_FUN_009ac153(_Size + 1);
+    in_ECX[7] = pvVar3;
+    memcpy(pvVar3,param_5,_Size);
+    *(undefined1 *)(_Size + in_ECX[7]) = 0;
+  }
+  in_ECX[10] = 0;
+  uVar4 = thunk_FUN_008e9ba0(0);
+  in_ECX[0xb] = uVar4;
+  memset(in_ECX + 0x10,0,0x80);
+  if (param_5 != (char *)0x0) {
+    iVar5 = thunk_FUN_004a7ad0(param_1,param_5);
+    in_ECX[10] = iVar5;
+    if (iVar5 == 0) {
+      (**(code **)(**(int **)(in_ECX[1] + 0x24) + 8))
+                (*(int **)(in_ECX[1] + 0x24),"LUADIALOGSCRIPT: Script spawn failed %s",param_5);
+    }
+  }
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+====================================================
+function: FUN_00541f20 @ 00541f20
+====================================================
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4 FUN_00541f20(uint *param_1)
+
+{
+  char cVar1;
+  char *pcVar2;
+  uint uVar3;
+  int *piVar4;
+  int iVar5;
+  undefined4 uVar6;
+  int in_ECX;
+  undefined4 local_34;
+  uint *local_30;
+  int *local_28;
+  undefined4 local_24;
+  uint uStack_20;
+  uint uStack_1c;
+  undefined4 uStack_18;
+  undefined8 local_14;
+  undefined2 local_c;
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  if (param_1 == (uint *)0x0) {
+    return 0;
+  }
+  pcVar2 = (char *)param_1[1];
+  switch(*pcVar2) {
+  case '\x11':
+  case '\x1d':
+  case '\x1f':
+  case '#':
+  case '&':
+  case '<':
+  case -0x4f:
+    if (*param_1 < 5) {
+      return 0;
+    }
+    local_28 = (int *)thunk_FUN_005412d0(*(undefined4 *)(pcVar2 + 1));
+    cVar1 = *pcVar2;
+    if (local_28 != (int *)0x0) {
+      if ((cVar1 == '\x1d') && (2 < *(byte *)(*(int *)(in_ECX + 0x14) + 4))) {
+        piVar4 = *(int **)(*(int *)(in_ECX + 8) + 0x24);
+        (**(code **)(*piVar4 + 8))(piVar4,"Info Reqest");
+      }
+      uVar6 = (**(code **)(*local_28 + 0x18))(param_1);
+      return uVar6;
+    }
+    if ((cVar1 != '\x11') && (cVar1 != -0x4f)) {
+      if (*(byte *)(*(int *)(in_ECX + 0x14) + 4) < 2) {
+        return 1;
+      }
+      piVar4 = *(int **)(*(int *)(in_ECX + 8) + 0x24);
+      (**(code **)(*piVar4 + 8))
+                (piVar4,"WA for request/stats not found %i",*(undefined4 *)(pcVar2 + 1));
+      return 1;
+    }
+    uVar3 = *(uint *)(pcVar2 + 1);
+    if (((uVar3 & 0x80000000) == 0) && (0xfe < (uVar3 & 0x3ff))) {
+      if (2 < *(byte *)(*(int *)(in_ECX + 0x14) + 4)) {
+        piVar4 = *(int **)(*(int *)(in_ECX + 8) + 0x24);
+        (**(code **)(*piVar4 + 8))(piVar4,"Info Req");
+      }
+      *pcVar2 = '\x1d';
+      param_1[1] = (uint)pcVar2;
+      *param_1 = 5;
+      (**(code **)(**(int **)(*(int *)(in_ECX + 8) + 0x18) + 0x28))((char)param_1[2],param_1,0x3c,4)
+      ;
+      return 1;
+    }
+    thunk_FUN_00540ab0(pcVar2[5],uVar3,*(float *)(*(int *)(in_ECX + 8) + 0x2c) / 1000.0,
+                       (short)*param_1 + -6,pcVar2 + 6);
+    return 1;
+  default:
+    thunk_FUN_004471c0("@WWORLDMGR : Corrupted Message Type:%i, Size:%i",*pcVar2,*param_1);
+    break;
+  case '\x13':
+  case '\x15':
+  case '\x16':
+  case '\x1a':
+  case '\x1b':
+  case '%':
+  case '\'':
+  case '2':
+    if (*param_1 < 3) {
+      return 0;
+    }
+    piVar4 = (int *)thunk_FUN_005412d0(*(ushort *)(pcVar2 + 1) & 0x3ff);
+    if (piVar4 == (int *)0x0) {
+      iVar5 = *(int *)(in_ECX + 8);
+      if ((*(char *)(iVar5 + 0x28) != '\0') || (0xfe < *(ushort *)(pcVar2 + 1))) {
+        if (*(ushort *)(pcVar2 + 1) < 0x100) {
+          return 0;
+        }
+        if (*(byte *)(*(int *)(in_ECX + 0x14) + 4) < 2) {
+          return 0;
+        }
+        (**(code **)(**(int **)(iVar5 + 0x24) + 8))
+                  (*(int **)(iVar5 + 0x24),"WORLDMGR : NetMessage for unknown player: %i",
+                   *(ushort *)(pcVar2 + 1));
+        return 0;
+      }
+      local_24 = 0;
+      uStack_20 = 0;
+      uStack_1c = 0;
+      uStack_18 = 0;
+      local_c = 0;
+      local_14 = 0;
+      if ((*pcVar2 == '\x1b') && (2 < *(byte *)(*(int *)(in_ECX + 0x14) + 4))) {
+        (**(code **)(**(int **)(iVar5 + 0x24) + 8))
+                  (*(int **)(iVar5 + 0x24),"Playerinfo for unknown player %i",
+                   *(undefined2 *)(pcVar2 + 1));
+      }
+      thunk_FUN_00540ab0(0x101,*(ushort *)(pcVar2 + 1) & 0x3ff,
+                         *(float *)(*(int *)(in_ECX + 8) + 0x2c) / 1000.0,0x1a,&local_24);
+      piVar4 = (int *)thunk_FUN_005412d0(*(ushort *)(pcVar2 + 1) & 0x3ff);
+      if (piVar4 == (int *)0x0) {
+        if (*(char *)(*(int *)(in_ECX + 0x14) + 4) == '\0') {
+          return 0;
+        }
+        piVar4 = *(int **)(*(int *)(in_ECX + 8) + 0x24);
+        (**(code **)(*piVar4 + 8))
+                  (piVar4,"WORLDMGR : LSTPLAYER spawn failed %i",*(undefined2 *)(pcVar2 + 1));
+        return 0;
+      }
+    }
+    goto LAB_0054201f;
+  case '\x17':
+    if (*param_1 < 5) {
+      return 0;
+    }
+    piVar4 = (int *)thunk_FUN_005412d0(*(undefined4 *)(pcVar2 + 1));
+    if (piVar4 == (int *)0x0) {
+      if (*(char *)(*(int *)(in_ECX + 8) + 0x28) == '\0') {
+        return 1;
+      }
+      (**(code **)(**(int **)(*(int *)(in_ECX + 8) + 0x18) + 0x28))(pcVar2[1],param_1,0x3c,1);
+      return 1;
+    }
+    (**(code **)(*piVar4 + 0x20))((char)param_1[2]);
+    return 1;
+  case '\x1c':
+    if (*param_1 == 5) {
+      if (2 < *(byte *)(*(int *)(in_ECX + 0x14) + 4)) {
+        piVar4 = *(int **)(*(int *)(in_ECX + 8) + 0x24);
+        (**(code **)(*piVar4 + 8))(piVar4,"Del Player Msg");
+      }
+      piVar4 = (int *)thunk_FUN_005412d0(*(undefined4 *)(pcVar2 + 1));
+      if (piVar4 != (int *)0x0) {
+        if (piVar4[2] == (*(ushort *)(piVar4 + 2) & 0x3ff)) {
+          (**(code **)(*piVar4 + 0x28))(0x1f47,0,0);
+        }
+        else {
+          thunk_FUN_00540cb0(piVar4);
+        }
+      }
+    }
+    else {
+      thunk_FUN_004471c0("@WWORLDMGR : Del Player Message corrupted");
+    }
+    break;
+  case '\x1e':
+    if (6 < *param_1) {
+      if ((*(int *)(pcVar2 + 3) == 0xe1) && (2 < *(byte *)(*(int *)(in_ECX + 0x14) + 4))) {
+        piVar4 = *(int **)(*(int *)(in_ECX + 8) + 0x24);
+        (**(code **)(*piVar4 + 8))
+                  (piVar4,"Info Send %i, %i",*(undefined2 *)(pcVar2 + 1),*(undefined4 *)(pcVar2 + 3)
+                  );
+      }
+      if (*(short *)(pcVar2 + 1) == 0x28) {
+        pcVar2[1] = '(';
+        pcVar2[2] = '\0';
+      }
+      iVar5 = thunk_FUN_005412d0(*(undefined4 *)(pcVar2 + 3));
+      if (iVar5 == 0) {
+        thunk_FUN_00540ab0(*(undefined2 *)(pcVar2 + 1),*(undefined4 *)(pcVar2 + 3),
+                           *(float *)(*(int *)(in_ECX + 8) + 0x2c) / 1000.0,(short)*param_1 + -7,
+                           pcVar2 + 7);
+      }
+      else if (1 < *(byte *)(*(int *)(in_ECX + 0x14) + 4)) {
+        piVar4 = *(int **)(*(int *)(in_ECX + 8) + 0x24);
+        (**(code **)(*piVar4 + 8))(piVar4,"Player %i already spawned",*(undefined4 *)(pcVar2 + 3));
+      }
+    }
+    break;
+  case '(':
+    if (*param_1 < 3) {
+      return 0;
+    }
+    piVar4 = (int *)thunk_FUN_005412d0(*(ushort *)(pcVar2 + 1) & 0x3ff);
+    if (piVar4 == (int *)0x0) {
+      local_30 = &uStack_20;
+      uStack_20 = (uint)CONCAT21(*(undefined2 *)(pcVar2 + 1),0x1d);
+      uStack_1c = uStack_1c & 0xffffff00;
+      local_34 = 5;
+      (**(code **)(**(int **)(*(int *)(in_ECX + 8) + 0x18) + 0x28))
+                ((char)param_1[2],&local_34,0xdc,1);
+      if (*(byte *)(*(int *)(in_ECX + 0x14) + 4) < 3) {
+        return 0;
+      }
+      piVar4 = *(int **)(*(int *)(in_ECX + 8) + 0x24);
+      (**(code **)(*piVar4 + 8))(piVar4,"request spawn info %i",*(undefined2 *)(pcVar2 + 1));
+      return 0;
+    }
+LAB_0054201f:
+    (**(code **)(*piVar4 + 0x18))(param_1);
+    break;
+  case 'P':
+    if ((pcVar2 != (char *)0x0) && (*(char *)(*(int *)(in_ECX + 8) + 0x29) != '\0')) {
+      thunk_FUN_00541400(pcVar2);
+    }
+    return 1;
+  }
+  return 0;
+}
+
+
+
+====================================================
+function: Catch@00543d4f @ 00543d4f
+====================================================
+
+undefined * Catch_00543d4f(void)
+
+{
+  undefined4 uVar1;
+  int *piVar2;
+  int unaff_EBP;
+  
+  uVar1 = *(undefined4 *)(unaff_EBP + -0xd0);
+  piVar2 = *(int **)(*(int *)(*(int *)(unaff_EBP + -0xb8) + 8) + 0x24);
+  (**(code **)(*piVar2 + 8))(piVar2,"WORLDMGR : Descfile WA spawn failed: %s",uVar1);
+  thunk_FUN_004471c0("@WWORLDMGR : Descfile WA spawn failed: %s",uVar1);
+  return &DAT_00543dab;
+}
+
+
+
+====================================================
+function: Catch@0054408c @ 0054408c
+====================================================
+
+undefined * Catch_0054408c(void)
+
+{
+  undefined4 uVar1;
+  int *piVar2;
+  int unaff_EBP;
+  
+  uVar1 = *(undefined4 *)(unaff_EBP + -0xd4);
+  piVar2 = *(int **)(*(int *)(*(int *)(unaff_EBP + -0xb8) + 8) + 0x24);
+  (**(code **)(*piVar2 + 8))(piVar2,"WORLDMGR : Descfile WA spawn failed: %s",uVar1);
+  thunk_FUN_004471c0("@WWORLDMGR : Descfile WA spawn failed: %s",uVar1);
+  return &DAT_005440e8;
+}
+
+
+
+====================================================
+function: Catch_All@00543d81 @ 00543d81
+====================================================
+
+undefined * Catch_All_00543d81(void)
+
+{
+  int *piVar1;
+  int unaff_EBP;
+  
+  piVar1 = *(int **)(*(int *)(*(int *)(unaff_EBP + -0xb8) + 8) + 0x24);
+  (**(code **)(*piVar1 + 8))(piVar1,"WORLDMGR : Descfile WA spawn failed with fatal error");
+  thunk_FUN_004471c0("@WWORLDMGR : Descfile WA spawn failed with fatal error");
+  return &DAT_00543dab;
+}
+
+
+
+====================================================
+function: Catch_All@005440be @ 005440be
+====================================================
+
+undefined * Catch_All_005440be(void)
+
+{
+  int *piVar1;
+  int unaff_EBP;
+  
+  piVar1 = *(int **)(*(int *)(*(int *)(unaff_EBP + -0xb8) + 8) + 0x24);
+  (**(code **)(*piVar1 + 8))(piVar1,"WORLDMGR : Descfile WA spawn failed with fatal error");
+  thunk_FUN_004471c0("@WWORLDMGR : Descfile WA spawn failed with fatal error");
+  return &DAT_005440e8;
+}
+
+
+
+====================================================
+function: Catch@00543857 @ 00543857
+====================================================
+
+undefined * Catch_00543857(void)
+
+{
+  undefined4 uVar1;
+  int *piVar2;
+  int unaff_EBP;
+  
+  uVar1 = *(undefined4 *)(unaff_EBP + -0x60);
+  piVar2 = *(int **)(*(int *)(*(int *)(unaff_EBP + -0x3c) + 8) + 0x24);
+  (**(code **)(*piVar2 + 8))(piVar2,"WORLDMGR : Editorobject spawn failed: %s",uVar1);
+  thunk_FUN_004471c0("@WWORLDMGR : Editorobject spawn failed: %s",uVar1);
+  return &DAT_005438aa;
+}
+
+
+
+====================================================
+function: Catch_All@00543883 @ 00543883
+====================================================
+
+undefined * Catch_All_00543883(void)
+
+{
+  int *piVar1;
+  int unaff_EBP;
+  
+  piVar1 = *(int **)(*(int *)(*(int *)(unaff_EBP + -0x3c) + 8) + 0x24);
+  (**(code **)(*piVar1 + 8))(piVar1,"WORLDMGR : Editorobject spawn failed with fatal error");
+  thunk_FUN_004471c0("@WWORLDMGR : Editorobject spawn failed with fatal error");
+  return &DAT_005438aa;
+}
+
+
+
+====================================================
+function: FUN_0067cc90 @ 0067cc90
+====================================================
+
+void FUN_0067cc90(undefined4 param_1,undefined4 *param_2,undefined4 param_3)
+
+{
+  undefined4 *puVar1;
+  undefined4 *puVar2;
+  undefined4 uVar3;
+  undefined4 uVar4;
+  char cVar5;
+  int iVar6;
+  void *pvVar7;
+  undefined4 uVar8;
+  int *piVar9;
+  undefined4 *in_ECX;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009d47bb;
+  local_10 = ExceptionList;
+  ExceptionList = &local_10;
+  thunk_FUN_0077d100(DAT_00b13e00 ^ (uint)&stack0xfffffffc);
+  local_8 = 0;
+  thunk_FUN_007aef30(param_1,param_3);
+  local_8._0_1_ = 1;
+  *in_ECX = DECACTOR::vftable;
+  in_ECX[5] = DECACTOR::vftable;
+  in_ECX[0x55] = DECACTOR::vftable;
+  thunk_FUN_0077cff0(0);
+  in_ECX[0x7e] = 0;
+  in_ECX[7] = param_1;
+  iVar6 = thunk_FUN_00540fd0(1);
+  in_ECX[2] = iVar6 << 10 | 0x800000ff;
+  thunk_FUN_00467ea0();
+  thunk_FUN_00467ea0();
+  thunk_FUN_00467ea0();
+  thunk_FUN_00467ea0();
+  pvVar7 = operator_new(0x3c);
+  local_8._0_1_ = 2;
+  if (pvVar7 == (void *)0x0) {
+    uVar8 = 0;
+  }
+  else {
+    uVar8 = thunk_FUN_007a66e0();
+  }
+  local_8._0_1_ = 1;
+  in_ECX[0x78] = uVar8;
+  pvVar7 = operator_new(0x3c);
+  local_8._0_1_ = 3;
+  if (pvVar7 == (void *)0x0) {
+    uVar8 = 0;
+  }
+  else {
+    uVar8 = thunk_FUN_007a66e0();
+  }
+  iVar6 = in_ECX[0x78];
+  in_ECX[0x79] = uVar8;
+  *(undefined8 *)(iVar6 + 0x1c) = *(undefined8 *)(in_ECX + 0x72);
+  *(undefined4 *)(iVar6 + 0x24) = in_ECX[0x74];
+  iVar6 = in_ECX[0x78];
+  local_8._0_1_ = 1;
+  *(undefined8 *)(iVar6 + 0x10) = *(undefined8 *)(param_2 + 3);
+  *(undefined4 *)(iVar6 + 0x18) = param_2[5];
+  *(undefined4 *)in_ECX[0x78] = param_3;
+  puVar1 = (undefined4 *)in_ECX[0x78];
+  puVar2 = (undefined4 *)in_ECX[0x79];
+  uVar8 = puVar1[1];
+  uVar3 = puVar1[2];
+  uVar4 = puVar1[3];
+  *puVar2 = *puVar1;
+  puVar2[1] = uVar8;
+  puVar2[2] = uVar3;
+  puVar2[3] = uVar4;
+  uVar8 = puVar1[5];
+  uVar3 = puVar1[6];
+  uVar4 = puVar1[7];
+  puVar2[4] = puVar1[4];
+  puVar2[5] = uVar8;
+  puVar2[6] = uVar3;
+  puVar2[7] = uVar4;
+  uVar8 = puVar1[9];
+  uVar3 = puVar1[10];
+  uVar4 = puVar1[0xb];
+  puVar2[8] = puVar1[8];
+  puVar2[9] = uVar8;
+  puVar2[10] = uVar3;
+  puVar2[0xb] = uVar4;
+  *(undefined8 *)(puVar2 + 0xc) = *(undefined8 *)(puVar1 + 0xc);
+  puVar2[0xe] = puVar1[0xe];
+  pvVar7 = operator_new(0x104);
+  local_8._0_1_ = 4;
+  if (pvVar7 == (void *)0x0) {
+    uVar8 = 0;
+  }
+  else {
+    uVar8 = thunk_FUN_00771340(in_ECX[7],1);
+  }
+  in_ECX[0x7a] = uVar8;
+  local_8 = CONCAT31(local_8._1_3_,1);
+  thunk_FUN_00772260(*(undefined2 *)(param_2 + 2),*(undefined2 *)((int)param_2 + 10),in_ECX,9,6,1,
+                     0x3f000000,in_ECX + 0x24,in_ECX + 0x72);
+  uVar8 = thunk_FUN_00771f10(&DAT_00a3e9b4);
+  in_ECX[0x7b] = uVar8;
+  (**(code **)(*(int *)in_ECX[0x7a] + 0x3c))(0,uVar8,param_3,0);
+  *(undefined8 *)(in_ECX + 0x24) = *(undefined8 *)(param_2 + 3);
+  in_ECX[0x26] = param_2[5];
+  thunk_FUN_00467ea0();
+  thunk_FUN_00771f90(in_ECX + 0x1e,in_ECX + 0x21);
+  *(undefined2 *)(in_ECX + 0x6e) = 0;
+  in_ECX[0x73] = 0;
+  in_ECX[0x6d] = 0x447a0000;
+  *(undefined1 *)(in_ECX + 0x7c) = 0;
+  in_ECX[0x6b] = 0;
+  in_ECX[0x6c] = 0;
+  cVar5 = thunk_FUN_007afe80(*param_2,param_2[1]);
+  if (cVar5 == '\0') {
+    piVar9 = in_ECX + 0x5d;
+    if (0xf < (uint)in_ECX[0x62]) {
+      piVar9 = (int *)*piVar9;
+    }
+    (**(code **)(**(int **)(in_ECX[7] + 0x24) + 8))
+              (*(int **)(in_ECX[7] + 0x24),
+               "DECACTOR : Script spawn failed \'%s\' Id: %d WorldId: %d",piVar9,in_ECX[1],
+               in_ECX[0x6a]);
+  }
+  in_ECX[0x7d] = param_3;
+  in_ECX[0x7e] = param_2[6];
+  *(undefined1 *)((int)in_ECX + 0x1ba) = 0;
+  iVar6 = rand();
+  *(char *)(in_ECX + 0x80) = (char)(iVar6 % 5);
+  *(undefined1 *)((int)in_ECX + 0x201) = 1;
+  uVar8 = thunk_FUN_005412c0(in_ECX + 0x24,in_ECX + 0x7f);
+  thunk_FUN_00487360(uVar8);
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+====================================================
+function: FUN_006989b0 @ 006989b0
+====================================================
+
+void FUN_006989b0(undefined4 *param_1,int param_2,undefined4 param_3)
+
+{
+  char cVar1;
+  undefined2 uVar2;
+  uint uVar3;
+  char *pcVar4;
+  int *piVar5;
+  undefined4 uVar6;
+  int iVar7;
+  undefined4 *in_ECX;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009d59eb;
+  local_10 = ExceptionList;
+  uVar3 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  thunk_FUN_007b8270(param_1,*(undefined4 *)(param_2 + 0xc));
+  local_8 = 0;
+  thunk_FUN_007aef30(param_1,param_3);
+  local_8 = CONCAT31(local_8._1_3_,1);
+  *in_ECX = SCRIPTEDMODEL::vftable;
+  in_ECX[5] = SCRIPTEDMODEL::vftable;
+  in_ECX[0x5d] = SCRIPTEDMODEL::vftable;
+  in_ECX[0x74] = 0;
+  thunk_FUN_0077cff0(*(ushort *)(in_ECX + 3) | 0x81);
+  in_ECX[0xf] = in_ECX[0xf] | 1;
+  pcVar4 = *(char **)(param_2 + 4);
+  if (pcVar4 == (char *)0x0) {
+    *(char **)(param_2 + 4) = "DUMMY";
+    pcVar4 = "DUMMY";
+  }
+  cVar1 = thunk_FUN_007afe80(pcVar4,*(undefined4 *)(param_2 + 8));
+  if (((cVar1 == '\0') && (*(char *)((int)in_ECX + 0x5d) != '\0')) && (in_ECX[0x69] != 0)) {
+    piVar5 = in_ECX + 0x65;
+    if (0xf < (uint)in_ECX[0x6a]) {
+      piVar5 = (int *)*piVar5;
+    }
+    (**(code **)(*(int *)param_1[9] + 8))
+              ((int *)param_1[9],"SCRIPTEDMODEL : Script spawn failed \'%s\' Id : %d WorldId: %d",
+               piVar5,in_ECX[1],in_ECX[0x72],uVar3);
+  }
+  iVar7 = *(int *)(param_2 + 0xc);
+  if (iVar7 != 0) {
+    uVar6 = thunk_FUN_005412c0();
+    thunk_FUN_004873c0(uVar6,iVar7,in_ECX + 0x24);
+    thunk_FUN_00541360();
+    thunk_FUN_00546e80(in_ECX + 9,param_3,in_ECX + 0x24);
+  }
+  iVar7 = (**(code **)(*(int *)*param_1 + 0x1c))(0xc);
+  if (iVar7 != 0) {
+    iVar7 = thunk_FUN_004b3820(*(undefined2 *)(param_2 + 0x10));
+    if (iVar7 != 0) {
+      uVar6 = thunk_FUN_004b3780(0);
+      in_ECX[0x74] = uVar6;
+      uVar2 = thunk_FUN_004b3710(1);
+      *(undefined2 *)(in_ECX + 0x73) = uVar2;
+    }
+  }
+  thunk_FUN_0077cff0(*(ushort *)(in_ECX + 3) | 2);
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+====================================================
+function: FUN_006ce970 @ 006ce970
+====================================================
+
+void FUN_006ce970(undefined4 param_1,undefined4 param_2,undefined4 *param_3,undefined4 param_4)
+
+{
+  char cVar1;
+  int *piVar2;
+  undefined4 *in_ECX;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009d7229;
+  local_10 = ExceptionList;
+  ExceptionList = &local_10;
+  thunk_FUN_0077c800(DAT_00b13e00 ^ (uint)&stack0xfffffffc);
+  local_8 = 0;
+  thunk_FUN_007aef30(param_1,param_4);
+  local_8._0_1_ = 1;
+  thunk_FUN_004a5af0();
+  in_ECX[0x3a] = LEVELSCRIPTACTOR::vftable;
+  in_ECX[0x50] = LEVELSCRIPTACTOR::vftable;
+  in_ECX[0x52] = LEVELSCRIPTACTOR::vftable;
+  *in_ECX = LEVELSCRIPTACTOR::vftable;
+  in_ECX[5] = LEVELSCRIPTACTOR::vftable;
+  in_ECX[2] = param_2;
+  *(ushort *)(in_ECX + 3) = *(ushort *)(in_ECX + 3) & 0xfbff;
+  in_ECX[7] = param_1;
+  *(undefined1 *)(in_ECX + 0x53) = 0;
+  in_ECX[0x58] = 0;
+  in_ECX[0x59] = 0;
+  in_ECX[0x5a] = 0;
+  in_ECX[0x5c] = 0;
+  in_ECX[0x5b] = 0;
+  *(undefined2 *)(in_ECX + 0x6d) = 0;
+  *(undefined1 *)((int)in_ECX + 0x1b6) = 0;
+  in_ECX[0x57] = 0;
+  in_ECX[0x56] = 0;
+  in_ECX[0x6c] = 0;
+  in_ECX[0x6b] = 0;
+  *(undefined1 *)(in_ECX + 0x5d) = 0;
+  local_8 = CONCAT31(local_8._1_3_,2);
+  cVar1 = thunk_FUN_007afe80(*param_3,&DAT_00a0b4e8);
+  if ((cVar1 == '\0') && (*(char *)((int)in_ECX + 0x5d) != '\0')) {
+    piVar2 = in_ECX + 0x42;
+    if (0xf < (uint)in_ECX[0x47]) {
+      piVar2 = (int *)*piVar2;
+    }
+    (**(code **)(**(int **)(in_ECX[7] + 0x24) + 8))
+              (*(int **)(in_ECX[7] + 0x24),
+               "LEVELSCRIPT : Script spawn failed \'%s\' Id : %d WorldId: %d",piVar2,in_ECX[1],
+               in_ECX[0x4f]);
+  }
+  in_ECX[0x6e] = 3;
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+====================================================
+function: FUN_0074f9e0 @ 0074f9e0
+====================================================
+
+void FUN_0074f9e0(int param_1,undefined4 param_2)
+
+{
+  char cVar1;
+  uint uVar2;
+  undefined2 *puVar3;
+  undefined4 *puVar4;
+  int *piVar5;
+  undefined4 *in_ECX;
+  undefined4 *puVar6;
+  int iVar7;
+  int *piVar8;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009dfb7d;
+  local_10 = ExceptionList;
+  uVar2 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  thunk_FUN_007aef30(param_1,0);
+  puVar6 = in_ECX + 0x24;
+  in_ECX[0x19] = param_2;
+  iVar7 = 5;
+  local_8 = 0;
+  *in_ECX = SOUNDSCRIPT::vftable;
+  in_ECX[0x16] = 0;
+  in_ECX[0x17] = 0;
+  puVar3 = (undefined2 *)((int)in_ECX + 0xae);
+  do {
+    puVar6[-5] = 0;
+    *puVar6 = 0;
+    puVar6 = puVar6 + 1;
+    puVar3[-5] = 0;
+    *puVar3 = 0;
+    iVar7 = iVar7 + -1;
+    puVar3 = puVar3 + 1;
+  } while (iVar7 != 0);
+  puVar6 = in_ECX + 0x38;
+  iVar7 = 10;
+  puVar4 = in_ECX + 0x47;
+  do {
+    puVar6[-10] = 0;
+    *puVar6 = 0;
+    puVar6 = puVar6 + 1;
+    *(undefined2 *)(puVar4 + -5) = 0;
+    *(undefined2 *)puVar4 = 0;
+    iVar7 = iVar7 + -1;
+    puVar4 = (undefined4 *)((int)puVar4 + 2);
+  } while (iVar7 != 0);
+  iVar7 = *(int *)(in_ECX[0x19] + 0xc);
+  if (iVar7 != 0) {
+    cVar1 = thunk_FUN_007afe80(iVar7,*(undefined4 *)(in_ECX[0x19] + 0x10));
+    if (cVar1 == '\0') {
+      piVar8 = in_ECX + 8;
+      piVar5 = piVar8;
+      if (0xf < (uint)in_ECX[0xd]) {
+        piVar5 = (int *)*piVar8;
+      }
+      (**(code **)(**(int **)(param_1 + 0x24) + 8))
+                (*(int **)(param_1 + 0x24),
+                 "SCRIPTEDSOUND : Script spawn failed %s SoundId: %d WorldId: %d",piVar5,
+                 in_ECX + 0x42,in_ECX[0x15],uVar2);
+      if (0xf < (uint)in_ECX[0xd]) {
+        piVar8 = (int *)*piVar8;
+      }
+      thunk_FUN_004471c0("SCRIPTEDSOUND : Script spawn failed %s SoundId: %d WorldId: %d",piVar8,
+                         in_ECX + 0x42,in_ECX[0x15]);
+    }
+  }
+  in_ECX[0x18] = 0x40a00000;
+  ExceptionList = local_10;
+  return;
+}
+
+
+

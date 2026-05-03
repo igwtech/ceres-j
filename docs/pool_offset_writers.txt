@@ -1,0 +1,2 @@
+# Functions writing to known HUD pool offsets
+

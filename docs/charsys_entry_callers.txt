@@ -1,0 +1,102 @@
+# Call graph for WorldClient state-machine functions
+# Real callers resolved by walking transparently through thunks
+
+======================================================
+TARGET FUN_00841dc0 @ 00841dc0
+======================================================
+Direct references (raw, not thunk-resolved):
+  00411c9d in thunk_FUN_00841dc0 @ 00411c9d [THUNK] [UNCONDITIONAL_JUMP]
+
+Thunk probe (references to each thunk found above):
+  thunk thunk_FUN_00841dc0 @ 00411c9d: code=0 data=1 orphan=0
+    DATA from 00a5d880 → DATA @ 00a5d880 (vtable/fn-ptr entry)
+
+Vtable-slot probe (references to data slots above):
+  slot 00a5d880:
+    neighbor 00a5d860 → thunk_FUN_00843540 @ 004049b7 [THUNK]
+    neighbor 00a5d864 → thunk_FUN_00842420 @ 0040b88e [THUNK]
+    neighbor 00a5d868 → thunk_FUN_00841c80 @ 0040d5cb [THUNK]
+    neighbor 00a5d870 → (no fn at 00ac5548)
+    neighbor 00a5d874 → thunk_FUN_008408e0 @ 0041159a [THUNK]
+    neighbor 00a5d878 → thunk_FUN_008437b0 @ 0040164a [THUNK]
+    neighbor 00a5d87c → thunk_FUN_00842680 @ 00406cd0 [THUNK]
+    neighbor 00a5d880 → thunk_FUN_00841dc0 @ 00411c9d [THUNK]
+    neighbor 00a5d888 → (no fn at 00ac55ac)
+    neighbor 00a5d88c → thunk_FUN_00840940 @ 00415947 [THUNK]
+    neighbor 00a5d890 → thunk_FUN_00843860 @ 004102bc [THUNK]
+    neighbor 00a5d894 → thunk_FUN_00842740 @ 0040afba [THUNK]
+    neighbor 00a5d898 → thunk_FUN_00841e20 @ 004150be [THUNK]
+    neighbor 00a5d8a0 → (no fn at 00ac5610)
+    slot refs: code=0 data=0 orphan=0
+
+Resolved non-thunk callers (0):
+  (none found — target has no real callers, or
+   is reached only via indirect call/vtable)
+
+======================================================
+TARGET FUN_00841ce0 @ 00841ce0
+======================================================
+Direct references (raw, not thunk-resolved):
+  0040bc62 in thunk_FUN_00841ce0 @ 0040bc62 [THUNK] [UNCONDITIONAL_JUMP]
+
+Thunk probe (references to each thunk found above):
+  thunk thunk_FUN_00841ce0 @ 0040bc62: code=0 data=1 orphan=0
+    DATA from 00a5d808 → DATA @ 00a5d808 (vtable/fn-ptr entry)
+
+Vtable-slot probe (references to data slots above):
+  slot 00a5d808:
+    neighbor 00a5d7e8 → thunk_FUN_00843b10 @ 0040c9a0 [THUNK]
+    neighbor 00a5d7ec → thunk_FUN_00842330 @ 004068cf [THUNK]
+    neighbor 00a5d7f0 → thunk_FUN_00841c00 @ 004137ff [THUNK]
+    neighbor 00a5d7f8 → (no fn at 00ac5354)
+    neighbor 00a5d7fc → thunk_FUN_00840820 @ 00407c7f [THUNK]
+    neighbor 00a5d800 → thunk_FUN_00843620 @ 004117a2 [THUNK]
+    neighbor 00a5d804 → thunk_FUN_00842510 @ 0040436d [THUNK]
+    neighbor 00a5d808 → thunk_FUN_00841ce0 @ 0040bc62 [THUNK]
+    neighbor 00a5d810 → (no fn at 00ac53b8)
+    neighbor 00a5d814 → thunk_FUN_008406a0 @ 0040a29f [THUNK]
+    neighbor 00a5d818 → thunk_FUN_00843380 @ 00405123 [THUNK]
+    neighbor 00a5d81c → thunk_FUN_00842270 @ 00415c53 [THUNK]
+    neighbor 00a5d820 → thunk_FUN_00841b90 @ 0040b3a2 [THUNK]
+    neighbor 00a5d828 → (no fn at 00ac541c)
+    slot refs: code=0 data=0 orphan=0
+
+Resolved non-thunk callers (0):
+  (none found — target has no real callers, or
+   is reached only via indirect call/vtable)
+
+======================================================
+TARGET FUN_00803cd0 @ 00803cd0
+======================================================
+Direct references (raw, not thunk-resolved):
+  0040d418 in thunk_FUN_00803cd0 @ 0040d418 [THUNK] [UNCONDITIONAL_JUMP]
+
+Thunk probe (references to each thunk found above):
+  thunk thunk_FUN_00803cd0 @ 0040d418: code=0 data=1 orphan=0
+    DATA from 00a54788 → DATA @ 00a54788 (vtable/fn-ptr entry)
+
+Vtable-slot probe (references to data slots above):
+  slot 00a54788:
+    neighbor 00a54768 → thunk_FUN_007e3340 @ 0040c789 [THUNK]
+    neighbor 00a54770 → (no fn at 00ac3dac)
+    neighbor 00a54774 → thunk_FUN_007e3470 @ 00413976 [THUNK]
+    neighbor 00a54778 → purecall @ 009aea5a [THUNK]
+    neighbor 00a5477c → thunk_FUN_007e34b0 @ 0040a40c [THUNK]
+    neighbor 00a54784 → (no fn at 00ac3dc4)
+    neighbor 00a54788 → thunk_FUN_00803cd0 @ 0040d418 [THUNK]
+    neighbor 00a5478c → thunk_FUN_007e6110 @ 00408756 [THUNK]
+    neighbor 00a54790 → thunk_FUN_007fb1e0 @ 004113f1 [THUNK]
+    neighbor 00a54794 → thunk_FUN_007ff930 @ 00414dd5 [THUNK]
+    slot refs: code=2 data=0 orphan=0
+    DATA from 007e599d in FUN_007e5970
+    DATA from 007e4cf6 in FUN_007e4cc0
+
+Resolved non-thunk callers (0):
+  (none found — target has no real callers, or
+   is reached only via indirect call/vtable)
+
+
+======================================================
+UNIQUE REAL-CALLER DECOMPILATIONS (0)
+======================================================
+

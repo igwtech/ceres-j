@@ -1,0 +1,339 @@
+# Call graph for WorldClient state-machine functions
+# Real callers resolved by walking transparently through thunks
+
+======================================================
+TARGET FUN_0083fe30 @ 0083fe30
+======================================================
+Direct references (raw, not thunk-resolved):
+  004137b9 in thunk_FUN_0083fe30 @ 004137b9 [THUNK] [UNCONDITIONAL_JUMP]
+
+Thunk probe (references to each thunk found above):
+  thunk thunk_FUN_0083fe30 @ 004137b9: code=1 data=0 orphan=0
+    UNCONDITIONAL_CALL from 00842acf → CODE inside FUN_00842a80
+
+Resolved non-thunk callers (1):
+  FUN_00842a80 @ 00842a80
+
+======================================================
+TARGET FUN_0083fde0 @ 0083fde0
+======================================================
+Direct references (raw, not thunk-resolved):
+  0040d495 in thunk_FUN_0083fde0 @ 0040d495 [THUNK] [UNCONDITIONAL_JUMP]
+
+Thunk probe (references to each thunk found above):
+  thunk thunk_FUN_0083fde0 @ 0040d495: code=1 data=0 orphan=0
+    UNCONDITIONAL_CALL from 0084137c → CODE inside FUN_00840ee0
+
+Resolved non-thunk callers (1):
+  FUN_00840ee0 @ 00840ee0
+
+======================================================
+TARGET FUN_0083ff70 @ 0083ff70
+======================================================
+Direct references (raw, not thunk-resolved):
+  004067b7 in thunk_FUN_0083ff70 @ 004067b7 [THUNK] [UNCONDITIONAL_JUMP]
+
+Thunk probe (references to each thunk found above):
+  thunk thunk_FUN_0083ff70 @ 004067b7: code=1 data=0 orphan=0
+    UNCONDITIONAL_CALL from 00841358 → CODE inside FUN_00840ee0
+
+Resolved non-thunk callers (1):
+  FUN_00840ee0 @ 00840ee0
+
+======================================================
+TARGET FUN_0083ffb0 @ 0083ffb0
+======================================================
+Direct references (raw, not thunk-resolved):
+  0040598e in thunk_FUN_0083ffb0 @ 0040598e [THUNK] [UNCONDITIONAL_JUMP]
+
+Thunk probe (references to each thunk found above):
+  thunk thunk_FUN_0083ffb0 @ 0040598e: code=1 data=0 orphan=0
+    UNCONDITIONAL_CALL from 00842c17 → CODE inside FUN_00842bc0
+
+Resolved non-thunk callers (1):
+  FUN_00842bc0 @ 00842bc0
+
+
+======================================================
+UNIQUE REAL-CALLER DECOMPILATIONS (3)
+======================================================
+
+------------------------------------------------------
+CALLER FUN_00840ee0 @ 00840ee0
+------------------------------------------------------
+
+undefined4 FUN_00840ee0(undefined4 param_1,undefined2 *param_2,int param_3,undefined4 *param_4)
+
+{
+  undefined2 uVar1;
+  short sVar2;
+  uint uVar3;
+  int iVar4;
+  void *pvVar5;
+  int *piVar6;
+  undefined4 uVar7;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  pvVar5 = ExceptionList;
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009eec7b;
+  local_10 = ExceptionList;
+  uVar3 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  *param_4 = 0;
+  if ((ushort)param_3 < 3) {
+    ExceptionList = pvVar5;
+    return 1;
+  }
+  sVar2 = 2;
+  uVar1 = *param_2;
+  iVar4 = *(byte *)(param_2 + 1) - 1;
+  switch(iVar4) {
+  case 0:
+    pvVar5 = operator_new(0x28);
+    local_8 = 0;
+    if (pvVar5 == (void *)0x0) {
+LAB_008413a9:
+      piVar6 = (int *)0x0;
+    }
+    else {
+      piVar6 = (int *)thunk_FUN_0083f5d0(uVar1,param_1,0);
+    }
+    break;
+  case 1:
+    pvVar5 = operator_new(0x1c);
+    local_8 = 2;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083fd40(uVar1,0);
+    break;
+  case 2:
+    pvVar5 = operator_new(0x1c);
+    local_8 = 5;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083fb80(uVar1);
+    break;
+  case 3:
+    pvVar5 = operator_new(0x18);
+    local_8 = 0xb;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_008401c0(uVar1);
+    break;
+  case 4:
+    pvVar5 = operator_new(0x1c);
+    local_8 = 9;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_00840090(uVar1);
+    break;
+  case 5:
+    pvVar5 = operator_new(0x20);
+    local_8 = 0xc;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_00840240(uVar1);
+    break;
+  case 6:
+    pvVar5 = operator_new(0x14);
+    local_8 = 0xe;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_008402d0(uVar1);
+    break;
+  case 7:
+    pvVar5 = operator_new(0x34);
+    local_8 = 0xf;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)moneypunct<>(uVar1,param_1);
+    break;
+  case 8:
+    pvVar5 = operator_new(0x1c);
+    local_8 = 0x10;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083faf0(uVar1);
+    break;
+  case 9:
+    pvVar5 = operator_new(0x1c);
+    local_8 = 0x11;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083fee0(uVar1);
+    break;
+  case 10:
+    pvVar5 = operator_new(0x18);
+    local_8 = 0x12;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083f480(uVar1);
+    break;
+  case 0xb:
+    pvVar5 = operator_new(0x1c);
+    local_8 = 0x13;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083f630(uVar1);
+    break;
+  case 0xc:
+    pvVar5 = operator_new(0x1c);
+    local_8 = 0x14;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_00840120(uVar1);
+    break;
+  case 0xd:
+    pvVar5 = operator_new(0x18);
+    local_8 = 0x15;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083f6e0(uVar1);
+    break;
+  case 0xe:
+    pvVar5 = operator_new(0x1c);
+    local_8 = 0x16;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083f930(uVar1);
+    break;
+  case 0xf:
+    pvVar5 = operator_new(0x18);
+    local_8 = 4;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083f760(uVar1);
+    break;
+  case 0x10:
+    pvVar5 = operator_new(0x20);
+    local_8 = 0xd;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083f8a0(uVar1);
+    break;
+  case 0x11:
+    pvVar5 = operator_new(0x1c);
+    local_8 = 0x18;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083fde0(uVar1);
+    break;
+  case 0x12:
+    pvVar5 = operator_new(0x1c);
+    local_8 = 0x17;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083ff70(uVar1);
+    break;
+  case 0x13:
+    pvVar5 = operator_new(0x20);
+    local_8 = 6;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083fc30(uVar1);
+    break;
+  case 0x14:
+    pvVar5 = operator_new(0x1c);
+    local_8 = 10;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_00840000(uVar1);
+    break;
+  case 0x15:
+    pvVar5 = operator_new(0x34);
+    local_8 = 0x19;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083f9d0(uVar1);
+    break;
+  case 0x16:
+    pvVar5 = operator_new(0x1c);
+    local_8 = 3;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083fd40(uVar1,1);
+    break;
+  case 0x17:
+    pvVar5 = operator_new(0x28);
+    local_8 = 1;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_0083f5d0(uVar1,param_1,1);
+    break;
+  case 0x18:
+    pvVar5 = operator_new(0x1c);
+    local_8 = 7;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_00840310(uVar1);
+    break;
+  case 0x19:
+    pvVar5 = operator_new(0x20);
+    local_8 = 8;
+    if (pvVar5 == (void *)0x0) goto LAB_008413a9;
+    piVar6 = (int *)thunk_FUN_008403c0(uVar1);
+    break;
+  default:
+    goto switchD_00840f4f_default;
+  }
+  local_8 = 0xffffffff;
+  *param_4 = piVar6;
+  uVar7 = (**(code **)(*piVar6 + 8))(param_2 + 1,param_3 + 0xfffe,uVar3);
+  sVar2 = (short)uVar7 + 2;
+  iVar4 = CONCAT22((short)((uint)uVar7 >> 0x10),sVar2);
+switchD_00840f4f_default:
+  ExceptionList = local_10;
+  return CONCAT22((short)((uint)iVar4 >> 0x10),sVar2);
+}
+
+
+
+------------------------------------------------------
+CALLER FUN_00842a80 @ 00842a80
+------------------------------------------------------
+
+void FUN_00842a80(undefined4 param_1,undefined4 param_2)
+
+{
+  void *pvVar1;
+  undefined4 uVar2;
+  int in_ECX;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009eef64;
+  local_10 = ExceptionList;
+  ExceptionList = &local_10;
+  pvVar1 = operator_new(0x1c);
+  local_8 = 0;
+  if (pvVar1 == (void *)0x0) {
+    uVar2 = 0;
+  }
+  else {
+    *(short *)(in_ECX + 0x30) = *(short *)(in_ECX + 0x30) + 1;
+    uVar2 = thunk_FUN_0083fe30(*(undefined2 *)(in_ECX + 0x30),param_1,param_2);
+  }
+  local_8 = 0xffffffff;
+  thunk_FUN_00840bc0(uVar2);
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+------------------------------------------------------
+CALLER FUN_00842bc0 @ 00842bc0
+------------------------------------------------------
+
+void FUN_00842bc0(undefined4 param_1,undefined4 param_2)
+
+{
+  void *pvVar1;
+  undefined4 uVar2;
+  int in_ECX;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009eefe4;
+  local_10 = ExceptionList;
+  ExceptionList = &local_10;
+  pvVar1 = operator_new(0x1c);
+  local_8 = 0;
+  if (pvVar1 == (void *)0x0) {
+    uVar2 = 0;
+  }
+  else {
+    *(short *)(in_ECX + 0x30) = *(short *)(in_ECX + 0x30) + 1;
+    uVar2 = thunk_FUN_0083ffb0(*(undefined2 *)(in_ECX + 0x30),param_1,param_2);
+  }
+  local_8 = 0xffffffff;
+  thunk_FUN_00840bc0(uVar2);
+  ExceptionList = local_10;
+  return;
+}
+
+
+

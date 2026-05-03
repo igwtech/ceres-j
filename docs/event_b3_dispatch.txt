@@ -1,0 +1,16 @@
+# Code that uses 0xb3 followed by an indirect call within 30 instructions
+
+HIT: 0xb3@0046507b -> CALL@004650bc in FUN_00464f00 @ 00464f00
+  call op: dword ptr [0x0119a1f0]
+HIT: 0xb3@0046507b -> CALL@004650db in FUN_00464f00 @ 00464f00
+  call op: dword ptr [0x0119ae88]
+HIT: 0xb3@0068501c -> CALL@00685023 in FUN_00684ff0 @ 00684ff0
+  call op: dword ptr [EDX + 0x28]
+HIT: 0xb3@006b2a33 -> CALL@006b2a3d in FUN_006b29b0 @ 006b29b0
+  call op: dword ptr [EDX + 0x28]
+HIT: 0xb3@006b2c5b -> CALL@006b2c62 in FUN_006b2c00 @ 006b2c00
+  call op: dword ptr [EDX + 0x28]
+HIT: 0xb3@006b4ae4 -> CALL@006b4aeb in FUN_006b4ab0 @ 006b4ab0
+  call op: dword ptr [EDX + 0x28]
+HIT: 0xb3@0089e528 -> CALL@0089e535 in FUN_0089e510 @ 0089e510
+  call op: dword ptr [EAX + 0x14]

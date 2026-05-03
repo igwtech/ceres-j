@@ -1,0 +1,127 @@
+# UDP receive processing chain decompilations
+
+======================================================
+FUNCTION FUN_00845400 @ 00845400
+======================================================
+
+int FUN_00845400(undefined1 *param_1,int param_2)
+
+{
+  undefined1 *puVar1;
+  uint uVar2;
+  uint uVar3;
+  
+  uVar2 = (uint)*(ushort *)(param_1 + 1);
+  uVar3 = param_2 - 3;
+  puVar1 = param_1 + 3;
+  if ((int)uVar3 < (int)uVar2) {
+    return -1;
+  }
+  switch(*param_1) {
+  case 1:
+    thunk_FUN_00846240(puVar1,uVar2);
+    return uVar2 + 3;
+  case 2:
+    thunk_FUN_00845820(puVar1,uVar2);
+    return uVar2 + 3;
+  case 3:
+    thunk_FUN_00846960(puVar1,uVar2);
+    return uVar2 + 3;
+  case 4:
+    thunk_FUN_00846d60(puVar1,uVar2);
+    return uVar2 + 3;
+  case 5:
+    thunk_FUN_00846320(puVar1,uVar2);
+    return uVar2 + 3;
+  case 6:
+    thunk_FUN_00846c30(puVar1,uVar2);
+    return uVar2 + 3;
+  case 7:
+    thunk_FUN_00845710(puVar1,uVar2);
+    return uVar2 + 3;
+  case 8:
+    thunk_FUN_00846470(puVar1,uVar2);
+    return uVar2 + 3;
+  case 9:
+    thunk_FUN_00845a40(puVar1,uVar2);
+    return uVar2 + 3;
+  case 10:
+    thunk_FUN_00846e40(puVar1,uVar2);
+    return uVar2 + 3;
+  case 0xb:
+    thunk_FUN_008467d0(puVar1,uVar2);
+    return uVar2 + 3;
+  case 0xc:
+    thunk_FUN_00846160(puVar1,uVar2);
+    return uVar2 + 3;
+  case 0xfe:
+    if (10 < uVar3) {
+      thunk_FUN_007fc420(puVar1);
+    }
+    break;
+  case 0xff:
+    if (7 < uVar3) {
+      thunk_FUN_007fc360(puVar1);
+      return uVar2 + 3;
+    }
+  }
+  return uVar2 + 3;
+}
+
+
+
+======================================================
+FUNCTION FUN_00844960 @ 00844960
+======================================================
+
+int FUN_00844960(int param_1,int param_2)
+
+{
+  int *piVar1;
+  int iVar2;
+  int in_ECX;
+  int iVar3;
+  int iVar4;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009ef290;
+  local_10 = ExceptionList;
+  ExceptionList = &local_10;
+  iVar4 = 0;
+  iVar3 = 0;
+  thunk_FUN_008446a0();
+  local_8 = 0;
+  while( true ) {
+    if ((&DAT_00a5daa8)[iVar4] == 0xffffffff) {
+      ExceptionList = local_10;
+      return iVar3;
+    }
+    iVar2 = thunk_FUN_00846fa0((&DAT_00a5daa8)[iVar4] & 0xff,param_1 + iVar3,param_2 - iVar3);
+    if (iVar2 == -1) break;
+    iVar3 = iVar3 + iVar2;
+    if (param_2 < iVar3) {
+      piVar1 = *(int **)(*(int *)(in_ECX + 0x14) + 0x24);
+      (**(code **)(*piVar1 + 8))
+                (piVar1,"CS : Fatal error in write to buffer, Size too big: ID:%i S:%i",iVar4,iVar3)
+      ;
+      thunk_FUN_004471c0("CS : Fatal error in write to buffer, Size too big : ID:%i S:%i",iVar4,
+                         iVar3);
+      ExceptionList = local_10;
+      return -1;
+    }
+    iVar4 = iVar4 + 1;
+  }
+  ExceptionList = local_10;
+  return -1;
+}
+
+
+
+======================================================
+FUNCTION FUN_00808a26 @ 00808a26
+======================================================
+(no function at this address)
+

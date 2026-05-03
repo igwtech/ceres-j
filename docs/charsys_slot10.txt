@@ -1,0 +1,80 @@
+# UDP receive processing chain decompilations
+
+======================================================
+FUNCTION FUN_007fb1e0 @ 007fb1e0
+======================================================
+
+void FUN_007fb1e0(float param_1,float param_2)
+
+{
+  uint uVar1;
+  uint uVar2;
+  uint uVar3;
+  uint uVar4;
+  uint uVar5;
+  int *piVar6;
+  char cVar7;
+  DWORD DVar8;
+  int in_ECX;
+  uint uVar9;
+  uint uVar10;
+  int iVar11;
+  int iVar12;
+  
+  if (*(char *)(*(int *)(in_ECX + 0x14) + 0x28) == '\0') {
+    if (*(float *)(in_ECX + 0x3cc) <= param_1 && param_1 != *(float *)(in_ECX + 0x3cc)) {
+      *(float *)(in_ECX + 0x3cc) = param_1 + 2.0;
+      thunk_FUN_007f1960();
+    }
+    if (*(float *)(in_ECX + 0x3c8) <= param_1 && param_1 != *(float *)(in_ECX + 0x3c8)) {
+      iVar11 = rand();
+      *(float *)(in_ECX + 0x3c8) = (float)(iVar11 % 0x12) + param_1 + 30.0;
+      FUN_0040cd24();
+    }
+  }
+  else {
+    iVar11 = *(int *)(in_ECX + 0x3ec);
+    DVar8 = timeGetTime();
+    if (3000 < DVar8 - iVar11) {
+      iVar11 = *(int *)(in_ECX + 0x8c);
+      uVar1 = *(uint *)(iVar11 + 0x94);
+      uVar2 = *(uint *)(iVar11 + 0x78);
+      uVar3 = *(uint *)(iVar11 + 0x5c);
+      uVar9 = uVar1 + uVar2 + uVar3;
+      uVar4 = *(uint *)(iVar11 + 0x40);
+      uVar10 = uVar9 + uVar4;
+      uVar5 = *(uint *)(iVar11 + 0x24);
+      iVar11 = uVar10 + uVar5;
+      iVar12 = ((int)uVar1 >> 0x1f) + ((int)uVar2 >> 0x1f) + (uint)CARRY4(uVar1,uVar2) +
+               ((int)uVar3 >> 0x1f) + (uint)CARRY4(uVar1 + uVar2,uVar3) + ((int)uVar4 >> 0x1f) +
+               (uint)CARRY4(uVar9,uVar4) + ((int)uVar5 >> 0x1f) + (uint)CARRY4(uVar10,uVar5);
+      if ((*(int *)(in_ECX + 0x98) != iVar11) || (*(int *)(in_ECX + 0x9c) != iVar12)) {
+        *(int *)(in_ECX + 0x98) = iVar11;
+        *(int *)(in_ECX + 0x9c) = iVar12;
+        thunk_FUN_00808050();
+      }
+    }
+    param_2 = *(float *)(in_ECX + 0x380c) - param_2;
+    *(float *)(in_ECX + 0x380c) = param_2;
+    if ((*(char *)(in_ECX + 0x3842) != '\0') && (param_2 < 0.0)) {
+      if (2 < *(byte *)(in_ECX + 0x1c)) {
+        piVar6 = *(int **)(*(int *)(in_ECX + 0x14) + 0x24);
+        (**(code **)(*piVar6 + 8))(piVar6,"CHARSYS: commandlist send");
+      }
+      cVar7 = (**(code **)(**(int **)(in_ECX + 0x28) + 0x28))(0xcd,0,0);
+      if (cVar7 != '\0') {
+        thunk_FUN_00803ba0();
+      }
+      if (*(char *)(in_ECX + 0x3842) == '\0') {
+        *(undefined4 *)(in_ECX + 0x380c) = 0x3f19999a;
+        return;
+      }
+      *(undefined4 *)(in_ECX + 0x380c) = 0x3e99999a;
+      return;
+    }
+  }
+  return;
+}
+
+
+

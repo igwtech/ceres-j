@@ -1,0 +1,122 @@
+# UDP receive processing chain decompilations
+
+======================================================
+FUNCTION FUN_00684ff0 @ 00684ff0
+======================================================
+
+void FUN_00684ff0(undefined4 param_1)
+
+{
+  int *piVar1;
+  int in_ECX;
+  
+  if (*(char *)(*(int *)(in_ECX + 0x20) + 0x28) != '\0') {
+    piVar1 = (int *)thunk_FUN_005412d0(*(undefined4 *)(in_ECX + 0x168));
+    if (piVar1 != (int *)0x0) {
+      (**(code **)(*piVar1 + 0x28))(0xb3,4,&param_1);
+    }
+  }
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_006b29b0 @ 006b29b0
+======================================================
+
+void FUN_006b29b0(uint param_1,uint param_2,undefined8 *param_3)
+
+{
+  uint uVar1;
+  int *piVar2;
+  undefined4 *in_ECX;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009d647d;
+  local_10 = ExceptionList;
+  ExceptionList = &local_10;
+  thunk_FUN_0077c800(DAT_00b13e00 ^ (uint)&stack0xfffffffc);
+  uVar1 = param_2;
+  *in_ECX = SRVSPECTATOR::vftable;
+  in_ECX[5] = SRVSPECTATOR::vftable;
+  in_ECX[7] = param_1;
+  in_ECX[2] = param_2;
+  *(undefined8 *)(in_ECX + 0x24) = *param_3;
+  in_ECX[0x26] = *(undefined4 *)(param_3 + 1);
+  local_8 = 0;
+  piVar2 = (int *)thunk_FUN_005412d0(param_2 & 0x3ff);
+  if (piVar2 != (int *)0x0) {
+    param_1 = uVar1;
+    (**(code **)(*piVar2 + 0x28))(0xb3,4,&param_1);
+  }
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_006b2c00 @ 006b2c00
+======================================================
+
+void FUN_006b2c00(void)
+
+{
+  uint uVar1;
+  int *piVar2;
+  undefined4 *in_ECX;
+  undefined4 *local_14;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 uStack_8;
+  
+  uStack_8 = 0xffffffff;
+  puStack_c = &LAB_009d64e0;
+  local_10 = ExceptionList;
+  uVar1 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  *in_ECX = SRVSPECTATOR::vftable;
+  in_ECX[5] = SRVSPECTATOR::vftable;
+  local_14 = in_ECX;
+  piVar2 = (int *)thunk_FUN_005412d0(*(ushort *)(in_ECX + 2) & 0x3ff);
+  if (piVar2 != (int *)0x0) {
+    local_14 = (undefined4 *)in_ECX[2];
+    (**(code **)(*piVar2 + 0x28))(0xb3,4,&local_14,uVar1);
+  }
+  thunk_FUN_004e17c0();
+  thunk_FUN_00445560();
+  thunk_FUN_00750640();
+  *in_ECX = WORLDACTOR::vftable;
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_006b4ab0 @ 006b4ab0
+======================================================
+
+void FUN_006b4ab0(void)
+
+{
+  int *piVar1;
+  int in_ECX;
+  undefined4 local_8;
+  
+  if (*(char *)(*(int *)(in_ECX + 0x20) + 0x28) != '\0') {
+    piVar1 = (int *)thunk_FUN_005412d0(*(ushort *)(in_ECX + 0xc) & 0x3ff);
+    if (piVar1 != (int *)0x0) {
+      local_8 = *(undefined4 *)(in_ECX + 0xc);
+      (**(code **)(*piVar1 + 0x28))(0xb3,4,&local_8);
+    }
+  }
+  return;
+}
+
+
+

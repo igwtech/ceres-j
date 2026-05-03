@@ -1,0 +1,109 @@
+# UDP receive processing chain decompilations
+
+======================================================
+FUNCTION FUN_0083fde0 @ 0083fde0
+======================================================
+
+void FUN_0083fde0(undefined2 param_1)
+
+{
+  undefined4 *in_ECX;
+  
+  thunk_FUN_00445530(0);
+  *(undefined2 *)(in_ECX + 4) = param_1;
+  *(undefined2 *)(in_ECX + 5) = 0;
+  *in_ECX = LC_RESTORECHAR::vftable;
+  in_ECX[6] = 0;
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_0083fe30 @ 0083fe30
+======================================================
+
+void FUN_0083fe30(undefined2 param_1,void *param_2,ushort param_3)
+
+{
+  uint uVar1;
+  void *_Dst;
+  undefined4 *in_ECX;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009ee91d;
+  local_10 = ExceptionList;
+  uVar1 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  thunk_FUN_00445530(0);
+  *(undefined2 *)(in_ECX + 4) = param_1;
+  local_8 = 0;
+  *in_ECX = LC_RESTORECHAR::vftable;
+  *(ushort *)(in_ECX + 5) = param_3;
+  _Dst = (void *)thunk_FUN_009ac153((uint)param_3,uVar1);
+  in_ECX[6] = _Dst;
+  if (_Dst != (void *)0x0) {
+    memcpy(_Dst,param_2,(uint)param_3);
+  }
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_008405d0 @ 008405d0
+======================================================
+
+void FUN_008405d0(void)
+
+{
+  undefined4 *in_ECX;
+  
+  *in_ECX = LC_RESTORECHAR::vftable;
+  free((void *)in_ECX[6]);
+  thunk_FUN_00445560();
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_0083ffb0 @ 0083ffb0
+======================================================
+
+void FUN_0083ffb0(undefined2 param_1,undefined1 param_2,undefined4 param_3)
+
+{
+  undefined4 *in_ECX;
+  
+  thunk_FUN_00445530(0);
+  *(undefined2 *)(in_ECX + 4) = param_1;
+  *(undefined1 *)(in_ECX + 5) = param_2;
+  *in_ECX = LC_SETFRACTIONVALUE::vftable;
+  in_ECX[6] = param_3;
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_0083ff70 @ 0083ff70
+======================================================
+
+void FUN_0083ff70(undefined2 param_1)
+
+{
+  undefined4 *in_ECX;
+  
+  thunk_FUN_00445530(0);
+  *(undefined2 *)(in_ECX + 4) = param_1;
+  *in_ECX = LC_SETFRACTIONVALUE::vftable;
+  return;
+}
+
+
+

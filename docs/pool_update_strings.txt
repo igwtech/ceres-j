@@ -1,0 +1,1547 @@
+=== FindScriptSpawnFail ===
+strings located:
+  needle 'SOULLIGHT' @ [00a4d208]
+
+====================================================
+function: FUN_00762020 @ 00762020
+====================================================
+
+/* WARNING: Function: __alloca_probe replaced with injection: alloca_probe */
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4 FUN_00762020(char *param_1,char *param_2,int *param_3,int param_4)
+
+{
+  char *pcVar1;
+  float fVar2;
+  void **ppvVar3;
+  char cVar4;
+  uint uVar5;
+  uint uVar6;
+  int iVar7;
+  int iVar8;
+  char *pcVar9;
+  undefined4 uVar10;
+  undefined1 *_Src;
+  int in_ECX;
+  int *piVar11;
+  uint uVar12;
+  char *pcVar13;
+  size_t sVar14;
+  char *pcVar15;
+  float10 fVar16;
+  double dVar17;
+  undefined1 auVar18 [16];
+  undefined1 auVar19 [16];
+  undefined2 local_1e58 [2];
+  int local_1e54;
+  char *local_1e50;
+  undefined2 local_1e48 [2];
+  int local_1e44;
+  char *local_1e40;
+  int local_1e38;
+  uint local_1e34;
+  int local_1e30;
+  char *local_1e2c;
+  int local_1e28;
+  int local_1e24;
+  int local_1e20;
+  char *local_1e1c;
+  float local_1e18;
+  char *local_1e14;
+  uint local_1e10;
+  undefined4 *local_1e0c;
+  int local_1e08;
+  int *local_1e04;
+  undefined1 local_1e00 [24];
+  undefined1 local_1de8 [16];
+  size_t local_1dd8;
+  uint local_1dd4;
+  char local_1dd0 [1024];
+  char local_19d0 [1023];
+  char cStack_15d1;
+  char local_15d0 [2048];
+  char local_dd0 [1023];
+  char cStack_9d1;
+  char local_9d0 [63] [16];
+  char cStack_5d1;
+  undefined8 local_5d0;
+  char acStack_5c8 [8];
+  char acStack_5c0 [1008];
+  char local_1d0 [128];
+  char local_150 [128];
+  char local_d0 [64];
+  char local_90 [64];
+  char local_50 [12];
+  char local_44 [32];
+  uint local_24;
+  undefined1 *puStack_20;
+  void *local_1c;
+  undefined1 *puStack_18;
+  undefined4 local_14;
+  
+  puStack_20 = &stack0xfffffffc;
+  local_14 = 0xffffffff;
+  puStack_18 = &LAB_009e0970;
+  uVar5 = DAT_00b13e00 ^ (uint)&stack0xfffffff0;
+  local_1e08 = 0;
+  local_1e0c = *(undefined4 **)(*(int *)(in_ECX + 4) + 0xc);
+  cVar4 = *param_1;
+  local_24 = uVar5;
+  ppvVar3 = &local_1c;
+  local_1e20 = in_ECX;
+  local_1c = ExceptionList;
+  local_1e14 = param_2;
+  local_1e04 = param_3;
+  do {
+    ExceptionList = ppvVar3;
+                    /* WARNING: Read-only address (ram,0x00a4d0bc) is written */
+    if ((cVar4 == '\0') || (param_4 <= local_1e08)) {
+      *(char *)local_1e04 = '\0';
+      ExceptionList = local_1c;
+      s_Einwohner_ID__00a4d0bc[0] = s_Einwohner_ID__00a4d0bc[0];
+      s_Einwohner_ID__00a4d0bc[1] = s_Einwohner_ID__00a4d0bc[1];
+      s_Einwohner_ID__00a4d0bc[2] = s_Einwohner_ID__00a4d0bc[2];
+      s_Einwohner_ID__00a4d0bc[3] = s_Einwohner_ID__00a4d0bc[3];
+      s_Einwohner_ID__00a4d0bc[4] = s_Einwohner_ID__00a4d0bc[4];
+      s_Einwohner_ID__00a4d0bc[5] = s_Einwohner_ID__00a4d0bc[5];
+      s_Einwohner_ID__00a4d0bc[6] = s_Einwohner_ID__00a4d0bc[6];
+      s_Einwohner_ID__00a4d0bc[7] = s_Einwohner_ID__00a4d0bc[7];
+      s_Einwohner_ID__00a4d0bc[8] = s_Einwohner_ID__00a4d0bc[8];
+      s_Einwohner_ID__00a4d0bc[9] = s_Einwohner_ID__00a4d0bc[9];
+      s_Einwohner_ID__00a4d0bc[10] = s_Einwohner_ID__00a4d0bc[10];
+      s_Einwohner_ID__00a4d0bc[0xb] = s_Einwohner_ID__00a4d0bc[0xb];
+      s_Einwohner_ID__00a4d0bc[0xc] = s_Einwohner_ID__00a4d0bc[0xc];
+      s_Einwohner_ID__00a4d0bc[0xd] = s_Einwohner_ID__00a4d0bc[0xd];
+      s_Einwohner_ID__00a4d0bc[0xe] = s_Einwohner_ID__00a4d0bc[0xe];
+      s_Einwohner_ID__00a4d0bc[0xf] = s_Einwohner_ID__00a4d0bc[0xf];
+      return 1;
+    }
+    if (*param_1 == '%') {
+      cVar4 = param_1[1];
+      pcVar15 = param_1 + 1;
+      if ((cVar4 < 'A') || ('Z' < cVar4)) goto LAB_007641d0;
+      uVar6 = 0;
+      do {
+        if (((cVar4 < 'A') || (cVar4 = *pcVar15, 'Z' < cVar4)) || (0x1e < (int)uVar6)) break;
+        pcVar15 = pcVar15 + 1;
+        local_44[uVar6] = cVar4;
+        uVar6 = uVar6 + 1;
+        cVar4 = *pcVar15;
+      } while (cVar4 != '\0');
+      if (0x1f < uVar6) {
+                    /* WARNING: Subroutine does not return */
+        thunk_FUN_009ad475(uVar5);
+      }
+      local_44[uVar6] = '\0';
+      iVar7 = _stricmp(local_44,"OUTPOSTNAME");
+      if (iVar7 == 0) {
+        iVar7 = atoi(local_1e14);
+        iVar8 = (**(code **)(*(int *)*local_1e0c + 0x1c))(0x2c);
+        if ((iVar8 != 0) && (pcVar9 = (char *)thunk_FUN_004b3750(iVar7,0), pcVar9 != (char *)0x0)) {
+          pcVar13 = pcVar9;
+          do {
+            cVar4 = *pcVar13;
+            pcVar13 = pcVar13 + 1;
+          } while (cVar4 != '\0');
+          sVar14 = (int)pcVar13 - (int)(pcVar9 + 1);
+          memcpy(local_1e04,pcVar9,sVar14);
+          local_1e08 = local_1e08 + sVar14;
+          local_1e04 = (int *)((int)local_1e04 + sVar14);
+        }
+      }
+      else {
+        iVar7 = _stricmp(local_44,"OUTPOSTREVENUE");
+        if (iVar7 == 0) {
+          iVar7 = atoi(local_1e14);
+          iVar8 = (**(code **)(*(int *)*local_1e0c + 0x1c))(0x2c);
+          if (iVar8 != 0) {
+            fVar16 = (float10)thunk_FUN_004b3670(iVar7,3,0);
+            iVar8 = 0;
+            local_1e18 = (float)fVar16;
+            iVar7 = (**(code **)(*(int *)*local_1e0c + 0x1c))(0x24);
+            if (iVar7 != 0) {
+              iVar7 = thunk_FUN_004b36e0(0xc,1,0);
+              iVar8 = (int)((float)iVar7 * local_1e18);
+            }
+            _itoa(iVar8,(char *)local_1e04,10);
+            piVar11 = local_1e04;
+            do {
+              iVar7 = *piVar11;
+              piVar11 = (int *)((int)piVar11 + 1);
+            } while ((char)iVar7 != '\0');
+            iVar7 = (int)piVar11 - (int)((int)local_1e04 + 1);
+            local_1e08 = local_1e08 + iVar7;
+            local_1e04 = (int *)((int)local_1e04 + iVar7);
+          }
+        }
+        else {
+          iVar7 = _stricmp(local_44,"OUTPOSTREWARD");
+          if (iVar7 == 0) {
+            iVar7 = atoi(local_1e14);
+            iVar8 = (**(code **)(*(int *)*local_1e0c + 0x1c))(0x2c);
+            if (iVar8 != 0) {
+              fVar16 = (float10)thunk_FUN_004b3670(iVar7,4,0);
+              iVar8 = 0;
+              local_1e18 = (float)fVar16;
+              iVar7 = (**(code **)(*(int *)*local_1e0c + 0x1c))(0x24);
+              if (iVar7 != 0) {
+                iVar7 = thunk_FUN_004b36e0(0xd,1,0);
+                iVar8 = (int)((float)iVar7 * local_1e18);
+              }
+              _itoa(iVar8,(char *)local_1e04,10);
+              piVar11 = local_1e04;
+              do {
+                iVar7 = *piVar11;
+                piVar11 = (int *)((int)piVar11 + 1);
+              } while ((char)iVar7 != '\0');
+              iVar7 = (int)piVar11 - (int)((int)local_1e04 + 1);
+              local_1e08 = local_1e08 + iVar7;
+              local_1e04 = (int *)((int)local_1e04 + iVar7);
+            }
+          }
+          else {
+            iVar7 = _stricmp(local_44,"OUTPOSTSECURITY");
+            if (iVar7 == 0) {
+              iVar7 = atoi(local_1e14);
+              pcVar9 = (char *)(**(code **)(*(int *)local_1e0c[0x12] + 0x40))(iVar7 + 0x76c,6);
+              if (pcVar9 != (char *)0x0) {
+                pcVar13 = pcVar9;
+                do {
+                  cVar4 = *pcVar13;
+                  pcVar13 = pcVar13 + 1;
+                } while (cVar4 != '\0');
+                sVar14 = (int)pcVar13 - (int)(pcVar9 + 1);
+                memcpy(local_1e04,pcVar9,sVar14);
+                local_1e08 = local_1e08 + sVar14;
+                local_1e04 = (int *)((int)local_1e04 + sVar14);
+              }
+            }
+            else {
+              iVar7 = _stricmp(local_44,"OUTPOSTTYPE");
+              if (iVar7 == 0) {
+                iVar7 = atoi(local_1e14);
+                iVar8 = (**(code **)(*(int *)*local_1e0c + 0x1c))(0x2c);
+                if (iVar8 != 0) {
+                  iVar7 = thunk_FUN_004b36e0(iVar7,1,0);
+                  pcVar9 = (char *)(**(code **)(*(int *)local_1e0c[0x12] + 0x40))(iVar7 + 0x712,6);
+                  if (pcVar9 != (char *)0x0) {
+                    pcVar13 = pcVar9;
+                    do {
+                      cVar4 = *pcVar13;
+                      pcVar13 = pcVar13 + 1;
+                    } while (cVar4 != '\0');
+                    sVar14 = (int)pcVar13 - (int)(pcVar9 + 1);
+                    memcpy(local_1e04,pcVar9,sVar14);
+                    local_1e08 = local_1e08 + sVar14;
+                    local_1e04 = (int *)((int)local_1e04 + sVar14);
+                  }
+                }
+              }
+              else {
+                iVar7 = _stricmp(local_44,"CHARCLASS");
+                if (iVar7 == 0) {
+                  local_1e10 = atoi(local_1e14);
+                  local_90[0] = '\0';
+                  if (local_1e10 < 0x29) {
+                    if (local_1e10 - 10 < 10) {
+                      pcVar13 = (char *)(**(code **)(*(int *)local_1e0c[0x12] + 0x40))(1,4);
+                      pcVar9 = pcVar13;
+                      do {
+                        cVar4 = *pcVar9;
+                        pcVar9 = pcVar9 + 1;
+                        pcVar9[(int)(local_d0 + (0x3f - (int)pcVar13))] = cVar4;
+                      } while (cVar4 != '\0');
+                    }
+                    if (local_1e10 - 0x1e < 10) {
+                      pcVar13 = (char *)(**(code **)(*(int *)local_1e0c[0x12] + 0x40))(2,4);
+                      pcVar9 = pcVar13;
+                      do {
+                        cVar4 = *pcVar9;
+                        pcVar9 = pcVar9 + 1;
+                        pcVar9[(int)(local_d0 + (0x3f - (int)pcVar13))] = cVar4;
+                      } while (cVar4 != '\0');
+                    }
+                    uVar6 = local_1e10;
+                    if (local_1e10 - 0x14 < 10) {
+                      pcVar13 = (char *)(**(code **)(*(int *)local_1e0c[0x12] + 0x40))(3,4);
+                      pcVar9 = pcVar13;
+                      do {
+                        cVar4 = *pcVar9;
+                        pcVar9[(int)(local_90 + -(int)pcVar13)] = cVar4;
+                        pcVar9 = pcVar9 + 1;
+                      } while (cVar4 != '\0');
+                    }
+                    if ((int)uVar6 < 10) {
+                      pcVar13 = (char *)(**(code **)(*(int *)local_1e0c[0x12] + 0x40))(4,4);
+                      pcVar9 = pcVar13;
+                      do {
+                        cVar4 = *pcVar9;
+                        pcVar9 = pcVar9 + 1;
+                        pcVar9[(int)(local_d0 + (0x3f - (int)pcVar13))] = cVar4;
+                      } while (cVar4 != '\0');
+                    }
+                    if (local_90[0] != '\0') {
+                      pcVar9 = local_90;
+                      do {
+                        cVar4 = *pcVar9;
+                        pcVar9 = pcVar9 + 1;
+                      } while (cVar4 != '\0');
+                      sVar14 = (int)pcVar9 - (int)(local_90 + 1);
+                      memcpy(local_1e04,local_90,sVar14);
+                      local_1e08 = local_1e08 + sVar14;
+                      local_1e04 = (int *)((int)local_1e04 + sVar14);
+                    }
+                  }
+                  else {
+                    thunk_FUN_00447e80(local_90,0x40,"CHARCLASS ERROR: %d",local_1e10);
+                    pcVar9 = local_90;
+                    do {
+                      cVar4 = *pcVar9;
+                      pcVar9 = pcVar9 + 1;
+                    } while (cVar4 != '\0');
+                    sVar14 = (int)pcVar9 - (int)(local_90 + 1);
+                    memcpy(local_1e04,local_90,sVar14);
+                    local_1e08 = local_1e08 + sVar14;
+                    local_1e04 = (int *)((int)local_1e04 + sVar14);
+                  }
+                }
+                else {
+                  iVar7 = _stricmp(local_44,"CHARPROFESSION");
+                  if (iVar7 == 0) {
+                    uVar6 = atoi(local_1e14);
+                    local_d0[0] = '\0';
+                    if (uVar6 < 0x29) {
+                      pcVar13 = (char *)(**(code **)(*(int *)local_1e0c[0x12] + 0x40))(uVar6 + 10,4)
+                      ;
+                      pcVar9 = pcVar13;
+                      do {
+                        cVar4 = *pcVar9;
+                        pcVar9[(int)(local_d0 + -(int)pcVar13)] = cVar4;
+                        pcVar9 = pcVar9 + 1;
+                      } while (cVar4 != '\0');
+                      if (local_d0[0] != '\0') {
+                        pcVar9 = local_d0;
+                        do {
+                          cVar4 = *pcVar9;
+                          pcVar9 = pcVar9 + 1;
+                        } while (cVar4 != '\0');
+                        sVar14 = (int)pcVar9 - (int)(local_d0 + 1);
+                        pcVar9 = local_d0;
+                        goto LAB_007626b3;
+                      }
+                    }
+                    else {
+                      thunk_FUN_00447e80(local_d0,0x40,"CHARPROFESSION ERROR: %d",uVar6);
+                      pcVar9 = local_d0;
+                      do {
+                        cVar4 = *pcVar9;
+                        pcVar9 = pcVar9 + 1;
+                      } while (cVar4 != '\0');
+                      sVar14 = (int)pcVar9 - (int)(local_d0 + 1);
+                      memcpy(local_1e04,local_d0,sVar14);
+                      local_1e08 = local_1e08 + sVar14;
+                      local_1e04 = (int *)((int)local_1e04 + sVar14);
+                    }
+                  }
+                  else {
+                    iVar7 = _stricmp(local_44,"CHARINFO");
+                    if (iVar7 == 0) {
+                      uVar6 = 0x463;
+                      cVar4 = *local_1e14;
+                      pcVar9 = local_1e14;
+                      while (cVar4 != '\0') {
+                        pcVar9 = pcVar9 + 1;
+                        uVar6 = uVar6 * (cVar4 + 1);
+                        cVar4 = *pcVar9;
+                      }
+                      local_1e1c = pcVar15;
+                      srand(uVar6);
+                      local_1e10 = rand();
+                      builtin_strncpy(acStack_5c8,"D:  ",5);
+                      local_5d0 = 0x496e657a69746943;
+                      thunk_FUN_00447e80(local_150,0x80,"%d%d%d",local_1e10 % 0x4d2,
+                                         local_1e10 % 0x3db,local_1e10 % 0x309);
+                      pcVar15 = local_150;
+                      do {
+                        cVar4 = *pcVar15;
+                        pcVar15 = pcVar15 + 1;
+                      } while (cVar4 != '\0');
+                      uVar6 = (int)pcVar15 - (int)local_150;
+                      pcVar15 = &cStack_5d1;
+                      do {
+                        pcVar9 = pcVar15 + 1;
+                        pcVar15 = pcVar15 + 1;
+                      } while (*pcVar9 != '\0');
+                      pcVar9 = local_150;
+                      for (uVar12 = uVar6 >> 2; uVar12 != 0; uVar12 = uVar12 - 1) {
+                        *(undefined4 *)pcVar15 = *(undefined4 *)pcVar9;
+                        pcVar9 = pcVar9 + 4;
+                        pcVar15 = pcVar15 + 4;
+                      }
+                      for (uVar6 = uVar6 & 3; uVar6 != 0; uVar6 = uVar6 - 1) {
+                        *pcVar15 = *pcVar9;
+                        pcVar9 = pcVar9 + 1;
+                        pcVar15 = pcVar15 + 1;
+                      }
+                      pcVar15 = &cStack_5d1;
+                      do {
+                        pcVar9 = pcVar15 + 1;
+                        pcVar15 = pcVar15 + 1;
+                      } while (*pcVar9 != '\0');
+                      pcVar15[0] = '\n';
+                      pcVar15[1] = '\0';
+                      pcVar15 = &cStack_5d1;
+                      do {
+                        pcVar9 = pcVar15;
+                        pcVar15 = pcVar9 + 1;
+                      } while (pcVar9[1] != '\0');
+                      builtin_strncpy(pcVar9 + 1,"File #:  ",10);
+                      thunk_FUN_00447e80(local_150,0x80,"dep%d.%c%d",local_1e10 % 100,
+                                         local_1e10 % 0x1a + 0x61,local_1e10 % 50000);
+                      pcVar15 = local_150;
+                      do {
+                        cVar4 = *pcVar15;
+                        pcVar15 = pcVar15 + 1;
+                      } while (cVar4 != '\0');
+                      uVar6 = (int)pcVar15 - (int)local_150;
+                      pcVar15 = &cStack_5d1;
+                      do {
+                        pcVar9 = pcVar15 + 1;
+                        pcVar15 = pcVar15 + 1;
+                      } while (*pcVar9 != '\0');
+                      pcVar9 = local_150;
+                      for (uVar12 = uVar6 >> 2; uVar12 != 0; uVar12 = uVar12 - 1) {
+                        *(undefined4 *)pcVar15 = *(undefined4 *)pcVar9;
+                        pcVar9 = pcVar9 + 4;
+                        pcVar15 = pcVar15 + 4;
+                      }
+                      for (uVar6 = uVar6 & 3; uVar6 != 0; uVar6 = uVar6 - 1) {
+                        *pcVar15 = *pcVar9;
+                        pcVar9 = pcVar9 + 1;
+                        pcVar15 = pcVar15 + 1;
+                      }
+                      pcVar15 = &cStack_5d1;
+                      do {
+                        pcVar9 = pcVar15 + 1;
+                        pcVar15 = pcVar15 + 1;
+                      } while (*pcVar9 != '\0');
+                      pcVar15[0] = '\n';
+                      pcVar15[1] = '\0';
+                      pcVar15 = &cStack_5d1;
+                      do {
+                        pcVar9 = pcVar15;
+                        pcVar15 = pcVar9 + 1;
+                      } while (pcVar9[1] != '\0');
+                      builtin_strncpy(pcVar9 + 1,"Color Of Eyes:  ",0x11);
+                      uVar12 = local_1e10 & 0xffff;
+                      uVar6 = local_1e10 / 6;
+                      local_1e10 = uVar12;
+                      uVar10 = (**(code **)(*(int *)local_1e0c[0x12] + 0x40))
+                                         (uVar12 + (100 - uVar6) * 6,5);
+                      thunk_FUN_00447e80(local_150,0x80,uVar10);
+                      pcVar15 = local_150;
+                      do {
+                        cVar4 = *pcVar15;
+                        pcVar15 = pcVar15 + 1;
+                      } while (cVar4 != '\0');
+                      uVar6 = (int)pcVar15 - (int)local_150;
+                      pcVar15 = &cStack_5d1;
+                      do {
+                        pcVar9 = pcVar15 + 1;
+                        pcVar15 = pcVar15 + 1;
+                      } while (*pcVar9 != '\0');
+                      pcVar9 = local_150;
+                      for (uVar12 = uVar6 >> 2; uVar12 != 0; uVar12 = uVar12 - 1) {
+                        *(undefined4 *)pcVar15 = *(undefined4 *)pcVar9;
+                        pcVar9 = pcVar9 + 4;
+                        pcVar15 = pcVar15 + 4;
+                      }
+                      for (uVar6 = uVar6 & 3; uVar6 != 0; uVar6 = uVar6 - 1) {
+                        *pcVar15 = *pcVar9;
+                        pcVar9 = pcVar9 + 1;
+                        pcVar15 = pcVar15 + 1;
+                      }
+                      pcVar15 = &cStack_5d1;
+                      do {
+                        pcVar9 = pcVar15 + 1;
+                        pcVar15 = pcVar15 + 1;
+                      } while (*pcVar9 != '\0');
+                      pcVar15[0] = '\n';
+                      pcVar15[1] = '\0';
+                      pcVar15 = &cStack_5d1;
+                      do {
+                        pcVar9 = pcVar15;
+                        pcVar15 = pcVar9 + 1;
+                      } while (pcVar9[1] != '\0');
+                      builtin_strncpy(pcVar9 + 1,"Bloodtype:  ",0xd);
+                      uVar10 = (**(code **)(*(int *)local_1e0c[0x12] + 0x40))
+                                         ((local_1e10 & 3) + 0x25e,5);
+                      thunk_FUN_00447e80(local_150,0x80,uVar10);
+                      pcVar15 = local_150;
+                      do {
+                        cVar4 = *pcVar15;
+                        pcVar15 = pcVar15 + 1;
+                      } while (cVar4 != '\0');
+                      uVar6 = (int)pcVar15 - (int)local_150;
+                      pcVar15 = &cStack_5d1;
+                      do {
+                        pcVar9 = pcVar15 + 1;
+                        pcVar15 = pcVar15 + 1;
+                      } while (*pcVar9 != '\0');
+                      pcVar9 = local_150;
+                      for (uVar12 = uVar6 >> 2; uVar12 != 0; uVar12 = uVar12 - 1) {
+                        *(undefined4 *)pcVar15 = *(undefined4 *)pcVar9;
+                        pcVar9 = pcVar9 + 4;
+                        pcVar15 = pcVar15 + 4;
+                      }
+                      for (uVar6 = uVar6 & 3; uVar6 != 0; uVar6 = uVar6 - 1) {
+                        *pcVar15 = *pcVar9;
+                        pcVar9 = pcVar9 + 1;
+                        pcVar15 = pcVar15 + 1;
+                      }
+                      pcVar15 = &cStack_5d1;
+                      do {
+                        pcVar9 = pcVar15 + 1;
+                        pcVar15 = pcVar15 + 1;
+                      } while (*pcVar9 != '\0');
+                      pcVar15[0] = ' ';
+                      pcVar15[1] = '\0';
+                      uVar10 = (**(code **)(*(int *)local_1e0c[0x12] + 0x40))
+                                         ((local_1e10 & 1) + 0x262,5);
+                      thunk_FUN_00447e80(local_150,0x80,uVar10);
+                      pcVar15 = local_150;
+                      do {
+                        cVar4 = *pcVar15;
+                        pcVar15 = pcVar15 + 1;
+                      } while (cVar4 != '\0');
+                      uVar6 = (int)pcVar15 - (int)local_150;
+                      pcVar15 = &cStack_5d1;
+                      do {
+                        pcVar9 = pcVar15 + 1;
+                        pcVar15 = pcVar15 + 1;
+                      } while (*pcVar9 != '\0');
+                      pcVar9 = local_150;
+                      for (uVar12 = uVar6 >> 2; uVar12 != 0; uVar12 = uVar12 - 1) {
+                        *(undefined4 *)pcVar15 = *(undefined4 *)pcVar9;
+                        pcVar9 = pcVar9 + 4;
+                        pcVar15 = pcVar15 + 4;
+                      }
+                      for (uVar6 = uVar6 & 3; uVar6 != 0; uVar6 = uVar6 - 1) {
+                        *pcVar15 = *pcVar9;
+                        pcVar9 = pcVar9 + 1;
+                        pcVar15 = pcVar15 + 1;
+                      }
+                      pcVar15 = (char *)&local_5d0;
+                      do {
+                        cVar4 = *pcVar15;
+                        pcVar15 = pcVar15 + 1;
+                      } while (cVar4 != '\0');
+                      sVar14 = (int)pcVar15 - ((int)&local_5d0 + 1);
+                      memcpy(local_1e04,&local_5d0,sVar14);
+                      local_1e08 = local_1e08 + sVar14;
+                      local_1e04 = (int *)((int)local_1e04 + sVar14);
+                      pcVar15 = local_1e1c;
+                    }
+                    else {
+                      iVar7 = _stricmp(local_44,"CHARINFO_GER");
+                      if (iVar7 == 0) {
+                        uVar6 = 0x463;
+                        cVar4 = *local_1e14;
+                        pcVar9 = local_1e14;
+                        while (cVar4 != '\0') {
+                          pcVar9 = pcVar9 + 1;
+                          uVar6 = uVar6 * (cVar4 + 1);
+                          cVar4 = *pcVar9;
+                        }
+                        local_1e1c = pcVar15;
+                        srand(uVar6);
+                        local_1e10 = rand();
+                        local_9d0[0][0] = s_Einwohner_ID__00a4d0bc[0];
+                        local_9d0[0][1] = s_Einwohner_ID__00a4d0bc[1];
+                        local_9d0[0][2] = s_Einwohner_ID__00a4d0bc[2];
+                        local_9d0[0][3] = s_Einwohner_ID__00a4d0bc[3];
+                        local_9d0[0][4] = s_Einwohner_ID__00a4d0bc[4];
+                        local_9d0[0][5] = s_Einwohner_ID__00a4d0bc[5];
+                        local_9d0[0][6] = s_Einwohner_ID__00a4d0bc[6];
+                        local_9d0[0][7] = s_Einwohner_ID__00a4d0bc[7];
+                        local_9d0[0][8] = s_Einwohner_ID__00a4d0bc[8];
+                        local_9d0[0][9] = s_Einwohner_ID__00a4d0bc[9];
+                        local_9d0[0][10] = s_Einwohner_ID__00a4d0bc[10];
+                        local_9d0[0][0xb] = s_Einwohner_ID__00a4d0bc[0xb];
+                        local_9d0[0][0xc] = s_Einwohner_ID__00a4d0bc[0xc];
+                        local_9d0[0][0xd] = s_Einwohner_ID__00a4d0bc[0xd];
+                        local_9d0[0][0xe] = s_Einwohner_ID__00a4d0bc[0xe];
+                        local_9d0[0][0xf] = s_Einwohner_ID__00a4d0bc[0xf];
+                        thunk_FUN_00447e80(local_1d0,0x80,"%d%d%d",local_1e10 % 0x4d2,
+                                           local_1e10 % 0x3db,local_1e10 % 0x309);
+                        pcVar15 = local_1d0;
+                        do {
+                          cVar4 = *pcVar15;
+                          pcVar15 = pcVar15 + 1;
+                        } while (cVar4 != '\0');
+                        uVar6 = (int)pcVar15 - (int)local_1d0;
+                        pcVar15 = &cStack_9d1;
+                        do {
+                          pcVar9 = pcVar15 + 1;
+                          pcVar15 = pcVar15 + 1;
+                        } while (*pcVar9 != '\0');
+                        pcVar9 = local_1d0;
+                        for (uVar12 = uVar6 >> 2; uVar12 != 0; uVar12 = uVar12 - 1) {
+                          *(undefined4 *)pcVar15 = *(undefined4 *)pcVar9;
+                          pcVar9 = pcVar9 + 4;
+                          pcVar15 = pcVar15 + 4;
+                        }
+                        for (uVar6 = uVar6 & 3; uVar6 != 0; uVar6 = uVar6 - 1) {
+                          *pcVar15 = *pcVar9;
+                          pcVar9 = pcVar9 + 1;
+                          pcVar15 = pcVar15 + 1;
+                        }
+                        pcVar15 = &cStack_9d1;
+                        do {
+                          pcVar9 = pcVar15 + 1;
+                          pcVar15 = pcVar15 + 1;
+                        } while (*pcVar9 != '\0');
+                        pcVar15[0] = '\n';
+                        pcVar15[1] = '\0';
+                        pcVar15 = &cStack_9d1;
+                        do {
+                          pcVar9 = pcVar15;
+                          pcVar15 = pcVar9 + 1;
+                        } while (pcVar9[1] != '\0');
+                        builtin_strncpy(pcVar9 + 1,"Akte #:  ",10);
+                        thunk_FUN_00447e80(local_1d0,0x80,"dep%d.%c%d",local_1e10 % 100,
+                                           local_1e10 % 0x1a + 0x61,local_1e10 % 50000);
+                        pcVar15 = local_1d0;
+                        do {
+                          cVar4 = *pcVar15;
+                          pcVar15 = pcVar15 + 1;
+                        } while (cVar4 != '\0');
+                        uVar6 = (int)pcVar15 - (int)local_1d0;
+                        pcVar15 = &cStack_9d1;
+                        do {
+                          pcVar9 = pcVar15 + 1;
+                          pcVar15 = pcVar15 + 1;
+                        } while (*pcVar9 != '\0');
+                        pcVar9 = local_1d0;
+                        for (uVar12 = uVar6 >> 2; uVar12 != 0; uVar12 = uVar12 - 1) {
+                          *(undefined4 *)pcVar15 = *(undefined4 *)pcVar9;
+                          pcVar9 = pcVar9 + 4;
+                          pcVar15 = pcVar15 + 4;
+                        }
+                        for (uVar6 = uVar6 & 3; uVar6 != 0; uVar6 = uVar6 - 1) {
+                          *pcVar15 = *pcVar9;
+                          pcVar9 = pcVar9 + 1;
+                          pcVar15 = pcVar15 + 1;
+                        }
+                        pcVar15 = &cStack_9d1;
+                        do {
+                          pcVar9 = pcVar15 + 1;
+                          pcVar15 = pcVar15 + 1;
+                        } while (*pcVar9 != '\0');
+                        pcVar15[0] = '\n';
+                        pcVar15[1] = '\0';
+                        pcVar15 = &cStack_9d1;
+                        do {
+                          pcVar9 = pcVar15;
+                          pcVar15 = pcVar9 + 1;
+                        } while (pcVar9[1] != '\0');
+                        builtin_strncpy(pcVar9 + 1,"Augenfarbe:  ",0xe);
+                        uVar12 = local_1e10 & 0xffff;
+                        uVar6 = local_1e10 / 6;
+                        local_1e10 = uVar12;
+                        uVar10 = (**(code **)(*(int *)local_1e0c[0x12] + 0x40))
+                                           (uVar12 + (100 - uVar6) * 6,5);
+                        thunk_FUN_00447e80(local_1d0,0x80,uVar10);
+                        pcVar15 = local_1d0;
+                        do {
+                          cVar4 = *pcVar15;
+                          pcVar15 = pcVar15 + 1;
+                        } while (cVar4 != '\0');
+                        uVar6 = (int)pcVar15 - (int)local_1d0;
+                        pcVar15 = &cStack_9d1;
+                        do {
+                          pcVar9 = pcVar15 + 1;
+                          pcVar15 = pcVar15 + 1;
+                        } while (*pcVar9 != '\0');
+                        pcVar9 = local_1d0;
+                        for (uVar12 = uVar6 >> 2; uVar12 != 0; uVar12 = uVar12 - 1) {
+                          *(undefined4 *)pcVar15 = *(undefined4 *)pcVar9;
+                          pcVar9 = pcVar9 + 4;
+                          pcVar15 = pcVar15 + 4;
+                        }
+                        for (uVar6 = uVar6 & 3; uVar6 != 0; uVar6 = uVar6 - 1) {
+                          *pcVar15 = *pcVar9;
+                          pcVar9 = pcVar9 + 1;
+                          pcVar15 = pcVar15 + 1;
+                        }
+                        pcVar15 = &cStack_9d1;
+                        do {
+                          pcVar9 = pcVar15 + 1;
+                          pcVar15 = pcVar15 + 1;
+                        } while (*pcVar9 != '\0');
+                        pcVar15[0] = '\n';
+                        pcVar15[1] = '\0';
+                        pcVar15 = &cStack_9d1;
+                        do {
+                          pcVar9 = pcVar15;
+                          pcVar15 = pcVar9 + 1;
+                        } while (pcVar9[1] != '\0');
+                        builtin_strncpy(pcVar9 + 1,"Blutgruppe:  ",0xe);
+                        uVar10 = (**(code **)(*(int *)local_1e0c[0x12] + 0x40))
+                                           ((local_1e10 & 3) + 0x25e,5);
+                        thunk_FUN_00447e80(local_1d0,0x80,uVar10);
+                        pcVar15 = local_1d0;
+                        do {
+                          cVar4 = *pcVar15;
+                          pcVar15 = pcVar15 + 1;
+                        } while (cVar4 != '\0');
+                        uVar6 = (int)pcVar15 - (int)local_1d0;
+                        pcVar15 = &cStack_9d1;
+                        do {
+                          pcVar9 = pcVar15 + 1;
+                          pcVar15 = pcVar15 + 1;
+                        } while (*pcVar9 != '\0');
+                        pcVar9 = local_1d0;
+                        for (uVar12 = uVar6 >> 2; uVar12 != 0; uVar12 = uVar12 - 1) {
+                          *(undefined4 *)pcVar15 = *(undefined4 *)pcVar9;
+                          pcVar9 = pcVar9 + 4;
+                          pcVar15 = pcVar15 + 4;
+                        }
+                        for (uVar6 = uVar6 & 3; uVar6 != 0; uVar6 = uVar6 - 1) {
+                          *pcVar15 = *pcVar9;
+                          pcVar9 = pcVar9 + 1;
+                          pcVar15 = pcVar15 + 1;
+                        }
+                        pcVar15 = &cStack_9d1;
+                        do {
+                          pcVar9 = pcVar15 + 1;
+                          pcVar15 = pcVar15 + 1;
+                        } while (*pcVar9 != '\0');
+                        pcVar15[0] = ' ';
+                        pcVar15[1] = '\0';
+                        uVar10 = (**(code **)(*(int *)local_1e0c[0x12] + 0x40))
+                                           ((local_1e10 & 1) + 0x262,5);
+                        thunk_FUN_00447e80(local_1d0,0x80,uVar10);
+                        pcVar15 = local_1d0;
+                        do {
+                          cVar4 = *pcVar15;
+                          pcVar15 = pcVar15 + 1;
+                        } while (cVar4 != '\0');
+                        uVar6 = (int)pcVar15 - (int)local_1d0;
+                        pcVar15 = &cStack_9d1;
+                        do {
+                          pcVar9 = pcVar15 + 1;
+                          pcVar15 = pcVar15 + 1;
+                        } while (*pcVar9 != '\0');
+                        pcVar9 = local_1d0;
+                        for (uVar12 = uVar6 >> 2; uVar12 != 0; uVar12 = uVar12 - 1) {
+                          *(undefined4 *)pcVar15 = *(undefined4 *)pcVar9;
+                          pcVar9 = pcVar9 + 4;
+                          pcVar15 = pcVar15 + 4;
+                        }
+                        for (uVar6 = uVar6 & 3; uVar6 != 0; uVar6 = uVar6 - 1) {
+                          *pcVar15 = *pcVar9;
+                          pcVar9 = pcVar9 + 1;
+                          pcVar15 = pcVar15 + 1;
+                        }
+                        pcVar15 = local_9d0[0];
+                        do {
+                          cVar4 = *pcVar15;
+                          pcVar15 = pcVar15 + 1;
+                        } while (cVar4 != '\0');
+                        sVar14 = (int)pcVar15 - (int)(local_9d0[0] + 1);
+                        memcpy(local_1e04,local_9d0,sVar14);
+                        local_1e08 = local_1e08 + sVar14;
+                        local_1e04 = (int *)((int)local_1e04 + sVar14);
+                        pcVar15 = local_1e1c;
+                      }
+                      else {
+                        iVar7 = _stricmp(local_44,"WORLDNAME");
+                        if (iVar7 == 0) {
+                          iVar7 = atoi(local_1e14);
+                          iVar8 = (**(code **)(*(int *)*local_1e0c + 0x1c))(0x21);
+                          if (iVar8 != 0) {
+                            if (iVar7 < 0x186a1) {
+                              pcVar9 = (char *)thunk_FUN_004b3750(iVar7,0);
+                              if (pcVar9 == (char *)0x0) goto LAB_00763f87;
+                            }
+                            else {
+                              pcVar9 = "APARTMENT";
+                            }
+                            pcVar13 = pcVar9;
+                            do {
+                              cVar4 = *pcVar13;
+                              pcVar13 = pcVar13 + 1;
+                            } while (cVar4 != '\0');
+                            sVar14 = (int)pcVar13 - (int)(pcVar9 + 1);
+                            memcpy(local_1e04,pcVar9,sVar14);
+                            local_1e08 = local_1e08 + sVar14;
+                            local_1e04 = (int *)((int)local_1e04 + sVar14);
+                          }
+                        }
+                        else {
+                          iVar7 = _stricmp(local_44,"FACTIONNAME");
+                          if (iVar7 == 0) {
+                            iVar7 = atoi(local_1e14);
+                            iVar8 = (**(code **)(*(int *)*local_1e0c + 0x44))(0xc,0);
+                            if ((iVar8 != 0) &&
+                               (pcVar9 = (char *)thunk_FUN_004da150(iVar7), pcVar9 != (char *)0x0))
+                            {
+                              pcVar13 = pcVar9;
+                              do {
+                                cVar4 = *pcVar13;
+                                pcVar13 = pcVar13 + 1;
+                              } while (cVar4 != '\0');
+                              sVar14 = (int)pcVar13 - (int)(pcVar9 + 1);
+                              memcpy(local_1e04,pcVar9,sVar14);
+                              local_1e08 = local_1e08 + sVar14;
+                              local_1e04 = (int *)((int)local_1e04 + sVar14);
+                            }
+                          }
+                          else {
+                            iVar7 = _stricmp(local_44,"FACTIONSYMPATHY");
+                            if (iVar7 == 0) {
+                              iVar7 = atoi(local_1e14);
+                              auVar18._0_8_ = (double)iVar7;
+                              auVar18._8_8_ = 0;
+                              if (0.0 <= auVar18._0_8_) {
+                                if (auVar18._0_8_ < 0.0) {
+                                  libm_sse2_sqrt_precise();
+                                  dVar17 = auVar18._0_8_;
+                                }
+                                else {
+                                  dVar17 = SQRT(auVar18._0_8_);
+                                }
+                              }
+                              else {
+                                auVar19._0_8_ = -auVar18._0_8_;
+                                auVar19._8_4_ = 0;
+                                auVar19._12_4_ = 0x80000000;
+                                if (auVar19._0_8_ < 0.0) {
+                                  libm_sse2_sqrt_precise();
+                                  dVar17 = -auVar19._0_8_;
+                                }
+                                else {
+                                  dVar17 = -SQRT(auVar19._0_8_);
+                                }
+                              }
+                              piVar11 = local_1e04;
+                              _itoa((int)(dVar17 / 10.0),(char *)local_1e04,10);
+                              iVar7 = (int)piVar11 + 1;
+                              do {
+                                iVar8 = *piVar11;
+                                piVar11 = (int *)((int)piVar11 + 1);
+                              } while ((char)iVar8 != '\0');
+                              iVar7 = (int)piVar11 - iVar7;
+                              local_1e08 = local_1e08 + iVar7;
+                              local_1e04 = (int *)((int)local_1e04 + iVar7);
+                            }
+                            else {
+                              iVar7 = _stricmp(local_44,"FINFO");
+                              if (iVar7 == 0) {
+                                iVar7 = atoi(local_1e14);
+                                local_1e10 = iVar7 + -2;
+                                if (local_1e10 == 6) {
+                                  local_1e10 = 5;
+                                }
+                                else if (local_1e10 == 7) {
+                                  local_1e10 = 6;
+                                }
+                                else if (local_1e10 == 8) {
+                                  local_1e10 = 7;
+                                }
+                                else if (local_1e10 == 9) {
+                                  local_1e10 = 8;
+                                }
+                                else if (local_1e10 == 0xc) {
+                                  local_1e10 = 9;
+                                }
+                                else if (local_1e10 == 0xd) {
+                                  local_1e10 = 10;
+                                }
+                                cVar4 = *pcVar15;
+                                while (cVar4 != '(') {
+                                  pcVar15 = pcVar15 + 1;
+                                  cVar4 = *pcVar15;
+                                }
+                                pcVar15 = pcVar15 + 1;
+                                iVar7 = atoi(pcVar15);
+                                cVar4 = *pcVar15;
+                                while (cVar4 != ')') {
+                                  pcVar15 = pcVar15 + 1;
+                                  cVar4 = *pcVar15;
+                                }
+                                local_15d0[0] = '\0';
+                                local_1e10 = (iVar7 + (local_1e10 * 5 + 0x32) * 2) * 10;
+                                local_1e1c = pcVar15 + 1;
+                                uVar10 = (**(code **)(*(int *)local_1e0c[0x12] + 0x40))
+                                                   (local_1e10,5);
+                                thunk_FUN_00447e80(local_dd0,0x3fc,uVar10);
+                                iVar7 = 0;
+                                do {
+                                  pcVar9 = local_dd0 + iVar7;
+                                  local_15d0[iVar7] = *pcVar9;
+                                  iVar7 = iVar7 + 1;
+                                } while (*pcVar9 != '\0');
+                                pcVar9 = &cStack_15d1;
+                                do {
+                                  pcVar13 = pcVar9 + 1;
+                                  pcVar9 = pcVar9 + 1;
+                                } while (*pcVar13 != '\0');
+                                pcVar9[0] = '\n';
+                                pcVar9[1] = '\0';
+                                local_1e10 = local_1e10 + 1;
+                                uVar10 = (**(code **)(*(int *)local_1e0c[0x12] + 0x40))
+                                                   (local_1e10,5);
+                                thunk_FUN_00447e80(local_dd0,0x3fc,uVar10);
+                                iVar7 = _stricmp(local_dd0,"no text");
+                                pcVar15 = pcVar15 + 1;
+                                while (iVar7 != 0) {
+                                  pcVar15 = local_15d0;
+                                  do {
+                                    pcVar9 = pcVar15;
+                                    pcVar15 = pcVar9 + 1;
+                                  } while (*pcVar9 != '\0');
+                                  pcVar13 = local_dd0;
+                                  do {
+                                    cVar4 = *pcVar13;
+                                    pcVar13 = pcVar13 + 1;
+                                  } while (cVar4 != '\0');
+                                  pcVar15 = local_1e1c;
+                                  if ((char *)0x7f7 <
+                                      pcVar13 + (int)&stack0x00000000 * -2 + (int)(pcVar9 + 0x239f))
+                                  break;
+                                  pcVar15 = local_dd0;
+                                  do {
+                                    cVar4 = *pcVar15;
+                                    pcVar15 = pcVar15 + 1;
+                                  } while (cVar4 != '\0');
+                                  uVar6 = (int)pcVar15 - (int)local_dd0;
+                                  pcVar15 = &cStack_15d1;
+                                  do {
+                                    pcVar9 = pcVar15 + 1;
+                                    pcVar15 = pcVar15 + 1;
+                                  } while (*pcVar9 != '\0');
+                                  pcVar9 = local_dd0;
+                                  for (uVar12 = uVar6 >> 2; uVar12 != 0; uVar12 = uVar12 - 1) {
+                                    *(undefined4 *)pcVar15 = *(undefined4 *)pcVar9;
+                                    pcVar9 = pcVar9 + 4;
+                                    pcVar15 = pcVar15 + 4;
+                                  }
+                                  for (uVar6 = uVar6 & 3; uVar6 != 0; uVar6 = uVar6 - 1) {
+                                    *pcVar15 = *pcVar9;
+                                    pcVar9 = pcVar9 + 1;
+                                    pcVar15 = pcVar15 + 1;
+                                  }
+                                  pcVar15 = &cStack_15d1;
+                                  do {
+                                    pcVar9 = pcVar15 + 1;
+                                    pcVar15 = pcVar15 + 1;
+                                  } while (*pcVar9 != '\0');
+                                  pcVar15[0] = '\n';
+                                  pcVar15[1] = '\0';
+                                  local_1e10 = local_1e10 + 1;
+                                  uVar10 = (**(code **)(*(int *)local_1e0c[0x12] + 0x40))
+                                                     (local_1e10,5);
+                                  thunk_FUN_00447e80(local_dd0,0x3fc,uVar10);
+                                  iVar7 = _stricmp(local_dd0,"no text");
+                                  pcVar15 = local_1e1c;
+                                }
+                                pcVar9 = local_15d0;
+                                do {
+                                  cVar4 = *pcVar9;
+                                  pcVar9 = pcVar9 + 1;
+                                } while (cVar4 != '\0');
+                                sVar14 = (int)pcVar9 - (int)(local_15d0 + 1);
+                                if (sVar14 != 0) {
+                                  pcVar9 = local_15d0;
+LAB_007626b3:
+                                  memcpy(local_1e04,pcVar9,sVar14);
+                                  local_1e08 = local_1e08 + sVar14;
+                                  local_1e04 = (int *)((int)local_1e04 + sVar14);
+                                }
+                              }
+                              else {
+                                iVar7 = _stricmp(local_44,"CLANNAME");
+                                if (iVar7 == 0) {
+                                  iVar7 = atoi(local_1e14);
+                                  if (1 < iVar7) {
+                                    local_1e48[0] = 1;
+                                    local_1e44 = iVar7;
+                                    cVar4 = (**(code **)(*(int *)local_1e0c[1] + 8))
+                                                      (0x13ec,0x10,local_1e48);
+                                    if ((cVar4 != '\0') && (local_1e40 != (char *)0x0)) {
+                                      pcVar9 = local_1e40;
+                                      do {
+                                        cVar4 = *pcVar9;
+                                        pcVar9 = pcVar9 + 1;
+                                      } while (cVar4 != '\0');
+                                      sVar14 = (int)pcVar9 - (int)(local_1e40 + 1);
+                                      pcVar9 = local_1e40;
+LAB_00763cb7:
+                                      memcpy(local_1e04,pcVar9,sVar14);
+                                      local_1e04 = (int *)((int)local_1e04 + sVar14);
+                                      local_1e08 = local_1e08 + sVar14;
+                                    }
+                                  }
+                                }
+                                else {
+                                  iVar7 = _stricmp(local_44,"CLANLEVEL");
+                                  if (iVar7 == 0) {
+                                    iVar7 = atoi(local_1e14);
+                                    if (0 < iVar7) {
+                                      local_1e58[0] = 5;
+                                      local_1e54 = iVar7;
+                                      cVar4 = (**(code **)(*(int *)local_1e0c[1] + 8))
+                                                        (0x13ec,0x10,local_1e58);
+                                      if ((cVar4 != '\0') && (local_1e50 != (char *)0x0)) {
+                                        pcVar9 = local_1e50;
+                                        do {
+                                          cVar4 = *pcVar9;
+                                          pcVar9 = pcVar9 + 1;
+                                        } while (cVar4 != '\0');
+                                        sVar14 = (int)pcVar9 - (int)(local_1e50 + 1);
+                                        pcVar9 = local_1e50;
+                                        goto LAB_00763cb7;
+                                      }
+                                    }
+                                  }
+                                  else {
+                                    iVar7 = _stricmp(local_44,"BITMAP");
+                                    if (iVar7 == 0) {
+                                      local_1e18 = (float)atoi(local_1e14);
+                                      cVar4 = *pcVar15;
+                                      while (cVar4 != '(') {
+                                        pcVar15 = pcVar15 + 1;
+                                        cVar4 = *pcVar15;
+                                      }
+                                      pcVar15 = pcVar15 + 1;
+                                      local_1e10 = atoi(pcVar15);
+                                      cVar4 = *pcVar15;
+                                      while (cVar4 != ',') {
+                                        pcVar15 = pcVar15 + 1;
+                                        cVar4 = *pcVar15;
+                                      }
+                                      pcVar15 = pcVar15 + 1;
+                                      iVar7 = atoi(pcVar15);
+                                      cVar4 = *pcVar15;
+                                      while (cVar4 != ',') {
+                                        pcVar15 = pcVar15 + 1;
+                                        cVar4 = *pcVar15;
+                                      }
+                                      pcVar15 = pcVar15 + 1;
+                                      iVar8 = atoi(pcVar15);
+                                      cVar4 = *pcVar15;
+                                      while (cVar4 != ')') {
+                                        pcVar15 = pcVar15 + 1;
+                                        cVar4 = *pcVar15;
+                                      }
+                                      *local_1e04 = iVar7 * (int)local_1e18 + local_1e10;
+                                      local_1e04[1] = iVar8;
+                                      local_1e04 = local_1e04 + 2;
+                                      local_1e08 = local_1e08 + 8;
+                                      *(char *)local_1e04 = '\0';
+                                      pcVar15 = pcVar15 + 1;
+                                    }
+                                    else {
+                                      iVar7 = _stricmp(local_44,"TEXTRSC");
+                                      if (iVar7 == 0) {
+                                        cVar4 = *pcVar15;
+                                        while (cVar4 != '(') {
+                                          pcVar15 = pcVar15 + 1;
+                                          cVar4 = *pcVar15;
+                                        }
+                                        pcVar15 = pcVar15 + 1;
+                                        local_1e18 = (float)atoi(pcVar15);
+                                        cVar4 = *pcVar15;
+                                        while (cVar4 != ',') {
+                                          pcVar15 = pcVar15 + 1;
+                                          cVar4 = *pcVar15;
+                                        }
+                                        pcVar15 = pcVar15 + 1;
+                                        iVar7 = atoi(pcVar15);
+                                        cVar4 = *pcVar15;
+                                        while (cVar4 != ')') {
+                                          pcVar15 = pcVar15 + 1;
+                                          cVar4 = *pcVar15;
+                                        }
+                                        iVar8 = atoi(local_1e14);
+                                        pcVar9 = (char *)(**(code **)(*(int *)local_1e0c[0x12] +
+                                                                     0x40))(iVar8 + iVar7,local_1e18
+                                                                           );
+                                        pcVar15 = pcVar15 + 1;
+                                        if (pcVar9 != (char *)0x0) {
+                                          pcVar13 = pcVar9;
+                                          do {
+                                            cVar4 = *pcVar13;
+                                            pcVar13 = pcVar13 + 1;
+                                          } while (cVar4 != '\0');
+                                          sVar14 = (int)pcVar13 - (int)(pcVar9 + 1);
+                                          memcpy(local_1e04,pcVar9,sVar14);
+                                          local_1e04 = (int *)((int)local_1e04 + sVar14);
+                                          local_1e08 = local_1e08 + sVar14;
+                                        }
+                                      }
+                                      else {
+                                        iVar7 = _stricmp(local_44,"TEXTRSCSCALE");
+                                        if (iVar7 == 0) {
+                                          cVar4 = *pcVar15;
+                                          while (cVar4 != '(') {
+                                            pcVar15 = pcVar15 + 1;
+                                            cVar4 = *pcVar15;
+                                          }
+                                          pcVar15 = pcVar15 + 1;
+                                          local_1e18 = (float)atoi(pcVar15);
+                                          cVar4 = *pcVar15;
+                                          while (cVar4 != ',') {
+                                            pcVar15 = pcVar15 + 1;
+                                            cVar4 = *pcVar15;
+                                          }
+                                          pcVar15 = pcVar15 + 1;
+                                          local_1e24 = atoi(pcVar15);
+                                          cVar4 = *pcVar15;
+                                          while (cVar4 != ',') {
+                                            pcVar15 = pcVar15 + 1;
+                                            cVar4 = *pcVar15;
+                                          }
+                                          pcVar15 = pcVar15 + 1;
+                                          local_1e10 = atoi(pcVar15);
+                                          cVar4 = *pcVar15;
+                                          while (cVar4 != ')') {
+                                            pcVar15 = pcVar15 + 1;
+                                            cVar4 = *pcVar15;
+                                          }
+                                          local_1e1c = pcVar15 + 1;
+                                          iVar7 = atoi(local_1e14);
+                                          pcVar9 = (char *)(**(code **)(*(int *)local_1e0c[0x12] +
+                                                                       0x40))((int)(iVar7 * 
+                                                  local_1e10) / 100 + local_1e24,local_1e18);
+                                          pcVar15 = local_1e1c;
+                                          if (pcVar9 != (char *)0x0) {
+                                            pcVar15 = pcVar9;
+                                            do {
+                                              cVar4 = *pcVar15;
+                                              pcVar15 = pcVar15 + 1;
+                                            } while (cVar4 != '\0');
+                                            sVar14 = (int)pcVar15 - (int)(pcVar9 + 1);
+                                            memcpy(local_1e04,pcVar9,sVar14);
+                                            local_1e04 = (int *)((int)local_1e04 + sVar14);
+                                            local_1e08 = local_1e08 + sVar14;
+                                            pcVar15 = local_1e1c;
+                                          }
+                                        }
+                                        else {
+                                          iVar7 = _stricmp(local_44,"TABLERSC");
+                                          if (iVar7 == 0) {
+                                            cVar4 = *pcVar15;
+                                            while (cVar4 != '(') {
+                                              pcVar15 = pcVar15 + 1;
+                                              cVar4 = *pcVar15;
+                                            }
+                                            pcVar15 = pcVar15 + 1;
+                                            local_1e24 = atoi(pcVar15);
+                                            cVar4 = *pcVar15;
+                                            while (cVar4 != ',') {
+                                              pcVar15 = pcVar15 + 1;
+                                              cVar4 = *pcVar15;
+                                            }
+                                            pcVar15 = pcVar15 + 1;
+                                            local_1e18 = (float)atoi(pcVar15);
+                                            cVar4 = *pcVar15;
+                                            while (cVar4 != ',') {
+                                              pcVar15 = pcVar15 + 1;
+                                              cVar4 = *pcVar15;
+                                            }
+                                            pcVar15 = pcVar15 + 1;
+                                            local_1e10 = atoi(pcVar15);
+                                            cVar4 = *pcVar15;
+                                            while (cVar4 != ')') {
+                                              pcVar15 = pcVar15 + 1;
+                                              cVar4 = *pcVar15;
+                                            }
+                                            pcVar15 = pcVar15 + 1;
+                                            iVar7 = atoi(local_1e14);
+                                            iVar8 = (**(code **)(*(int *)*local_1e0c + 0x1c))
+                                                              (local_1e24);
+                                            if ((iVar8 != 0) &&
+                                               (pcVar9 = (char *)thunk_FUN_004b3750(local_1e10 +
+                                                                                    iVar7,local_1e18
+                                                                                   ),
+                                               pcVar9 != (char *)0x0)) {
+                                              pcVar13 = pcVar9;
+                                              do {
+                                                cVar4 = *pcVar13;
+                                                pcVar13 = pcVar13 + 1;
+                                              } while (cVar4 != '\0');
+                                              sVar14 = (int)pcVar13 - (int)(pcVar9 + 1);
+                                              goto LAB_007626b3;
+                                            }
+                                          }
+                                          else {
+                                            iVar7 = _stricmp(local_44,"MISSIONSHORTDESC");
+                                            if (iVar7 == 0) {
+                                              iVar7 = atoi(local_1e14);
+                                              if (((-1 < iVar7) &&
+                                                  (piVar11 = *(int **)(local_1e20 + 0x1fc +
+                                                                      iVar7 * 4),
+                                                  piVar11 != (int *)0x0)) &&
+                                                 (cVar4 = (**(code **)(*piVar11 + 0x18))
+                                                                    (1,local_19d0,0x400),
+                                                 cVar4 != '\0')) {
+                                                pcVar13 = local_19d0;
+                                                pcVar1 = local_19d0;
+                                                do {
+                                                  cVar4 = *pcVar13;
+                                                  pcVar13 = pcVar13 + 1;
+                                                } while (cVar4 != '\0');
+                                                pcVar9 = local_19d0;
+LAB_00763cb3:
+                                                sVar14 = (int)pcVar13 - (int)(pcVar1 + 1);
+                                                goto LAB_00763cb7;
+                                              }
+                                            }
+                                            else {
+                                              iVar7 = _stricmp(local_44,"MISSIONSYMPATHY");
+                                              if (iVar7 == 0) {
+                                                iVar7 = atoi(local_1e14);
+                                                if ((-1 < iVar7) &&
+                                                   (piVar11 = *(int **)(local_1e20 + 0x1fc +
+                                                                       iVar7 * 4),
+                                                   piVar11 != (int *)0x0)) {
+                                                  uVar10 = (**(code **)(*piVar11 + 0x24))();
+                                                  iVar7 = (**(code **)(*(int *)*local_1e0c + 0x1c))
+                                                                    (0x13);
+                                                  if (iVar7 != 0) {
+                                                    iVar7 = thunk_FUN_004b36e0(uVar10,0x24,0);
+                                                    piVar11 = local_1e04;
+                                                    _itoa(iVar7,(char *)local_1e04,10);
+                                                    iVar7 = (int)piVar11 + 1;
+                                                    do {
+                                                      iVar8 = *piVar11;
+                                                      piVar11 = (int *)((int)piVar11 + 1);
+                                                    } while ((char)iVar8 != '\0');
+                                                    iVar7 = (int)piVar11 - iVar7;
+                                                    local_1e08 = local_1e08 + iVar7;
+                                                    local_1e04 = (int *)((int)local_1e04 + iVar7);
+                                                  }
+                                                }
+                                              }
+                                              else {
+                                                iVar7 = _stricmp(local_44,"MISSIONREWARD");
+                                                if (iVar7 == 0) {
+                                                  iVar7 = atoi(local_1e14);
+                                                  if ((-1 < iVar7) &&
+                                                     (piVar11 = *(int **)(local_1e20 + 0x1fc +
+                                                                         iVar7 * 4),
+                                                     piVar11 != (int *)0x0)) {
+                                                    uVar10 = (**(code **)(*piVar11 + 0x24))();
+                                                    iVar7 = (**(code **)(*(int *)*local_1e0c + 0x1c)
+                                                            )(0x13);
+                                                    if (iVar7 != 0) {
+                                                      iVar7 = thunk_FUN_004b36e0(uVar10,0x1f,0);
+                                                      piVar11 = local_1e04;
+                                                      _itoa(iVar7,(char *)local_1e04,10);
+                                                      iVar7 = (int)piVar11 + 1;
+                                                      do {
+                                                        iVar8 = *piVar11;
+                                                        piVar11 = (int *)((int)piVar11 + 1);
+                                                      } while ((char)iVar8 != '\0');
+                                                      iVar7 = (int)piVar11 - iVar7;
+                                                      local_1e08 = local_1e08 + iVar7;
+                                                      local_1e04 = (int *)((int)local_1e04 + iVar7);
+                                                    }
+                                                  }
+                                                }
+                                                else {
+                                                  iVar7 = _stricmp(local_44,"CLANACCESSFLAGS");
+                                                  if (iVar7 == 0) {
+                                                    iVar7 = atoi(local_1e14);
+                                                    pcVar9 = (char *)(**(code **)(*(int *)local_1e0c
+                                                                                          [0x12] +
+                                                                                 0x40))(iVar7 + 
+                                                  0xbc2,6);
+                                                  if (pcVar9 != (char *)0x0) {
+                                                    pcVar13 = pcVar9;
+                                                    do {
+                                                      cVar4 = *pcVar13;
+                                                      pcVar13 = pcVar13 + 1;
+                                                    } while (cVar4 != '\0');
+                                                    sVar14 = (int)pcVar13 - (int)(pcVar9 + 1);
+                                                    goto LAB_00763cb7;
+                                                  }
+                                                  }
+                                                  else {
+                                                    iVar7 = _stricmp(local_44,"MISSIONPTS");
+                                                    if (iVar7 == 0) {
+                                                      iVar7 = atoi(local_1e14);
+                                                      if ((-1 < iVar7) &&
+                                                         (piVar11 = *(int **)(local_1e20 + 0x1fc +
+                                                                             iVar7 * 4),
+                                                         piVar11 != (int *)0x0)) {
+                                                        uVar10 = (**(code **)(*piVar11 + 0x24))();
+                                                        iVar7 = (**(code **)(*(int *)*local_1e0c +
+                                                                            0x1c))(0x13);
+                                                        if (iVar7 != 0) {
+                                                          iVar7 = thunk_FUN_004b36e0(uVar10,0x25,0);
+                                                          piVar11 = local_1e04;
+                                                          _itoa(iVar7,(char *)local_1e04,10);
+                                                          iVar7 = (int)piVar11 + 1;
+                                                          do {
+                                                            iVar8 = *piVar11;
+                                                            piVar11 = (int *)((int)piVar11 + 1);
+                                                          } while ((char)iVar8 != '\0');
+                                                          iVar7 = (int)piVar11 - iVar7;
+                                                          local_1e08 = local_1e08 + iVar7;
+                                                          local_1e04 = (int *)((int)local_1e04 +
+                                                                              iVar7);
+                                                        }
+                                                      }
+                                                    }
+                                                    else {
+                                                      iVar7 = _stricmp(local_44,"LASTERROR");
+                                                      if (iVar7 == 0) {
+                                                        pcVar9 = (char *)(**(code **)(*(int *)
+                                                  local_1e0c[0x12] + 0x40))
+                                                            (*(short *)(local_1e20 + 0x48) + 0x9c4,6
+                                                            );
+                                                  if (pcVar9 != (char *)0x0) {
+                                                    pcVar13 = pcVar9;
+                                                    do {
+                                                      cVar4 = *pcVar13;
+                                                      pcVar13 = pcVar13 + 1;
+                                                    } while (cVar4 != '\0');
+                                                    sVar14 = (int)pcVar13 - (int)(pcVar9 + 1);
+                                                    memcpy(local_1e04,pcVar9,sVar14);
+                                                    local_1e08 = local_1e08 + sVar14;
+                                                    local_1e04 = (int *)((int)local_1e04 + sVar14);
+                                                  }
+                                                  }
+                                                  else {
+                                                    iVar7 = _stricmp(local_44,"MISSIONLONGDESC");
+                                                    if (iVar7 == 0) {
+                                                      iVar7 = atoi(local_1e14);
+                                                      if (((-1 < iVar7) &&
+                                                          (piVar11 = *(int **)(local_1e20 + 0x1fc +
+                                                                              iVar7 * 4),
+                                                          piVar11 != (int *)0x0)) &&
+                                                         (cVar4 = (**(code **)(*piVar11 + 0x18))
+                                                                            (2,local_1dd0,0x400),
+                                                         cVar4 != '\0')) {
+                                                        pcVar13 = local_1dd0;
+                                                        pcVar1 = local_1dd0;
+                                                        do {
+                                                          cVar4 = *pcVar13;
+                                                          pcVar13 = pcVar13 + 1;
+                                                        } while (cVar4 != '\0');
+                                                        pcVar9 = local_1dd0;
+                                                        goto LAB_00763cb3;
+                                                      }
+                                                    }
+                                                    else {
+                                                      iVar7 = _stricmp(local_44,"BOOL");
+                                                      if (iVar7 == 0) {
+                                                        iVar7 = atoi(local_1e14);
+                                                        if (iVar7 == 0) {
+                                                          *(undefined2 *)local_1e04 = 0x4f4e;
+                                                          local_1e08 = local_1e08 + 2;
+                                                          local_1e04 = (int *)((int)local_1e04 + 2);
+                                                        }
+                                                        else {
+                                                          *(undefined2 *)local_1e04 = 0x4559;
+                                                          *(char *)((int)local_1e04 + 2) = 'S';
+                                                          local_1e08 = local_1e08 + 3;
+                                                          local_1e04 = (int *)((int)local_1e04 + 3);
+                                                        }
+                                                      }
+                                                      else {
+                                                        iVar7 = _stricmp(local_44,"SOULLIGHT");
+                                                        if (iVar7 == 0) {
+                                                          iVar8 = atoi(local_1e14);
+                                                          local_50[0] = '\0';
+                                                          iVar7 = 100;
+                                                          if (iVar8 < 100) {
+                                                            iVar7 = iVar8;
+                                                          }
+                                                          iVar8 = -100;
+                                                          if (-100 < iVar7) {
+                                                            iVar8 = iVar7;
+                                                          }
+                                                          _itoa(iVar8,local_50,10);
+                                                          pcVar9 = local_50;
+                                                          do {
+                                                            cVar4 = *pcVar9;
+                                                            pcVar9 = pcVar9 + 1;
+                                                          } while (cVar4 != '\0');
+                                                          sVar14 = (int)pcVar9 - (int)(local_50 + 1)
+                                                          ;
+                                                          memcpy(local_1e04,local_50,sVar14);
+                                                          local_1e08 = local_1e08 + sVar14;
+                                                          local_1e04 = (int *)((int)local_1e04 +
+                                                                              sVar14);
+                                                        }
+                                                        else {
+                                                          pcVar9 = (char *)_stricmp(local_44,"ENV");
+                                                          if (pcVar9 == (char *)0x0) {
+                                                            local_1e2c = pcVar9;
+                                                            (**(code **)(**(int **)(local_1e20 + 4)
+                                                                        + 0x18))
+                                                                      (local_1e14,&local_1e2c);
+                                                            if (local_1e2c != (char *)0x0) {
+                                                              pcVar9 = local_1e2c;
+                                                              do {
+                                                                cVar4 = *pcVar9;
+                                                                pcVar9 = pcVar9 + 1;
+                                                              } while (cVar4 != '\0');
+                                                              sVar14 = (int)pcVar9 -
+                                                                       (int)(local_1e2c + 1);
+                                                              memcpy(local_1e04,local_1e2c,sVar14);
+                                                              local_1e08 = local_1e08 + sVar14;
+                                                              local_1e04 = (int *)((int)local_1e04 +
+                                                                                  sVar14);
+                                                            }
+                                                          }
+                                                          else {
+                                                            iVar7 = _stricmp(local_44,
+                                                  "VEHICLEREPAIRCOSTS");
+                                                  if (iVar7 == 0) {
+                                                    local_1e28 = atoi(local_1e14);
+                                                    local_1e34 = local_1e28 / 1000 & 0xffff;
+                                                    local_1e38 = (local_1e28 / 1000) * 1000;
+                                                    local_1e24 = (**(code **)(*(int *)*local_1e0c +
+                                                                             0x1c))(1);
+                                                    if (local_1e24 != 0) {
+                                                      local_1e18 = 0.0;
+                                                      local_1e10 = thunk_FUN_004b3930();
+                                                      if (0 < (int)local_1e10) {
+LAB_00763f20:
+                                                        do {
+                                                          local_1e1c = pcVar15;
+                                                          fVar2 = local_1e18;
+                                                          iVar7 = thunk_FUN_004b3820(local_1e18);
+                                                          local_1e18 = (float)((int)fVar2 + 1);
+                                                          pcVar15 = local_1e1c;
+                                                        } while (iVar7 == 0);
+                                                        local_1e10 = local_1e10 - 1;
+                                                        iVar7 = thunk_FUN_004b3710(2);
+                                                        uVar6 = thunk_FUN_004b3710(3);
+                                                        if ((iVar7 != 0x16) ||
+                                                           (uVar6 != (local_1e34 & 0xffff))) break;
+                                                        iVar7 = thunk_FUN_004b3710(9);
+                                                        piVar11 = local_1e04;
+                                                        _itoa((int)(((float)(iVar7 * 5) / 100.0) *
+                                                                   ((float)((local_1e38 - local_1e28
+                                                                            ) + 0xff) / 255.0)),
+                                                              (char *)local_1e04,10);
+                                                        iVar7 = (int)piVar11 + 1;
+                                                        do {
+                                                          iVar8 = *piVar11;
+                                                          piVar11 = (int *)((int)piVar11 + 1);
+                                                        } while ((char)iVar8 != '\0');
+                                                        iVar7 = (int)piVar11 - iVar7;
+                                                        local_1e08 = local_1e08 + iVar7;
+                                                        local_1e04 = (int *)((int)local_1e04 + iVar7
+                                                                            );
+                                                        pcVar15 = local_1e1c;
+                                                      }
+                                                    }
+                                                  }
+                                                  else {
+                                                    iVar7 = _stricmp(local_44,"VEHICLEDISMISSCOSTS")
+                                                    ;
+                                                    if (iVar7 == 0) {
+                                                      local_1e28 = atoi(local_1e14);
+                                                      local_1dd8 = 1;
+                                                      local_1dd4 = 0xf;
+                                                      local_1de8._2_14_ = SUB1614(ZEXT816(0),2);
+                                                      local_1de8._0_2_ = 0x30;
+                                                      local_14 = 0;
+                                                      if (0 < local_1e28) {
+                                                        local_1e30 = local_1e28;
+                                                        (**(code **)(*(int *)local_1e0c[1] + 8))
+                                                                  (0x2779,4,&local_1e30);
+                                                        uVar10 = thunk_FUN_007683e0(local_1e30,
+                                                                                    local_1e28);
+                                                        thunk_FUN_0046ab10(local_1e00,uVar10);
+                                                        thunk_FUN_0069abb0(local_1e00);
+                                                        thunk_FUN_0043f290();
+                                                      }
+                                                      uVar6 = local_1dd4;
+                                                      _Src = local_1de8;
+                                                      if (0xf < local_1dd4) {
+                                                        _Src = (undefined1 *)local_1de8._0_4_;
+                                                      }
+                                                      memcpy(local_1e04,_Src,local_1dd8);
+                                                      local_1e08 = local_1e08 + local_1dd8;
+                                                      local_1e04 = (int *)((int)local_1e04 +
+                                                                          local_1dd8);
+                                                      local_14 = 0xffffffff;
+                                                      if (0xf < uVar6) {
+                                                        thunk_FUN_004420d0(local_1de8,
+                                                                           local_1de8._0_4_,uVar6);
+                                                      }
+                                                    }
+                                                    else {
+                                                      pcVar9 = local_44;
+                                                      *(char *)local_1e04 = '%';
+                                                      local_1e04 = (int *)((int)local_1e04 + 1);
+                                                      do {
+                                                        cVar4 = *pcVar9;
+                                                        pcVar9 = pcVar9 + 1;
+                                                      } while (cVar4 != '\0');
+                                                      sVar14 = (int)pcVar9 - (int)(local_44 + 1);
+                                                      memcpy(local_1e04,local_44,sVar14);
+                                                      local_1e04 = (int *)((int)local_1e04 + sVar14)
+                                                      ;
+                                                      local_1e08 = local_1e08 + sVar14;
+                                                    }
+                                                  }
+                                                  }
+                                                  }
+                                                  }
+                                                  }
+                                                  }
+                                                  }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    else {
+LAB_007641d0:
+      *(char *)local_1e04 = *param_1;
+      local_1e04 = (int *)((int)local_1e04 + 1);
+      local_1e08 = local_1e08 + 1;
+      pcVar15 = param_1 + 1;
+    }
+LAB_00763f87:
+    cVar4 = *pcVar15;
+    ppvVar3 = ExceptionList;
+    param_1 = pcVar15;
+  } while( true );
+  pcVar15 = local_1e1c;
+  if ((int)local_1e10 < 1) goto LAB_00763f87;
+  goto LAB_00763f20;
+}
+
+
+
