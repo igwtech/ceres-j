@@ -136,6 +136,12 @@ public final class MobManager {
     /** Number of mobs currently tracked. */
     public static int trackedCount() { return STATES.size(); }
 
+    /** Read-only view of the entire state map. Used by
+     *  {@link MobAttackTicker} to walk every mob each tick without
+     *  copying the whole map. The returned map is the live
+     *  ConcurrentHashMap — callers must NOT mutate it. */
+    public static Map<Integer, Snapshot> snapshotMap() { return STATES; }
+
     /**
      * Apply incoming damage to a mob and trigger the AI consequences.
      *

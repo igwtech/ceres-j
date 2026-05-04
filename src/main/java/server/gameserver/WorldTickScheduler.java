@@ -70,16 +70,32 @@ public final class WorldTickScheduler {
 
     /** One tick. Package-private for tests.
      *
-     *  <p>Order of operations matters: AI runs first so that intents
-     *  it posts ({@link server.gameserver.npc.MobStateChangeIntent})
-     *  are drained on the SAME tick rather than waiting one extra
-     *  cadence. */
+     *  <p>Order of operations matters:
+     *  <ol>
+     *    <li>AI scheduler runs first — its state-change intents
+     *        (mob aggro/deaggro) are posted to the bus and need
+     *        to be drained on the SAME tick.</li>
+     *    <li>Attack ticker runs next — it consults the freshly
+     *        updated {@link server.gameserver.npc.MobManager}
+     *        snapshots to decide which mobs in COMBAT state should
+     *        fire this tick.</li>
+     *    <li>{@code bus.drain(-1)} flushes both AI state intents
+     *        AND the attack ticker's player-damage intents in a
+     *        single pass.</li>
+     *  </ol>
+     */
     void tick() {
         try {
             server.gameserver.npc.MobAIScheduler.tickOnce(bus);
         } catch (Exception e) {
             Out.writeln(Out.Error,
                     "WorldTickScheduler: AI tick threw " + e.getMessage());
+        }
+        try {
+            server.gameserver.npc.MobAttackTicker.tickOnce(bus);
+        } catch (Exception e) {
+            Out.writeln(Out.Error,
+                    "WorldTickScheduler: attack tick threw " + e.getMessage());
         }
         try {
             bus.drain(-1); // global
