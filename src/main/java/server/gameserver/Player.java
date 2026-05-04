@@ -220,9 +220,13 @@ public class Player extends Thread {
 
 	public void updateZone() {
 		synchronized(this){
-			currentZone.unregisterPlayer(this);
+			if (currentZone != null) {
+				currentZone.unregisterPlayer(this);
+			}
 			currentZone = ZoneManager.getZone(pc.getMisc(PlayerCharacter.MISC_LOCATION));
-			currentZone.registerPlayer(this);
+			if (currentZone != null) {
+				currentZone.registerPlayer(this);
+			}
 		}
 	}
 

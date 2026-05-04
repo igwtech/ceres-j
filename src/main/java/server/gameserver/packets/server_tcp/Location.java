@@ -22,11 +22,19 @@ public class Location extends PacketBuilderTCP {
 		// characters, producing a world-load failure like
 		// "Worldfile opening failed: .\worlds\a/plaza_p1.bsp".
 		writeInt(0);
-		if(location == 9999)
-			write(new String("apps/clean/plaza_app_4_c").getBytes());
-		else
-			write(pl.getZone().getWorldname().getBytes());
-//		write(new String("theroom").getBytes());
+		// Zone name lookup. Tolerate a null zone (player whose
+		// currentZone wasn't initialised, or fresh fixture in tests)
+		// by emitting an empty string — the client still gets a
+		// complete frame instead of an NPE killing the connection.
+		String worldname;
+		if (location == 9999) {
+			worldname = "apps/clean/plaza_app_4_c";
+		} else {
+			Zone z = pl.getZone();
+			worldname = (z == null || z.getWorldname() == null)
+					? "" : z.getWorldname();
+		}
+		write(worldname.getBytes());
 		write(0); //CStyle
 	}
 
