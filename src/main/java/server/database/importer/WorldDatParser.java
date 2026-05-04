@@ -327,6 +327,10 @@ public final class WorldDatParser {
         public final List<Integer>     sectionIds = new ArrayList<>();
         /** Total elements seen across all sections. */
         public int totalElements;
+        /** Number of elements that failed per-element decode and
+         *  were captured as raw blobs with a negated element_type
+         *  sentinel. Lets the importer log a per-file health metric. */
+        public int malformedElements;
     }
 
     /**
@@ -406,7 +410,26 @@ public final class WorldDatParser {
                     if (dataOff + edsz > sectionEnd) {
                         throw new ParseException("element overflows section");
                     }
-                    decodeElement(in, dataOff, edsz, sec, etype, out);
+                    try {
+                        decodeElement(in, dataOff, edsz, sec, etype, out);
+                    } catch (ParseException pe) {
+                        // One bad element shouldn't abort the whole file.
+                        // Capture the failing payload as a raw blob with a
+                        // diagnostic-tag negative-shifted elementType so
+                        // post-import RE can find it. Continue with the
+                        // next element in the section.
+                        RawBlob blob = new RawBlob();
+                        blob.sectionId = sec;
+                        // Encode the original type AND the failure marker
+                        // by negating: a negative elementType in
+                        // world_raw_elements means "this element failed to
+                        // decode; original type is -elementType".
+                        blob.elementType = -etype;
+                        blob.data = Arrays.copyOfRange(in, dataOff,
+                                dataOff + edsz);
+                        out.rawBlobs.add(blob);
+                        out.malformedElements++;
+                    }
                     out.totalElements++;
                     elemOff = dataOff + edsz;
                 }

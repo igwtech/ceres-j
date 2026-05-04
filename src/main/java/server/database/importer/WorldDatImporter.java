@@ -127,6 +127,13 @@ public final class WorldDatImporter {
                     totalObjects += pw.objects.size();
                     totalDoors   += pw.doors.size();
                     totalNpcs    += pw.npcs.size();
+                    if (pw.malformedElements > 0) {
+                        Out.writeln(Out.Warning,
+                            "WorldDatImporter: " + worldPath
+                            + " had " + pw.malformedElements
+                            + " malformed elements (captured as "
+                            + "negative-tagged raw blobs)");
+                    }
                 } catch (SQLException e) {
                     Out.writeln(Out.Error,
                         "WorldDatImporter: insert failed " + worldPath

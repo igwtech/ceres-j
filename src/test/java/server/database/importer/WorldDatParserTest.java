@@ -376,22 +376,19 @@ public class WorldDatParserTest {
     }
 
     @Test
-    public void labeledRegionRejectsBadSizeFormat() throws Exception {
+    public void labeledRegionBadSizeIsCapturedAsMalformedBlob() throws Exception {
         // Synthetic inflated body with a labeled-region element whose
-        // declared strlen+20 doesn't match dataSize. Forces the size-
-        // mismatch error path in decodeLabeledRegion.
-        // [file header 12B][section hdr 16B][elem hdr 16B + payload]
+        // declared strlen+20 doesn't match dataSize. The per-element
+        // error catch should capture it as a raw blob with -1000015
+        // tag, NOT abort the file.
         byte[] inner = new byte[12 + 16 + 16 + 30];
-        // file header
         inner[0] = 0x08;
         inner[4] = (byte) 0xcf; inner[5] = (byte) 0xcf; inner[6] = 0x0f;
         inner[8] = 0x01;
-        // section header: section=2 dataSize=46
         inner[12] = 0x0c;
         inner[16] = (byte) 0xcf; inner[17] = (byte) 0xff;
         inner[20] = 0x02;
-        inner[24] = 46; // 16 elem header + 30 payload
-        // element header: size=12 sig=0x0ffefef1 type=1000015 dataSize=30
+        inner[24] = 46;
         int eo = 28;
         inner[eo] = 0x0c;
         inner[eo+4] = (byte) 0xf1; inner[eo+5] = (byte) 0xfe;
@@ -402,15 +399,15 @@ public class WorldDatParserTest {
         inner[eo+10] = (byte) ((t >> 16) & 0xff);
         inner[eo+11] = (byte) ((t >> 24) & 0xff);
         inner[eo+12] = 30;
-        // payload: u16 strlen=99 (clearly wrong: 99+22 != 30)
         int pl = eo + 16;
         inner[pl] = 99;
         inner[pl+1] = 0;
 
-        try {
-            WorldDatParser.parseInflated(inner);
-            fail("expected ParseException for size mismatch");
-        } catch (WorldDatParser.ParseException expected) { /* ok */ }
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parseInflated(inner);
+        assertEquals(1, pw.malformedElements);
+        assertTrue(pw.labeledRegions.isEmpty());
+        assertEquals(1, pw.rawBlobs.stream()
+                .filter(b -> b.elementType == -1000015).count());
     }
 
     // ─── Type 1000007 (tagged entity) functional ───────────────────
@@ -453,20 +450,18 @@ public class WorldDatParserTest {
     }
 
     @Test
-    public void taggedEntityTooSmallIsRejected() throws Exception {
-        // Synthetic body smaller than the 23-byte header → reject.
-        // Build a tiny inflated frame so we can call parseInflated.
+    public void taggedEntityTooSmallIsCapturedAsMalformedBlob() throws Exception {
+        // Synthetic body smaller than the 23-byte header. The
+        // per-element catch should capture as malformed raw blob,
+        // NOT abort the file.
         byte[] inner = new byte[12 + 16 + 16 + 22];
-        // file header
         inner[0] = 0x08;
         inner[4] = (byte) 0xcf; inner[5] = (byte) 0xcf; inner[6] = 0x0f;
         inner[8] = 0x01;
-        // section hdr: section=2 dataSize=38
         inner[12] = 0x0c;
         inner[16] = (byte) 0xcf; inner[17] = (byte) 0xff;
         inner[20] = 0x02;
-        inner[24] = 38; // 16 element header + 22 payload
-        // element hdr: type=1000007 dataSize=22 (one byte short)
+        inner[24] = 38;
         int eo = 28;
         inner[eo] = 0x0c;
         inner[eo+4] = (byte) 0xf1; inner[eo+5] = (byte) 0xfe;
@@ -477,10 +472,45 @@ public class WorldDatParserTest {
         inner[eo+10] = (byte) ((t >> 16) & 0xff);
         inner[eo+11] = (byte) ((t >> 24) & 0xff);
         inner[eo+12] = 22;
-        try {
-            WorldDatParser.parseInflated(inner);
-            fail("expected ParseException for size < header");
-        } catch (WorldDatParser.ParseException expected) { /* ok */ }
+
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parseInflated(inner);
+        assertEquals(1, pw.malformedElements);
+        assertTrue(pw.taggedEntities.isEmpty());
+        assertEquals(1, pw.rawBlobs.stream()
+                .filter(b -> b.elementType == -1000007).count());
+    }
+
+    // ─── Per-element resilience ─────────────────────────────────────
+
+    @Test
+    public void terrainStore1WithMalformedNpcsStillImportsOtherElements() throws Exception {
+        // pak_terrain_store1 has 4 NPCs at 31 bytes each (one byte
+        // shy of the canonical 32-byte NPC header). Without the
+        // per-element error catch, the whole file would have been
+        // dropped. With the catch, we should get the 2 doors, 2
+        // tagged entities, 0 NPCs, and 4 malformed-element raw blobs.
+        byte[] raw = readResource("/worlds/pak_terrain_store1.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+
+        assertEquals(2, pw.doors.size());
+        assertEquals(2, pw.taggedEntities.size());
+        assertEquals(0, pw.npcs.size());
+        assertEquals(4, pw.malformedElements);
+
+        // The 4 malformed NPCs were captured as raw blobs with
+        // elementType = -1000006 (the negation indicates "failed
+        // decode of this type").
+        long badNpcs = pw.rawBlobs.stream()
+                .filter(b -> b.elementType == -1000006)
+                .count();
+        assertEquals(4, badNpcs);
+    }
+
+    @Test
+    public void parserHealthCountsZeroForCleanFile() throws Exception {
+        byte[] raw = readResource("/worlds/pak_arena001.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        assertEquals(0, pw.malformedElements);
     }
 
     @Test
