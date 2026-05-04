@@ -177,9 +177,17 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 		sendNPCsinZone();		
 	}
 	
-	// adds a new Object to a Zone	
+	// adds a new Object to a Zone
 	public void addObjecttoZone(){
-		
+
+	}
+
+	/** Remove an NPC from this zone by mapID. Returns the removed
+	 *  NPC instance or null if it wasn't tracked. */
+	public NPC removeNpc(int mapId) {
+		synchronized (NPCList) {
+			return NPCList.remove(mapId);
+		}
 	}
 	
 	// removes an Object from a Zone

@@ -178,6 +178,13 @@ public final class MobManager {
             setState(bus, intent.npcId, intent.zoneIdField,
                     MobState.TRANSITION, 0x00, altitude,
                     MobAI.NO_TARGET);
+            // Notify death subsystems (body removal, loot, XP).
+            // Posted on the same bus so MobDeathHandler runs on the
+            // next drain after the broadcast intents.
+            if (bus != null) {
+                bus.post(new MobDeathIntent(intent.npcId,
+                        intent.zoneIdField, intent.attackerUid));
+            }
         } else {
             setState(bus, intent.npcId, intent.zoneIdField,
                     MobState.COMBAT, 0x00, altitude,
