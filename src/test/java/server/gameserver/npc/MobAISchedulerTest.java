@@ -230,4 +230,93 @@ public class MobAISchedulerTest {
         assertEquals(0, MobAIScheduler.tickZone(null, z));
         assertEquals(0, MobAIScheduler.tickOnce(null));
     }
+
+    // ─── Dead-mob lifecycle ────────────────────────────────────────
+
+    @Test
+    public void deadMobIsExcludedFromAITick() {
+        Zone z = new Zone(1, "test_zone");
+        z.addNPCtoZone(0, 0, 0, 100, 0, 0);
+        NPC mob = z.getAllNPCs().get(0);
+        // Aggro it first so we have an existing snapshot.
+        z.registerPlayer(makePlayer(7, 5, 0, 0));
+        WorldMessageBus bus = new WorldMessageBus();
+        MobAIScheduler.tickZone(bus, z);
+        assertEquals(MobState.COMBAT,
+                MobManager.getSnapshot(mob.getMapID()).state);
+
+        // Kill the mob and tick again. The dead mob must be removed
+        // from MobManager so the attack ticker stops firing for it.
+        mob.takeDamage(999);
+        assertTrue(mob.isDead());
+        MobAIScheduler.tickZone(bus, z);
+        assertNull("dead mob's MobManager state should be cleared",
+                MobManager.getSnapshot(mob.getMapID()));
+    }
+
+    @Test
+    public void deadMobDoesNotReaggro() {
+        Zone z = new Zone(1, "test_zone");
+        z.addNPCtoZone(0, 0, 0, 100, 0, 0);
+        NPC mob = z.getAllNPCs().get(0);
+        // Pre-kill the mob.
+        mob.takeDamage(999);
+        assertTrue(mob.isDead());
+
+        z.registerPlayer(makePlayer(7, 5, 0, 0));
+        WorldMessageBus bus = new WorldMessageBus();
+        MobAIScheduler.tickZone(bus, z);
+
+        // Player is at distance 5 (well within aggro), but the mob
+        // is dead — must not aggro.
+        assertNull(MobManager.getSnapshot(mob.getMapID()));
+    }
+
+    @Test
+    public void reapDeadNpcsClearsOnlyDeadMobs() {
+        Zone z = new Zone(1, "test_zone");
+        z.addNPCtoZone(0, 0, 0, 100, 0, 0);
+        z.addNPCtoZone(0, 0, 0, 100, 0, 0);
+        java.util.List<NPC> npcs = z.getAllNPCs();
+        // Force unique mapIDs (Zone reuses 257 by default).
+        npcs.get(1).setMapID(0x500);
+
+        // Pre-track both in MobManager.
+        WorldMessageBus bus = new WorldMessageBus();
+        MobManager.setState(bus, npcs.get(0).getMapID(), 1,
+                MobState.COMBAT, 0, 0f, 0x999);
+        MobManager.setState(bus, npcs.get(1).getMapID(), 1,
+                MobState.COMBAT, 0, 0f, 0x999);
+        bus.drain(-1);
+
+        // Kill only the first.
+        npcs.get(0).takeDamage(999);
+
+        int reaped = MobAIScheduler.reapDeadNpcs(npcs);
+        assertEquals("only dead mob reaped", 1, reaped);
+        assertNull(MobManager.getSnapshot(npcs.get(0).getMapID()));
+        assertNotNull(MobManager.getSnapshot(npcs.get(1).getMapID()));
+    }
+
+    @Test
+    public void reapDeadNpcsHandlesUntrackedMobsGracefully() {
+        Zone z = new Zone(1, "test_zone");
+        z.addNPCtoZone(0, 0, 0, 100, 0, 0);
+        NPC mob = z.getAllNPCs().get(0);
+        // Mob is dead but never tracked — reap should not throw and
+        // should report 0.
+        mob.takeDamage(999);
+        assertEquals(0, MobAIScheduler.reapDeadNpcs(z.getAllNPCs()));
+    }
+
+    @Test
+    public void deadMobInAdaptMobsIsFiltered() {
+        Zone z = new Zone(1, "test_zone");
+        z.addNPCtoZone(0, 0, 0, 100, 0, 0);
+        NPC mob = z.getAllNPCs().get(0);
+        mob.takeDamage(999);
+        java.util.List<MobAIRunner.MobView> views = MobAIScheduler.adaptMobs(
+                z.getAllNPCs());
+        assertEquals("dead NPCs filtered out", 0, views.size());
+    }
 }

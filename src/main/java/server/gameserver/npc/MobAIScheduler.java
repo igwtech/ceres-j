@@ -97,11 +97,30 @@ public final class MobAIScheduler {
         if (bus == null || zone == null) return 0;
         List<NPC> npcs = zone.getAllNPCs();
         if (npcs.isEmpty()) return 0;
+        // Reap dead mobs first — clear their MobManager state so a
+        // corpse can't keep firing PlayerDamageIntents from a stale
+        // COMBAT snapshot, and remove them from this tick's AI input
+        // so they don't re-aggro on a nearby player.
+        reapDeadNpcs(npcs);
         List<MobAI.PlayerSnapshot> playerSnapshots =
                 snapshotPlayers(zone.getAllPlayers());
         List<MobAIRunner.MobView> mobViews = adaptMobs(npcs);
         return MobAIRunner.tickAll(bus, zone.getZoneId(),
                 mobViews, playerSnapshots, aggroRange, deaggroRange);
+    }
+
+    /** Walk the NPC list, find any with HP <= 0, and clear their
+     *  state from {@link MobManager} so the attack ticker stops
+     *  firing for them. The NPC itself stays in the Zone — actual
+     *  body removal / loot spawn / respawn timer lives in a later
+     *  phase's death handler. */
+    static int reapDeadNpcs(List<NPC> npcs) {
+        int reaped = 0;
+        for (NPC n : npcs) {
+            if (n == null || !n.isDead()) continue;
+            if (MobManager.clear(n.getMapID()) != null) reaped++;
+        }
+        return reaped;
     }
 
     /** Convert live {@link Player}s to immutable position snapshots.
@@ -129,11 +148,14 @@ public final class MobAIScheduler {
         return out;
     }
 
-    /** Wrap each {@link NPC} as a {@link MobAIRunner.MobView}. */
+    /** Wrap each <strong>living</strong> {@link NPC} as a
+     *  {@link MobAIRunner.MobView}. Dead mobs are excluded so they
+     *  can't re-aggro on a nearby player. */
     static List<MobAIRunner.MobView> adaptMobs(List<NPC> npcs) {
         List<MobAIRunner.MobView> out = new ArrayList<>(npcs.size());
         for (NPC n : npcs) {
             if (n == null) continue;
+            if (n.isDead()) continue;
             out.add(new NpcMobView(n));
         }
         return out;
