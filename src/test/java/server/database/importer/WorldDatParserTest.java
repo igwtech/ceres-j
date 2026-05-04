@@ -509,6 +509,23 @@ public class WorldDatParserTest {
         assertFalse(pw.objects.isEmpty());
     }
 
+    @Test
+    public void vf00TerrainHeightmapGivesDistinctError() throws Exception {
+        // Synthetic inner body starting with "VF00" magic — same as
+        // pak_*height.dat in /terrain/. Must raise a clear "VF00
+        // terrain heightmap" error rather than the generic "bad
+        // file header" path.
+        byte[] inner = new byte[16];
+        inner[0] = 'V'; inner[1] = 'F'; inner[2] = '0'; inner[3] = '0';
+        try {
+            WorldDatParser.parseInflated(inner);
+            fail("expected ParseException for VF00 heightmap");
+        } catch (WorldDatParser.ParseException expected) {
+            assertTrue("error message names VF00",
+                    expected.getMessage().contains("VF00"));
+        }
+    }
+
     // ─── Per-element resilience ─────────────────────────────────────
 
     @Test

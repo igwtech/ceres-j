@@ -190,6 +190,21 @@ public class WorldDatImporterTest {
     }
 
     @Test
+    public void heightDatFilesAreSkippedByListing() throws Exception {
+        // *height.dat files are VF00 terrain heightmaps, not gameplay
+        // data. Drop two beside the real fixtures and verify they're
+        // filtered out.
+        Files.write(worldsDir.resolve("pak_a_06height.dat"), new byte[64]);
+        Files.write(worldsDir.resolve("pak_b_07height.dat"), new byte[64]);
+        List<File> files = WorldDatImporter.listDatFiles(worldsDir.toFile());
+        for (File f : files) {
+            assertFalse("listDatFiles must not include *height.dat: "
+                    + f.getName(),
+                    f.getName().toLowerCase().endsWith("height.dat"));
+        }
+    }
+
+    @Test
     public void corruptFileIsSkippedNotFatal() throws Exception {
         // Drop a bogus file alongside the real ones.
         Path bogus = worldsDir.resolve("pak_bogus.dat");

@@ -366,6 +366,16 @@ public final class WorldDatParser {
     /** Walk the inflated TinNS-format byte stream. */
     public static ParsedWorld parseInflated(byte[] in) throws ParseException {
         if (in.length < 12) throw new ParseException("inner too short");
+        // VF00 terrain-heightmap detection: bytes 0-3 carry "VF00"
+        // ASCII magic. These are *height.dat files in /terrain/ —
+        // engine heightmap data, not gameplay elements. Same outer
+        // wrapper as gameplay .dat but inner is raw heightmap.
+        if (in.length >= 4
+                && in[0] == 'V' && in[1] == 'F'
+                && in[2] == '0' && in[3] == '0') {
+            throw new ParseException(
+                "VF00 terrain heightmap (not gameplay data)");
+        }
         // GBSP 3D-geometry container detection: bytes 12-15 carry
         // "GBSP" magic when the file is geometry, not gameplay.
         // These files share the outer 16-byte zlib wrapper with .dat

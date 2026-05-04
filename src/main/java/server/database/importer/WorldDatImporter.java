@@ -147,11 +147,13 @@ public final class WorldDatImporter {
             + totalDoors + " doors, " + totalNpcs + " NPCs)");
     }
 
-    /** Lex-sorted {@code .dat} files under {@code dir}, recursive.
-     *  {@code .bsp} files (GBSP 3D-geometry containers — engine
-     *  visibility data, not gameplay) are intentionally skipped:
-     *  they coexist 1:1 with {@code .dat} files in the same dir
-     *  but use a different format that this importer doesn't read. */
+    /** Lex-sorted gameplay {@code .dat} files under {@code dir},
+     *  recursive. The following file classes coexist with gameplay
+     *  data but use unrelated formats and are skipped:
+     *  <ul>
+     *    <li>{@code .bsp} — GBSP 3D-geometry / engine visibility</li>
+     *    <li>{@code *height.dat} — VF00 terrain heightmaps</li>
+     *  </ul> */
     static List<File> listDatFiles(File dir) {
         List<File> out = new ArrayList<>();
         try {
@@ -159,9 +161,9 @@ public final class WorldDatImporter {
                 .filter(Files::isRegularFile)
                 .forEach((Path p) -> {
                     String n = p.getFileName().toString().toLowerCase();
-                    if (n.endsWith(".dat")) {
-                        out.add(p.toFile());
-                    }
+                    if (!n.endsWith(".dat")) return;
+                    if (n.endsWith("height.dat")) return;
+                    out.add(p.toFile());
                 });
         } catch (IOException e) {
             Out.writeln(Out.Warning,
