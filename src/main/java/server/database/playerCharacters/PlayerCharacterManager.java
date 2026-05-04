@@ -168,66 +168,74 @@ public class PlayerCharacterManager {
 		}
 	}
 
+	/**
+	 * Build the dialect-appropriate upsert SQL for {@code
+	 * player_characters}. Columns must be supplied in insertion
+	 * order with {@code "id"} first (it's the conflict key). For
+	 * SQLite, emits {@code INSERT OR REPLACE}. For PostgreSQL,
+	 * emits {@code INSERT ... ON CONFLICT (id) DO UPDATE SET col =
+	 * EXCLUDED.col} for every non-id column.
+	 *
+	 * <p>Visible for tests so we can assert both branches without
+	 * touching a real DB.
+	 */
+	static String buildUpsertSql(java.util.List<String> cols) {
+		boolean pg = SqliteDatabase.isPostgres();
+		StringBuilder sb = new StringBuilder(pg
+				? "INSERT INTO player_characters ("
+				: "INSERT OR REPLACE INTO player_characters (");
+		for (int i = 0; i < cols.size(); i++) {
+			if (i > 0) sb.append(", ");
+			sb.append(SqliteDatabase.q(cols.get(i)));
+		}
+		sb.append(") VALUES (");
+		for (int i = 0; i < cols.size(); i++) {
+			if (i > 0) sb.append(", ");
+			sb.append('?');
+		}
+		sb.append(')');
+		if (pg) {
+			sb.append(" ON CONFLICT (id) DO UPDATE SET ");
+			boolean first = true;
+			for (int i = 1; i < cols.size(); i++) { // skip id at 0
+				if (!first) sb.append(", ");
+				first = false;
+				String c = SqliteDatabase.q(cols.get(i));
+				sb.append(c).append(" = EXCLUDED.").append(c);
+			}
+		}
+		return sb.toString();
+	}
+
 	private static void saveCharacterInternal(Connection conn, PlayerCharacter pc) throws SQLException {
-		StringBuilder sql = new StringBuilder();
-		sql.append("INSERT OR REPLACE INTO player_characters (id, name");
-
-		// MISCLIST columns (excluding id which is the PK)
+		// Collect the column names FIRST so we can reuse them for
+		// both the INSERT list and (PostgreSQL only) the ON CONFLICT
+		// SET clause. Column[0] is always "id" — the conflict key.
+		java.util.List<String> cols = new java.util.ArrayList<>();
+		cols.add("id");
+		cols.add("name");
 		for (int i = 0; i < PlayerCharacter.MISCLIST.length; i++) {
 			if (PlayerCharacter.MISCLIST[i] != null && i != PlayerCharacter.MISC_ID) {
-				sql.append(", ").append(SqliteDatabase.q(PlayerCharacter.MISCLIST[i]));
+				cols.add(PlayerCharacter.MISCLIST[i]);
 			}
 		}
-
-		// Skills
 		for (int i = 1; i < PlayerCharacter.SKILLS.length; i++) {
-			sql.append(", ").append(SqliteDatabase.q(PlayerCharacter.SKILLS[i] + "_lvl"));
-			sql.append(", ").append(SqliteDatabase.q(PlayerCharacter.SKILLS[i] + "_pts"));
+			cols.add(PlayerCharacter.SKILLS[i] + "_lvl");
+			cols.add(PlayerCharacter.SKILLS[i] + "_pts");
 		}
-
-		// Subskills
 		for (int i = 1; i < PlayerCharacter.SUBSKILLS.length; i++) {
 			if (PlayerCharacter.SUBSKILLS[i] != null) {
-				sql.append(", ").append(SqliteDatabase.q(PlayerCharacter.SUBSKILLS[i]));
+				cols.add(PlayerCharacter.SUBSKILLS[i]);
 			}
 		}
-
-		// CharInfo fidelity columns (schema v1) — same order as SqliteDatabase.FIDELITY_COLUMNS.
 		for (String[] col : SqliteDatabase.FIDELITY_COLUMNS) {
-			sql.append(", ").append(SqliteDatabase.q(col[0]));
+			cols.add(col[0]);
 		}
+		cols.add("f2_inventory_cont_id");
+		cols.add("gogu_inventory_cont_id");
+		cols.add("qb_inventory_cont_id");
 
-		sql.append(", f2_inventory_cont_id, gogu_inventory_cont_id, qb_inventory_cont_id");
-		sql.append(") VALUES (?");
-
-		// name
-		sql.append(", ?");
-
-		// MISCLIST (excluding id)
-		for (int i = 0; i < PlayerCharacter.MISCLIST.length; i++) {
-			if (PlayerCharacter.MISCLIST[i] != null && i != PlayerCharacter.MISC_ID) {
-				sql.append(", ?");
-			}
-		}
-
-		// Skills
-		for (int i = 1; i < PlayerCharacter.SKILLS.length; i++) {
-			sql.append(", ?, ?");
-		}
-
-		// Subskills
-		for (int i = 1; i < PlayerCharacter.SUBSKILLS.length; i++) {
-			if (PlayerCharacter.SUBSKILLS[i] != null) {
-				sql.append(", ?");
-			}
-		}
-
-		// Fidelity column placeholders
-		for (int i = 0; i < SqliteDatabase.FIDELITY_COLUMNS.length; i++) {
-			sql.append(", ?");
-		}
-
-		sql.append(", ?, ?, ?)");
+		StringBuilder sql = new StringBuilder(buildUpsertSql(cols));
 
 		try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
 			int paramIdx = 1;

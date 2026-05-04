@@ -86,6 +86,13 @@ public final class SqliteDatabase {
      */
     public static boolean isPostgres() { return isPostgres; }
 
+    /** Test seam — let dialect-specific tests flip the flag without
+     *  booting a real PostgreSQL. Always pair with a reset to the
+     *  pre-test value in tearDown. */
+    public static void setIsPostgresForTesting(boolean v) {
+        isPostgres = v;
+    }
+
     public static void init() throws StartupException {
         try {
             // Resolve JDBC URL: production runtime defaults to PostgreSQL via

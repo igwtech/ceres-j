@@ -68,7 +68,7 @@ public class AccountManager {
 		try {
 			conn.setAutoCommit(false);
 
-			String upsert = "INSERT OR REPLACE INTO accounts (id, username, password, char1, char2, char3, char4, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+			String upsert = upsertSql();
 			try (PreparedStatement ps = conn.prepareStatement(upsert)) {
 				synchronized (accountList) {
 					for (Iterator<Account> i = accountList.iterator(); i.hasNext(); ) {
@@ -111,7 +111,7 @@ public class AccountManager {
 		Connection conn = SqliteDatabase.getConnection();
 		if (conn == null) return;
 
-		String upsert = "INSERT OR REPLACE INTO accounts (id, username, password, char1, char2, char3, char4, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+		String upsert = upsertSql();
 		try (PreparedStatement ps = conn.prepareStatement(upsert)) {
 			ps.setInt(1, ua.getId());
 			ps.setString(2, ua.getUsername());
@@ -125,6 +125,29 @@ public class AccountManager {
 		} catch (SQLException e) {
 			Out.writeln(Out.Error, "Error saving account " + ua.getUsername() + ": " + e.getMessage());
 		}
+	}
+
+	/** Build the dialect-appropriate upsert SQL for the accounts
+	 *  table. PostgreSQL needs {@code ON CONFLICT} since
+	 *  {@code INSERT OR REPLACE} is SQLite-only syntax. Visible
+	 *  for tests so we can assert both branches. */
+	static String upsertSql() {
+		if (SqliteDatabase.isPostgres()) {
+			return "INSERT INTO accounts ("
+				+ "id, username, password, char1, char2, char3, char4, status) "
+				+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+				+ "ON CONFLICT (id) DO UPDATE SET "
+				+ "username = EXCLUDED.username, "
+				+ "password = EXCLUDED.password, "
+				+ "char1 = EXCLUDED.char1, "
+				+ "char2 = EXCLUDED.char2, "
+				+ "char3 = EXCLUDED.char3, "
+				+ "char4 = EXCLUDED.char4, "
+				+ "status = EXCLUDED.status";
+		}
+		return "INSERT OR REPLACE INTO accounts ("
+			+ "id, username, password, char1, char2, char3, char4, status) "
+			+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 	}
 
 	private static void findaccountCounter() {
