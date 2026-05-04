@@ -189,7 +189,22 @@ public final class Config {
 	}
 
 	public static String getProperty(String key) {
+		if (properties == null) return null;
 		return properties.getProperty(key);
+	}
+
+	/** Set a property at runtime — visible mostly for unit tests
+	 *  that need to flip flags like {@code AutoCreateAccounts}
+	 *  without touching the actual {@code ceres.cfg} file. */
+	public static void setProperty(String key, String value) {
+		if (properties == null) {
+			properties = new java.util.Properties();
+		}
+		if (value == null) {
+			properties.remove(key);
+		} else {
+			properties.setProperty(key, value);
+		}
 	}
 
 	public static void stopServer() {

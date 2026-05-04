@@ -161,26 +161,74 @@ public class AccountManager {
 		accountCounter = id + 1;
 	}
 
-	public static Account getAccount(String username, String password) {
-		Account ua = null;
+	/** Outcome of an authentication attempt — surfaces enough
+	 *  detail that the caller (e.g. {@code AuthB}) can log a
+	 *  meaningful diagnostic instead of "authentication failed". */
+	public enum AuthOutcome { OK, NOT_FOUND, BAD_PASSWORD, BANNED }
+
+	public static final class AuthResult {
+		public final AuthOutcome outcome;
+		/** The matched account on success, or null otherwise. Null
+		 *  on BAD_PASSWORD too — callers shouldn't see the entity
+		 *  for a failed credential check. */
+		public final Account account;
+		AuthResult(AuthOutcome o, Account a) { this.outcome = o; this.account = a; }
+	}
+
+	/** Detailed authentication that distinguishes user-not-found,
+	 *  bad-password, banned, and success. Used by {@code AuthB}
+	 *  for richer logs.
+	 *
+	 *  <p>If {@code AutoCreateAccounts=true} and the username is
+	 *  unknown, the account is created with the supplied password
+	 *  and the result is {@link AuthOutcome#OK}. (This matches the
+	 *  legacy {@code getAccount} semantics — dev-mode signup.) */
+	public static AuthResult authenticate(String username, String password) {
+		Account ua = findByUsername(username);
+		if (ua == null) {
+			if ("true".equals(Config.getProperty("AutoCreateAccounts"))) {
+				synchronized (accountList) {
+					// Re-check inside the lock in case another thread
+					// just created it.
+					ua = findByUsername(username);
+					if (ua == null) {
+						ua = createAccount(username, password);
+						accountList.add(ua);
+						saveAccount(ua);
+					}
+				}
+			} else {
+				return new AuthResult(AuthOutcome.NOT_FOUND, null);
+			}
+		}
+		if (!ua.ckeckPassword(password)) {
+			return new AuthResult(AuthOutcome.BAD_PASSWORD, null);
+		}
+		if (ua.isStatus(Account.STATUS_BANNED)) {
+			return new AuthResult(AuthOutcome.BANNED, null);
+		}
+		return new AuthResult(AuthOutcome.OK, ua);
+	}
+
+	/** Case-insensitive in-memory lookup — visible for tests. */
+	static Account findByUsername(String username) {
+		if (username == null) return null;
 		synchronized (accountList) {
 			for (Iterator<Account> i = accountList.iterator(); i.hasNext(); ) {
 				Account tua = i.next();
 				if (tua.getUsername().equalsIgnoreCase(username)) {
-					ua = tua;
-					break;
+					return tua;
 				}
 			}
-			if ((ua == null) && (Config.getProperty("AutoCreateAccounts").equals("true"))) {
-				ua = createAccount(username, password);
-				accountList.add(ua);
-				saveAccount(ua); // Immediately persist new account
-			}
 		}
-		if (ua == null) return null;
-		if (!ua.ckeckPassword(password)) return null;
-		if (ua.isStatus(Account.STATUS_BANNED)) return null;
-		return ua;
+		return null;
+	}
+
+	/** Backward-compatible thin wrapper. New callers should prefer
+	 *  {@link #authenticate} which surfaces the failure reason. */
+	public static Account getAccount(String username, String password) {
+		AuthResult r = authenticate(username, password);
+		return r.outcome == AuthOutcome.OK ? r.account : null;
 	}
 
 	private static Account createAccount(String username, String password) {

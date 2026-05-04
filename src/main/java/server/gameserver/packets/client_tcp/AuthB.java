@@ -67,8 +67,9 @@ public class AuthB extends GamePacketDecoderTCP {
 
 			Out.writeln(Out.Info, "AuthB: user='" + username + "' spot=" + spot);
 
-			Account ua = AccountManager.getAccount(username, password);
-			if (ua != null) {
+			AccountManager.AuthResult ar = AccountManager.authenticate(username, password);
+			Account ua = ar.account;
+			if (ar.outcome == AccountManager.AuthOutcome.OK) {
 				tcp.setAccount(ua);
 				tcp.activatePlayer(spot);
 				// Use the already-activated player — do NOT call findPlayer again
@@ -126,7 +127,16 @@ public class AuthB extends GamePacketDecoderTCP {
 					tcp.send(new RequestFailed("ERROR"));
 				}
 			} else {
-				Out.writeln(Out.Error, "AuthB: authentication failed for '" + username + "'");
+				String reason;
+				switch (ar.outcome) {
+				case NOT_FOUND:    reason = "user not found"; break;
+				case BAD_PASSWORD: reason = "wrong password"; break;
+				case BANNED:       reason = "account banned"; break;
+				default:           reason = ar.outcome.toString();
+				}
+				Out.writeln(Out.Error,
+					"AuthB: authentication failed for '" + username
+					+ "': " + reason);
 				tcp.send(new RequestFailed("ERROR"));
 			}
 		} catch (Exception e) {
