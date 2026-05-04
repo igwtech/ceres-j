@@ -162,6 +162,71 @@ public class AdminMobCommandsTest {
         assertTrue(damageIntents.isEmpty());
     }
 
+    // ─── !hurtself ────────────────────────────────────────────────
+
+    @Test
+    public void hurtSelfPostsPlayerDamageIntent() {
+        List<server.gameserver.npc.PlayerDamageIntent> playerDmg = new ArrayList<>();
+        bus.registerHandler(server.gameserver.npc.PlayerDamageIntent.class,
+                i -> playerDmg.add((server.gameserver.npc.PlayerDamageIntent) i));
+
+        AdminCommandHandler.cmdHurtSelf(player, "25");
+        bus.drain(-1);
+
+        assertEquals(1, playerDmg.size());
+        server.gameserver.npc.PlayerDamageIntent intent = playerDmg.get(0);
+        assertEquals(0x1234, intent.victimUid);
+        assertEquals(0, intent.attackerId);
+        assertEquals(25f, intent.amount, 0.01f);
+    }
+
+    @Test
+    public void hurtSelfAcceptsAttackerArg() {
+        List<server.gameserver.npc.PlayerDamageIntent> playerDmg = new ArrayList<>();
+        bus.registerHandler(server.gameserver.npc.PlayerDamageIntent.class,
+                i -> playerDmg.add((server.gameserver.npc.PlayerDamageIntent) i));
+
+        AdminCommandHandler.cmdHurtSelf(player, "100 0xdead");
+        bus.drain(-1);
+
+        assertEquals(1, playerDmg.size());
+        assertEquals(0xdead, playerDmg.get(0).attackerId);
+        assertEquals(100f, playerDmg.get(0).amount, 0.01f);
+    }
+
+    @Test
+    public void hurtSelfMissingArgsDoesNotPost() {
+        List<server.gameserver.npc.PlayerDamageIntent> playerDmg = new ArrayList<>();
+        bus.registerHandler(server.gameserver.npc.PlayerDamageIntent.class,
+                i -> playerDmg.add((server.gameserver.npc.PlayerDamageIntent) i));
+
+        AdminCommandHandler.cmdHurtSelf(player, "");
+        AdminCommandHandler.cmdHurtSelf(player, null);
+        bus.drain(-1);
+        assertTrue(playerDmg.isEmpty());
+    }
+
+    @Test
+    public void hurtSelfBadArgsDoesNotPost() {
+        List<server.gameserver.npc.PlayerDamageIntent> playerDmg = new ArrayList<>();
+        bus.registerHandler(server.gameserver.npc.PlayerDamageIntent.class,
+                i -> playerDmg.add((server.gameserver.npc.PlayerDamageIntent) i));
+
+        AdminCommandHandler.cmdHurtSelf(player, "garbage");
+        bus.drain(-1);
+        assertTrue(playerDmg.isEmpty());
+    }
+
+    @Test
+    public void hurtSelfWithNullBusDoesNotThrow() {
+        GameServer.setBusForTesting(null);
+        AdminCommandHandler.cmdHurtSelf(player, "25");
+        // Re-arm bus and confirm earlier call posted nothing
+        // (no caching via state).
+        GameServer.setBusForTesting(bus);
+        bus.drain(-1);
+    }
+
     @Test
     public void hurtMobNullArgsDoesNotThrow() {
         // Defensive: invocation point may pass null when the chat

@@ -90,6 +90,10 @@ public class AdminCommandHandler {
         case "mobdmg":
             cmdHurtMob(pl, args);
             return true;
+        case "hurtself":
+        case "selfdmg":
+            cmdHurtSelf(pl, args);
+            return true;
         case "mobtick":
             cmdMobTick(pl);
             return true;
@@ -316,6 +320,42 @@ public class AdminCommandHandler {
         reply(pl, "Posted damage intent: npc=0x"
                 + Integer.toHexString(npcId)
                 + " amount=" + amount);
+    }
+
+    /**
+     * {@code !hurtself <amount> [attackerId]} — post a
+     * {@link server.gameserver.npc.PlayerDamageIntent} for the
+     * caller. Verifies the bus-driven player damage path
+     * end-to-end. {@code attackerId} defaults to 0.
+     */
+    static void cmdHurtSelf(Player pl, String args) {
+        String[] p = args == null ? new String[0] : args.split("\\s+");
+        if (p.length < 1 || p[0].isEmpty()) {
+            reply(pl, "Usage: !hurtself <amount> [attackerId]");
+            return;
+        }
+        int amount; int attackerId;
+        try {
+            amount     = parseIntFlex(p[0]);
+            attackerId = (p.length > 1) ? parseIntFlex(p[1]) : 0;
+        } catch (NumberFormatException e) {
+            reply(pl, "Bad arg: " + e.getMessage());
+            return;
+        }
+        WorldMessageBus bus = GameServer.getBus();
+        if (bus == null) {
+            reply(pl, "World bus not running.");
+            return;
+        }
+        int victimUid = ownerUidOf(pl);
+        if (victimUid == 0) {
+            reply(pl, "No character attached.");
+            return;
+        }
+        bus.post(new server.gameserver.npc.PlayerDamageIntent(
+                victimUid, attackerId, amount, 0x0a));
+        reply(pl, "Posted player-damage intent: amount=" + amount
+                + " attacker=0x" + Integer.toHexString(attackerId));
     }
 
     /**
@@ -577,7 +617,7 @@ public class AdminCommandHandler {
     private static void cmdHelp(Player pl) {
         reply(pl, "Commands: !pos !warp !hp !heal !kill !damage !god !spawn !online "
                 + "!sethp !setpsi !setsta !setsl !setcash !probecash "
-                + "!hurtmob !mobtick !mobstate "
+                + "!hurtmob !hurtself !mobtick !mobstate "
                 + "!buddyadd !buddyrm !buddylist "
                 + "!groupcreate !groupinvite !groupleave !groupinfo "
                 + "!help");
