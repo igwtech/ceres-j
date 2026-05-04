@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -169,6 +170,23 @@ public class WorldDatImporterTest {
         assertEquals(0, countRows("world_objects"));
         assertEquals(0, countRows("world_doors"));
         assertEquals(0, countRows("world_npcs"));
+    }
+
+    @Test
+    public void bspFilesAreSkippedByListing() throws Exception {
+        // Drop a 1MB .bsp file alongside the real .dat fixtures.
+        // The lister must NOT pick it up — .bsp is geometry, not
+        // gameplay data, and would parse-fail with a confusing
+        // "bad file header" message before the GBSP detection
+        // shipped.
+        Path bsp = worldsDir.resolve("pak_bogus.bsp");
+        Files.write(bsp, new byte[1024]);
+        List<File> files = WorldDatImporter.listDatFiles(worldsDir.toFile());
+        for (File f : files) {
+            assertFalse("listDatFiles must not include .bsp: "
+                    + f.getName(),
+                    f.getName().toLowerCase().endsWith(".bsp"));
+        }
     }
 
     @Test

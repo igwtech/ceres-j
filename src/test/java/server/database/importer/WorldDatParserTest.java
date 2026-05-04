@@ -480,6 +480,35 @@ public class WorldDatParserTest {
                 .filter(b -> b.elementType == -1000007).count());
     }
 
+    // ─── GBSP detection ─────────────────────────────────────────────
+
+    @Test
+    public void gbspGeometryFileGivesDistinctError() throws Exception {
+        // Build a synthetic inflated body shaped like a real GBSP
+        // header (zeros at 0-11, "GBSP" at 12-15, anything after).
+        byte[] inner = new byte[32];
+        // header words: size=0, sig=0x1c, section=1
+        inner[4] = 0x1c; inner[8] = 0x01;
+        inner[12] = 'G'; inner[13] = 'B'; inner[14] = 'S'; inner[15] = 'P';
+        try {
+            WorldDatParser.parseInflated(inner);
+            fail("expected ParseException for GBSP file");
+        } catch (WorldDatParser.ParseException expected) {
+            assertTrue("error message names GBSP",
+                    expected.getMessage().contains("GBSP"));
+        }
+    }
+
+    @Test
+    public void normalDatFileDoesNotTriggerGbspDetection() throws Exception {
+        // Reaktor fixture is a real .dat with the standard inner
+        // header — must NOT trigger the GBSP error path.
+        byte[] raw = readResource("/worlds/pak_reaktor_nc.dat");
+        WorldDatParser.ParsedWorld pw = WorldDatParser.parse(raw);
+        assertNotNull(pw);
+        assertFalse(pw.objects.isEmpty());
+    }
+
     // ─── Per-element resilience ─────────────────────────────────────
 
     @Test

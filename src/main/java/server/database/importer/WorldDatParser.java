@@ -366,6 +366,19 @@ public final class WorldDatParser {
     /** Walk the inflated TinNS-format byte stream. */
     public static ParsedWorld parseInflated(byte[] in) throws ParseException {
         if (in.length < 12) throw new ParseException("inner too short");
+        // GBSP 3D-geometry container detection: bytes 12-15 carry
+        // "GBSP" magic when the file is geometry, not gameplay.
+        // These files share the outer 16-byte zlib wrapper with .dat
+        // files but otherwise have a totally different inner layout.
+        // Tag them with a distinct error so logs show what's actually
+        // there rather than "size=0x0 sig=0x1c".
+        if (in.length >= 16
+                && in[12] == 'G' && in[13] == 'B'
+                && in[14] == 'S' && in[15] == 'P') {
+            throw new ParseException(
+                "GBSP geometry file (not gameplay data); "
+                + "use a .dat file from the same dir for elements");
+        }
         int hsz = leInt(in, 0);
         int hsig = leInt(in, 4);
         int hsec = leInt(in, 8);

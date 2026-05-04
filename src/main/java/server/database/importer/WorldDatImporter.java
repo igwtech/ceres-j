@@ -147,7 +147,11 @@ public final class WorldDatImporter {
             + totalDoors + " doors, " + totalNpcs + " NPCs)");
     }
 
-    /** Lex-sorted .dat + .bsp files under {@code dir}, recursive. */
+    /** Lex-sorted {@code .dat} files under {@code dir}, recursive.
+     *  {@code .bsp} files (GBSP 3D-geometry containers — engine
+     *  visibility data, not gameplay) are intentionally skipped:
+     *  they coexist 1:1 with {@code .dat} files in the same dir
+     *  but use a different format that this importer doesn't read. */
     static List<File> listDatFiles(File dir) {
         List<File> out = new ArrayList<>();
         try {
@@ -155,7 +159,7 @@ public final class WorldDatImporter {
                 .filter(Files::isRegularFile)
                 .forEach((Path p) -> {
                     String n = p.getFileName().toString().toLowerCase();
-                    if (n.endsWith(".dat") || n.endsWith(".bsp")) {
+                    if (n.endsWith(".dat")) {
                         out.add(p.toFile());
                     }
                 });
