@@ -107,6 +107,15 @@ public final class GamePacketReaderUDP {
 	private static GameServerEvent decodesub13(byte[] subPacket) {
 		UnknownClientUDPPacket pd = new UnknownClientUDPPacket(subPacket);
 		switch (pd.read()) {
+		case 0x02:
+			// Client ACK-channel for server-pushed reliables. Layout
+			// mirrors 0x03 reliable: [02][seq2][sub-opcode]...
+			// During normal gameplay this carries 0x1f gamedata with
+			// tag 0x3d sub-tag 0x11 (in-flight heartbeat) at ~90 Hz.
+			// We don't model client-side ACK state yet — server's
+			// outgoing reliables are best-effort, no retransmit
+			// needed. So just fall through to the same sub-opcode
+			// switch as 0x03 to recognise the inner payload.
 		case 0x03:
 			pd.skip(2); // sequence counter (ACKed in readPacket)
 			switch (pd.read()) {
@@ -159,6 +168,19 @@ public final class GamePacketReaderUDP {
 					if (routed != null) return routed;
 					return new GlobalChat(subPacket);
 				}
+				case 0x3d:
+					// In-flight client heartbeat / ACK burst for
+					// server-pushed reliables. 88K observations across
+					// the corpus, ~90/sec during gameplay. Sub-tags
+					// observed: 0x11 (vast majority — fixed body
+					// `00 00 3d 11 00 00 00 00`), 0x32 (occasional —
+					// status snapshot), 0x0c/0x0d/0x03 (rare). Server
+					// has nothing to do here — just recognise so the
+					// log doesn't drown in "Unknown UDP13 Packet"
+					// lines. Reliable-layer ACK still fires at the
+					// outer switch above, so the client's own retry
+					// timer stays satisfied.
+					return null;
 				case 0x4c:
 					return new ChangedChannels(subPacket);
 				default:
