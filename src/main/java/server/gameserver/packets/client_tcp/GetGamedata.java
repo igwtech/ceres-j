@@ -6,7 +6,6 @@ import server.gameserver.internalEvents.DummyEvent;
 import server.gameserver.packets.GamePacketDecoderTCP;
 import server.gameserver.packets.server_tcp.Gamedata;
 import server.gameserver.packets.server_tcp.Location;
-import server.gameserver.packets.server_tcp.Sync;
 import server.gameserver.packets.server_tcp.UDPServerData;
 import server.gameserver.packets.server_udp.UDPAlive;
 import server.tools.Timer;

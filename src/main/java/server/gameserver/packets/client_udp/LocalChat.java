@@ -48,7 +48,6 @@ public class LocalChat extends GamePacketDecoderUDP{
 	    	else if(message.length() >7)
 	    	{
 	    		if(message.substring(2,6).equalsIgnoreCase("zone")){
-	    			//new Sync().send(session);
 	    			try{
 	    				int loc = 0;
 	    				loc = Integer.parseInt(message.substring(7, message.length() - 1));

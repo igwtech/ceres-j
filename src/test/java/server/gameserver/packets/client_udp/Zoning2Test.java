@@ -10,7 +10,7 @@ import org.junit.Test;
 import server.gameserver.CapturingTCPConnection;
 import server.gameserver.Player;
 import server.gameserver.packets.server_tcp.Location;
-import server.gameserver.packets.server_tcp.Sync;
+import server.gameserver.packets.server_tcp.Packet830D;
 import server.gameserver.packets.server_udp.PacketTestFixture;
 import server.gameserver.packets.server_udp.UDPAlive;
 import server.interfaces.GameServerEvent;
@@ -20,14 +20,9 @@ import server.tools.PriorityList;
 /**
  * Functional tests for {@link Zoning2}. The handler is the second
  * half of the zoning two-step the modern client expects after a
- * BSP transition: it must push a {@code Sync} + {@code Location}
- * pair down the TCP channel and queue a follow-up {@code UDPAlive}
- * a few ms later.
- *
- * <p>These tests pin that contract so future cleanups (e.g.
- * deduplicating {@code Sync} and {@code Packet830D}, both of which
- * write the same {@code 83 0d 00 00} bytes) cannot regress the
- * observable behaviour the client depends on.
+ * BSP transition: it must push a {@code Packet830D} (GameinfoReady,
+ * 0x83 0x0d) + {@code Location} pair down the TCP channel and queue
+ * a follow-up {@code UDPAlive} a few ms later.
  */
 public class Zoning2Test {
 
@@ -38,7 +33,7 @@ public class Zoning2Test {
     }
 
     @Test
-    public void executeSendsSyncAndLocationOverTcp() {
+    public void executeSendsGameinfoReadyAndLocationOverTcp() {
         Player pl = PacketTestFixture.newPlayer();
         CapturingTCPConnection cap = new CapturingTCPConnection();
         pl.setTcpConnection(cap);
@@ -46,11 +41,11 @@ public class Zoning2Test {
         new Zoning2(body()).execute(pl);
 
         List<ServerTCPPacket> sent = cap.received();
-        assertEquals("expected exactly Sync + Location",
+        assertEquals("expected exactly Packet830D + Location",
                 2, sent.size());
-        assertTrue("first must be Sync, got "
+        assertTrue("first must be Packet830D, got "
                 + sent.get(0).getClass().getName(),
-                sent.get(0) instanceof Sync);
+                sent.get(0) instanceof Packet830D);
         assertTrue("second must be Location, got "
                 + sent.get(1).getClass().getName(),
                 sent.get(1) instanceof Location);
@@ -129,11 +124,11 @@ public class Zoning2Test {
     }
 
     @Test
-    public void syncBytesAreFourByteInfoReady() {
-        // Sync writes exactly `83 0d 00 00`. This is the same
-        // payload as Packet830D — the duplication is intentional
-        // for readability of the two zoning paths. Pin it so a
-        // future dedupe doesn't accidentally change the wire.
+    public void gameinfoReadyBytesArePinnedAtFourByte830D() {
+        // Pin the wire bytes Zoning2 emits at the GameinfoReady slot
+        // so the eventual rename of Packet830D → GameinfoReady (or
+        // any other refactor of the constructor) cannot silently
+        // perturb what the client sees.
         Player pl = PacketTestFixture.newPlayer();
         CapturingTCPConnection cap = new CapturingTCPConnection();
         pl.setTcpConnection(cap);

@@ -4,7 +4,7 @@ import server.gameserver.Player;
 import server.gameserver.internalEvents.DummyEvent;
 import server.gameserver.packets.GamePacketDecoderUDP;
 import server.gameserver.packets.server_tcp.Location;
-import server.gameserver.packets.server_tcp.Sync;
+import server.gameserver.packets.server_tcp.Packet830D;
 import server.gameserver.packets.server_udp.UDPAlive;
 import server.tools.Timer;
 
@@ -20,7 +20,7 @@ public class Zoning2 extends GamePacketDecoderUDP {
 	}
 
 	public void execute(Player pl) {
-		pl.send(new Sync());
+		pl.send(new Packet830D());
 		pl.send(new Location(pl));
 		pl.addEvent(new Zoning2Answer());
 	}
