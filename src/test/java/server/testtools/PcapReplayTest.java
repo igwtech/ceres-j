@@ -147,6 +147,14 @@ public class PcapReplayTest {
                 new java.util.ArrayList<>();
         java.util.Map<String, Integer> divergenceCountBySubTag =
                 new java.util.LinkedHashMap<>();
+        // Up to 3 sample diff messages per sub-tag, so the failure
+        // report shows actual bytes for every cluster — not just the
+        // single first divergence. Lets one harness run drive the
+        // whole backlog.
+        java.util.Map<String, java.util.List<String>>
+                samplesBySubTag =
+                        new java.util.LinkedHashMap<>();
+        final int SAMPLES_PER_SUBTAG = 3;
 
         for (int i = 0; i < c2s.size(); i++) {
             PcapReplay.Record r = c2s.get(i);
@@ -209,9 +217,10 @@ public class PcapReplayTest {
                 // Ceres-J doesn't) — skip the retail entry and
                 // re-pair against the next retail S→C.
                 while (s2cIdx < s2c.size()
-                        && isSpareUDPAlive(
-                                s2c.get(s2cIdx).bytes,
-                                emitted)) {
+                        && (isSpareUDPAlive(
+                                s2c.get(s2cIdx).bytes, emitted)
+                            || isUnreplicableNpcBroadcast(
+                                s2c.get(s2cIdx).bytes, emitted))) {
                     s2cIdx++;
                 }
                 if (s2cIdx >= s2c.size()) break;
@@ -237,6 +246,13 @@ public class PcapReplayTest {
                     String subTagKey = subTagKeyOf(exp.bytes);
                     divergenceCountBySubTag.merge(
                             subTagKey, 1, Integer::sum);
+                    java.util.List<String> bucket =
+                            samplesBySubTag.computeIfAbsent(
+                                    subTagKey,
+                                    k -> new java.util.ArrayList<>());
+                    if (bucket.size() < SAMPLES_PER_SUBTAG) {
+                        bucket.add(divMsg);
+                    }
                 }
             }
         }
@@ -264,6 +280,30 @@ public class PcapReplayTest {
                             .append(" × ")
                             .append(e.getValue())
                             .append('\n'));
+            report.append('\n');
+            // Print up to N sample diffs per sub-tag, ordered by
+            // count descending. Surfaces every cluster's actual
+            // retail-vs-Ceres-J bytes, so a single harness run is a
+            // complete actionable backlog (not just the first bug).
+            report.append("SAMPLES PER SUB-TAG (up to ")
+                    .append(SAMPLES_PER_SUBTAG)
+                    .append(" per cluster):\n");
+            divergenceCountBySubTag.entrySet().stream()
+                    .sorted((a, b) -> b.getValue() - a.getValue())
+                    .forEach(e -> {
+                        report.append("\n--- ")
+                                .append(e.getKey())
+                                .append(" (")
+                                .append(e.getValue())
+                                .append(" total) ---\n");
+                        java.util.List<String> bucket =
+                                samplesBySubTag.get(e.getKey());
+                        if (bucket != null) {
+                            for (String s : bucket) {
+                                report.append(s).append('\n');
+                            }
+                        }
+                    });
             report.append('\n');
             report.append("FIRST DIVERGENCE at step ")
                     .append(firstDivergenceStep)
@@ -396,6 +436,60 @@ public class PcapReplayTest {
             return false;
         }
         return true;
+    }
+
+    /** Heuristic: is {@code retailBytes} an unreplicable position
+     *  broadcast that Ceres-J's test fixture has no entity-state to
+     *  mirror?
+     *
+     *  <p>True iff retail emits a raw {@code 0x1b} 19B
+     *  ObjectPositionBroadcast or a reliable {@code 0x03/0x1b}
+     *  PlayerPositionUpdate AND Ceres-J's just-emitted bytes do NOT
+     *  start with {@code 0x1b} or {@code 0x03/0x1b}. Skipping these
+     *  keeps the harness's S→C alignment intact through retail
+     *  capture sessions that have live NPCs and other players —
+     *  state our test fixture does not have.
+     *
+     *  <p><b>Why this is a skip and not a fix</b>: the on-wire
+     *  19B raw {@code 0x1b} layout is verified against retail (3
+     *  pcaps, 30 samples, see {@code tools/extract-1b-broadcasts.py}
+     *  — bytes [0,3,4,5,15,16] constant; [1..2] obj id, [6..11]
+     *  YZX, [12] orient, [13..14] entity-class id, [17..18]
+     *  state). Reproducing the entity-class id and trailer state
+     *  byte-for-byte requires populating the test fixture with the
+     *  exact NPC roster from each retail capture, which is brittle
+     *  and out of scope. The packet builder
+     *  ({@code ObjectPositionBroadcast.java}) emits the verified
+     *  19B layout — this skip lets the harness ignore retail's
+     *  position-broadcast emissions when Ceres-J has nothing to
+     *  echo, focusing it on real packet-byte regressions instead.
+     */
+    static boolean isUnreplicableNpcBroadcast(byte[] retailBytes,
+                                              byte[] cerJBytes) {
+        if (retailBytes.length == 0) return false;
+        boolean retailIsRaw1b = retailBytes.length == 19
+                && (retailBytes[0] & 0xFF) == 0x1b;
+        boolean retailIsRel03_1b = retailBytes.length >= 4
+                && (retailBytes[0] & 0xFF) == 0x03
+                && (retailBytes[3] & 0xFF) == 0x1b;
+        if (!retailIsRaw1b && !retailIsRel03_1b) return false;
+        // If Ceres-J also emitted a position broadcast at this step,
+        // pair them — don't skip.
+        if (cerJBytes.length == 0) return true;
+        boolean cerJIsRaw1b = cerJBytes.length >= 1
+                && (cerJBytes[0] & 0xFF) == 0x1b;
+        boolean cerJIsRel03_1b = cerJBytes.length >= 4
+                && (cerJBytes[0] & 0xFF) == 0x03
+                && (cerJBytes[3] & 0xFF) == 0x1b;
+        boolean cerJIsWrapped1b = cerJBytes.length >= 8
+                && (cerJBytes[0] & 0xFF) == 0x13
+                && (cerJBytes[7] & 0xFF) == 0x1b;
+        boolean cerJIsWrappedRel03_1b = cerJBytes.length >= 11
+                && (cerJBytes[0] & 0xFF) == 0x13
+                && (cerJBytes[7] & 0xFF) == 0x03
+                && (cerJBytes[10] & 0xFF) == 0x1b;
+        return !(cerJIsRaw1b || cerJIsRel03_1b
+                || cerJIsWrapped1b || cerJIsWrappedRel03_1b);
     }
 
     /** Whether {@code packet[offset]} is a per-session random byte
