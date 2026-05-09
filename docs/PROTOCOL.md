@@ -91,7 +91,9 @@ Client                          Server
 | 0x8381 | S→C | AuthAck | Login successful (account ID + session) |
 | 0x8301 | C→S | AuthB | Re-authentication with character slot |
 | 0x8482 | C→S | GetCharList | Request character list |
+| 0x8383 | S→C | ServerList | InfoServer game-server list (`docs/protocol/packets/tcp_s2c_8383.md`) |
 | 0x8385 | S→C | CharList | Character list response |
+| 0x8388 | S→C | TeamEvent | Team / group state notification (`docs/protocol/packets/tcp_s2c_8388.md`) |
 | 0x8737 | C→S | GetGamedata | Request game data |
 | 0x873a | S→C | Gamedata | Game data response |
 | 0x873c | C→S | GetUDPConnection | Request UDP server info |

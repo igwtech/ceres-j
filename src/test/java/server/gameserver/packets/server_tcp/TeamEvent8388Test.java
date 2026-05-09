@@ -11,18 +11,39 @@ import server.gameserver.team.TeamEventDecoder;
 /**
  * Unit + functional tests for {@link TeamEvent8388}.
  *
- * <p>Three retail fixtures (the only three samples in the catalog
- * evidence for {@code TCP S->C 0x8388}) drive the byte-equal
- * verification. Each test re-builds the packet from the inferred
- * field values and checks the resulting wire bytes match the
- * captured sample exactly (after stripping the FE-frame header).
+ * <p>Drives byte-equal verification against every distinct retail
+ * fixture observed for {@code TCP S->C 0x8388} in the corpus
+ * (16 unique-by-content samples across 25 raw observations).
+ * Each test re-builds the packet from the inferred field values
+ * and checks the resulting wire bytes match the captured sample
+ * exactly (after stripping the FE-frame header).
  *
- * <p>Retail samples (post-FE-frame, opcode-onwards):
+ * <p>Retail samples (post-FE-frame, opcode-onwards). Source
+ * pcaps: {@code RETAIL_RETAIL_LONG_PARTY_A_20260503_130137},
+ * {@code RETAIL_RETAIL_LONG_PARTY_B_20260503_130343},
+ * {@code RETAIL_RETAIL_VEHICLE_DRONE_20260503_141715}:
  *
  * <pre>
- *   #1: 8388 d2860100 41000000 04000000 d2860100
- *   #2: 8388 78860100 42000000 04000000 78860100
- *   #3: 8388 d2860100 43000000 09000000 d2860100 01 d2860100
+ *   event=0x41, payload=4
+ *     8388 d2860100 41000000 04000000 d2860100   PARTY_A t=996.5, PARTY_B t=940.1
+ *     8388 78860100 41000000 04000000 78860100   PARTY_A t=1266.4
+ *
+ *   event=0x42, payload=4
+ *     8388 78860100 42000000 04000000 78860100   PARTY_A t=1015.2, PARTY_B t=958.9
+ *     8388 d2860100 42000000 04000000 d2860100   PARTY_A t=1272.4
+ *
+ *   event=0x43, payload=9
+ *     8388 d2860100 43000000 09000000 d2860100 01 d2860100   PARTY_A t=1015.5, PARTY_B t=959.1
+ *     8388 78860100 43000000 09000000 78860100 01 78860100   PARTY_A t=1272.8, PARTY_B t=1216.4
+ *
+ *   event=0x44, payload=4
+ *     8388 78860100 44000000 04000000 78860100   PARTY_A t=1015.7
+ *     8388 d2860100 44000000 04000000 d2860100   PARTY_A t=1273.0, PARTY_B t=1216.7
+ *
+ *   event=0x48, payload=4
+ *     8388 78860100 48000000 04000000 78860100   PARTY_A t=1249.4 ×2
+ *     8388 d2860100 48000000 04000000 d2860100   PARTY_A t=1295.8 ×2, PARTY_B t=1239.5 ×2
+ *     8388 fe850100 48000000 04000000 fe850100   VEHICLE_DRONE t=1342.2
  * </pre>
  */
 public class TeamEvent8388Test {
@@ -77,6 +98,66 @@ public class TeamEvent8388Test {
         byte[] expected = hex(
             "8388 d2860100 43000000 09000000 d2860100 01 d2860100");
         assertArrayEquals(expected, body(pkt));
+    }
+
+    @Test
+    public void selfEvent43AlternateRetailSample() {
+        // PARTY_A t=1272.8s and PARTY_B t=1216.4s carry the same
+        // payload but with the other party member's UID in both slots.
+        TeamEvent8388 pkt = TeamEvent8388.memberAddEvent(
+                0x00018678, 0x01, 0x00018678);
+        byte[] expected = hex(
+            "8388 78860100 43000000 09000000 78860100 01 78860100");
+        assertArrayEquals(expected, body(pkt));
+    }
+
+    @Test
+    public void selfEvent44ByteEqualsRetailSample() {
+        // PARTY_A t=1273.0s, PARTY_B t=1216.7s — the 0x44
+        // (member-removed) variant uses the same self-UID
+        // payload shape as 0x41/0x42.
+        TeamEvent8388 pkt = TeamEvent8388.selfEvent(0x000186d2,
+                TeamEvent8388.EVENT_TYPE_44);
+        byte[] expected = hex("8388 d2860100 44000000 04000000 d2860100");
+        assertArrayEquals(expected, body(pkt));
+    }
+
+    @Test
+    public void selfEvent44AlternateRetailSample() {
+        // PARTY_A t=1015.7s — same shape, other UID.
+        TeamEvent8388 pkt = TeamEvent8388.selfEvent(0x00018678,
+                TeamEvent8388.EVENT_TYPE_44);
+        byte[] expected = hex("8388 78860100 44000000 04000000 78860100");
+        assertArrayEquals(expected, body(pkt));
+    }
+
+    @Test
+    public void selfEvent48ByteEqualsRetailSample() {
+        // PARTY_A t=1295.8s ×2, PARTY_B t=1239.5s ×2 — team-disband
+        // / leave broadcast. Same self-UID payload shape.
+        TeamEvent8388 pkt = TeamEvent8388.selfEvent(0x000186d2,
+                TeamEvent8388.EVENT_TYPE_48);
+        byte[] expected = hex("8388 d2860100 48000000 04000000 d2860100");
+        assertArrayEquals(expected, body(pkt));
+    }
+
+    @Test
+    public void selfEvent48AlternateRetailSamples() {
+        // PARTY_A t=1249.4s ×2 — partner-UID variant.
+        TeamEvent8388 partnerPkt = TeamEvent8388.selfEvent(0x00018678,
+                TeamEvent8388.EVENT_TYPE_48);
+        byte[] partnerExpected = hex(
+                "8388 78860100 48000000 04000000 78860100");
+        assertArrayEquals(partnerExpected, body(partnerPkt));
+
+        // VEHICLE_DRONE t=1342.2s — third UID outside the PARTY
+        // captures, proving the same 0x48 shape carries other
+        // characters too.
+        TeamEvent8388 vehiclePkt = TeamEvent8388.selfEvent(0x000185fe,
+                TeamEvent8388.EVENT_TYPE_48);
+        byte[] vehicleExpected = hex(
+                "8388 fe850100 48000000 04000000 fe850100");
+        assertArrayEquals(vehicleExpected, body(vehiclePkt));
     }
 
     // ─── Frame structure ────────────────────────────────────────────
@@ -211,15 +292,37 @@ public class TeamEvent8388Test {
 
     @Test
     public void allObservedEventTypesProduceValidPackets() {
+        // All five retail-observed event types must round-trip
+        // through the generic constructor.
         for (int et : new int[]{TeamEvent8388.EVENT_TYPE_41,
                                  TeamEvent8388.EVENT_TYPE_42,
-                                 TeamEvent8388.EVENT_TYPE_43}) {
+                                 TeamEvent8388.EVENT_TYPE_43,
+                                 TeamEvent8388.EVENT_TYPE_44,
+                                 TeamEvent8388.EVENT_TYPE_48}) {
             TeamEvent8388 pkt = new TeamEvent8388(0x42, et, new byte[]{1, 2});
             byte[] b = body(pkt);
             assertEquals((byte) 0x83, b[0]);
             assertEquals((byte) 0x88, b[1]);
             // event_type at offset 6-9
             assertEquals(et, b[6] & 0xff);
+        }
+    }
+
+    @Test
+    public void event44And48UseFourByteSelfUidPayload() {
+        // 0x44 and 0x48 are documented as 4-byte self-UID payload
+        // shapes. Verify the decoder recognises them as such.
+        for (int et : new int[]{TeamEvent8388.EVENT_TYPE_44,
+                                 TeamEvent8388.EVENT_TYPE_48}) {
+            TeamEvent8388 pkt = TeamEvent8388.selfEvent(0xdeadbeef, et);
+            TeamEventDecoder.TeamEvent ev = TeamEventDecoder.decode(body(pkt));
+            assertNotNull("event 0x" + Integer.toHexString(et)
+                    + " should decode", ev);
+            assertEquals(et, ev.eventType);
+            Integer self = ev.asSelfUid();
+            assertNotNull("event 0x" + Integer.toHexString(et)
+                    + " should be a self-UID payload", self);
+            assertEquals(0xdeadbeef, self.intValue());
         }
     }
 }

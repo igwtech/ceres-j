@@ -382,7 +382,8 @@ OUTER_NAMES = {
 TCP_NAMES = {
     0x8000: "HandshakeB", 0x8001: "HandshakeA", 0x8003: "HandshakeC",
     0x8480: "Auth", 0x8482: "GetCharList",
-    0x8381: "AuthAck", 0x8383: "?", 0x8385: "CharList",
+    0x8381: "AuthAck", 0x8383: "ServerList", 0x8385: "CharList",
+    0x8388: "TeamEvent",
     0x8301: "AuthB", 0x8305: "UDPServerData",
     0x830c: "Location", 0x830d: "GameinfoReady", 0x838f: "?",
     0x8737: "GetGamedata", 0x873a: "Gamedata", 0x873c: "GetUDPConnection",

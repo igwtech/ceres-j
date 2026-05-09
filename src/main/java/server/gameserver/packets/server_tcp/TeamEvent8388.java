@@ -26,31 +26,55 @@ import server.networktools.PacketBuilderTCP;
  *
  * <h3>Event-type catalog (from retail evidence)</h3>
  *
+ * <p>Cross-correlated with the PARTY_B marker file
+ * ({@code strace/nc2_strace_RETAIL_RETAIL_LONG_PARTY_B_20260503_130343.markers}):
+ *
  * <table>
- *   <tr><th>Event</th><th>Payload size</th><th>Payload shape</th><th>Likely meaning</th></tr>
+ *   <tr><th>Event</th><th>Payload size</th><th>Payload shape</th><th>Closest capture marker (Δt)</th><th>Likely meaning</th></tr>
  *   <tr><td>{@code 0x41}</td><td>4</td><td>{@code [uid LE32]}</td>
- *       <td>self-uid push (probable leader-set)</td></tr>
+ *       <td>INVITE_TEAM (-0.9s)</td>
+ *       <td>self-uid push — invite issued / leader-set</td></tr>
  *   <tr><td>{@code 0x42}</td><td>4</td><td>{@code [uid LE32]}</td>
- *       <td>self-uid push (probable disband / leave)</td></tr>
+ *       <td>ACCEPT_INVITE_TEAM (-3.1s)</td>
+ *       <td>self-uid push — invite acked phase 1</td></tr>
  *   <tr><td>{@code 0x43}</td><td>9</td><td>{@code [uid LE32][role 1B][uid LE32]}</td>
- *       <td>member-list update (member joined with role)</td></tr>
+ *       <td>ACCEPT_INVITE_TEAM (-2.9s)</td>
+ *       <td>member-list update — member joined with role</td></tr>
+ *   <tr><td>{@code 0x44}</td><td>4</td><td>{@code [uid LE32]}</td>
+ *       <td>REINVITE_TEAM (+5.7s)</td>
+ *       <td>self-uid push — invite cleared / member removed</td></tr>
+ *   <tr><td>{@code 0x48}</td><td>4</td><td>{@code [uid LE32]}</td>
+ *       <td>LEAVE_TEAM_AGAIN (-3.5s, fires twice)</td>
+ *       <td>self-uid push — team-disband / leave broadcast</td></tr>
  * </table>
  *
  * <p>Semantic interpretations are unverified — they're inferred
  * from the surrounding capture markers (PARTY join / leave /
- * leader-change). The byte layout is verified.
+ * leader-change). The byte layout is verified against every
+ * sample in the corpus (16 unique by content, 25 raw observations).
  */
 public final class TeamEvent8388 extends PacketBuilderTCP {
 
-    /** Self-uid event 0x41 — usually fired in pair with 0x43 when a
-     *  team is reconfigured. Carries 4-byte payload = recipient UID. */
+    /** Self-uid event 0x41 — invite issued / leader-set. Fired
+     *  immediately before the joining member receives 0x42 + 0x43.
+     *  Carries 4-byte payload = recipient UID. */
     public static final int EVENT_TYPE_41 = 0x41;
-    /** Self-uid event 0x42 — fired on team disband or member-leave.
+    /** Self-uid event 0x42 — invite acked phase 1. Fired in pair
+     *  with the 0x43 member-add for the joining member.
      *  Carries 4-byte payload = recipient UID. */
     public static final int EVENT_TYPE_42 = 0x42;
-    /** Member-list update 0x43 — fired when a member joins. Payload
-     *  is a 9-byte (recipient UID, role byte, member UID) tuple. */
+    /** Member-list update 0x43 — fired when a member joins.
+     *  Payload is a 9-byte (recipient UID, role byte, member UID)
+     *  tuple. */
     public static final int EVENT_TYPE_43 = 0x43;
+    /** Self-uid event 0x44 — invite cleared / member removed,
+     *  fired around the REINVITE / LEAVE marker burst. Carries
+     *  4-byte payload = recipient UID. */
+    public static final int EVENT_TYPE_44 = 0x44;
+    /** Self-uid event 0x48 — team-disband / leave broadcast.
+     *  Fires twice near LEAVE_TEAM_AGAIN — once per remaining
+     *  team member. Carries 4-byte payload = recipient UID. */
+    public static final int EVENT_TYPE_48 = 0x48;
 
     /**
      * Generic constructor. Most call sites should prefer the static
@@ -58,7 +82,8 @@ public final class TeamEvent8388 extends PacketBuilderTCP {
      *
      * @param targetUid recipient's character UID
      * @param eventType {@link #EVENT_TYPE_41} / {@link #EVENT_TYPE_42}
-     *                  / {@link #EVENT_TYPE_43} or future variant
+     *                  / {@link #EVENT_TYPE_43} / {@link #EVENT_TYPE_44}
+     *                  / {@link #EVENT_TYPE_48} or future variant
      * @param payload   variable-length event payload (may be empty
      *                  but not null)
      */
