@@ -45,6 +45,24 @@ public class ReplayHarnessTest {
     }
 
     @Test
+    public void recognisedDecoderEventsAreNotMisclassifiedAsUnknown() {
+        // PRE-FIX REGRESSION: wasUnknown() previously checked
+        // `instanceof GamePacketDecoderUDP` — but every recognised
+        // decoder class extends that. Result: 100% of recognised
+        // C→S packets in a pcap replay were counted as fall-through,
+        // making PcapReplayTest's recognition counter useless.
+        // Pin: a recognised UseItem must NOT be wasUnknown().
+        ReplayHarness h = new ReplayHarness();
+        ReplayHarness.DriveResult r = h.drive(useItemBody(99));
+
+        assertTrue("UseItem must be recognised", r.wasRecognised());
+        assertFalse("recognised UseItem must NOT be wasUnknown — "
+                + "wasUnknown() must check exactly for "
+                + "UnknownClientUDPPacket, not the parent class",
+                r.wasUnknown());
+    }
+
+    @Test
     public void driveCapturesUseItemUdpEmissions() {
         // On this branch UseItem emits a LocalChatMessage and an
         // OpenDoor UDP packet (S→C). Both are routed via

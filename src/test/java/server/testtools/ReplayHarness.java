@@ -8,6 +8,7 @@ import java.util.List;
 import server.gameserver.CapturingTCPConnection;
 import server.gameserver.Player;
 import server.gameserver.packets.GamePacketDecoderUDP;
+import server.gameserver.packets.client_udp.UnknownClientUDPPacket;
 import server.gameserver.packets.server_udp.PacketTestFixture;
 import server.interfaces.GameServerEvent;
 import server.interfaces.ServerTCPPacket;
@@ -254,10 +255,17 @@ public final class ReplayHarness {
 
         /** Was the decoded event a fall-through-Unknown? */
         public boolean wasUnknown() {
-            return decoded != null
-                && (decoded instanceof GamePacketDecoderUDP);
-            // GamePacketDecoderUDP is the parent of UnknownClientUDPPacket
-            // — used as a fall-through marker by the decoder.
+            // The decoder's fall-through path is exactly
+            // UnknownClientUDPPacket (the catch-all dump-and-log
+            // event). PRE-FIX BUG: this checked
+            // `decoded instanceof GamePacketDecoderUDP`, but every
+            // recognised decoder class (CPing, RequestPositionUpdate,
+            // GetTimeSync, Movement, etc.) extends
+            // GamePacketDecoderUDP — so 100% of recognised C→S
+            // packets were misclassified as fall-through. The
+            // harness's "Decoder recognised" counter was always 0
+            // for non-trivial replays.
+            return decoded instanceof UnknownClientUDPPacket;
         }
 
         /** True iff this step emitted exactly the given TCP
