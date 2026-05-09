@@ -3,10 +3,15 @@ package server.gameserver.internalEvents;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.lang.reflect.Field;
+import java.util.HashSet;
+import java.util.Set;
+
 import org.junit.Test;
 
 import server.gameserver.Player;
 import server.gameserver.packets.server_udp.PacketTestFixture;
+import server.tools.PriorityList;
 import server.tools.Timer;
 
 /**
@@ -46,6 +51,46 @@ public class WorldEntryEventTest {
         } catch (Throwable t) {
             throw new AssertionError("WorldEntryEvent.execute threw: " + t, t);
         }
+    }
+
+    @Test
+    public void executeStartsAllThreeHeartbeatsOnFirstLogin()
+            throws Exception {
+        // Regression test for the SYNCHRONIZING-overlay hang fixed
+        // 2026-05-09. WorldEntryEvent must schedule the three S→C
+        // heartbeats (TimeSync, PoolStatus, ZoneState) immediately
+        // after the burst, NOT defer them to zone-handoff. Sessions
+        // without a zone-handoff (the user's reported case) would
+        // otherwise never see TimeSync streaming and the client's
+        // state-machine would never advance past SYNCHRONIZING.
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey(
+                (short) 0);
+        new WorldEntryEvent(0).execute(pl);
+
+        Field elf = Player.class.getDeclaredField("eventList");
+        elf.setAccessible(true);
+        PriorityList queue = (PriorityList) elf.get(pl);
+
+        // PriorityList isn't Iterable — drain it via removeFirst()
+        // and capture each event's class name.
+        Set<String> scheduled = new HashSet<>();
+        while (!queue.isEmpty()) {
+            scheduled.add(
+                queue.removeFirst().getClass().getSimpleName());
+        }
+
+        assertTrue("TimeSyncHeartbeatEvent must be scheduled, "
+                + "got: " + scheduled,
+                scheduled.contains("TimeSyncHeartbeatEvent"));
+        assertTrue("PoolStatusHeartbeat must be scheduled, "
+                + "got: " + scheduled,
+                scheduled.contains("PoolStatusHeartbeat"));
+        assertTrue("ZoneStateHeartbeat must be scheduled, "
+                + "got: " + scheduled,
+                scheduled.contains("ZoneStateHeartbeat"));
+        assertTrue("TcpKeepaliveEvent must remain scheduled, "
+                + "got: " + scheduled,
+                scheduled.contains("TcpKeepaliveEvent"));
     }
 
     @Test

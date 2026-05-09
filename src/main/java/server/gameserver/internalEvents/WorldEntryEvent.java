@@ -147,19 +147,31 @@ public class WorldEntryEvent extends DummyEvent {
         // Our previous ZoningEnd may have been confusing the client's
         // state machine. Removed to match retail behavior.
 
-        // ── Heartbeats: DEFERRED until after zone-handoff ──
-        // The client closes its UDP socket and opens a new one during
-        // BSP load (~11 s after WorldEntryEvent). Any reliable packets
-        // sent during this window are received on the OLD socket which
-        // the client has already closed — they're permanently lost.
-        // The session counter advances past what the client received,
-        // creating a gap in the out-of-order list. After 10 s the
-        // client reports "GAMENETMGR [CheckOOOList]: out-of-sync.
-        // Msg num 19 more than 10000ms behind. Disconnecting."
+        // ── Heartbeats: start NOW on first login ──────────────────
+        // Original design deferred heartbeats until after a zone-
+        // handoff (HandshakeUDP starts them when the client closes
+        // its UDP socket and reopens from a fresh ephemeral port,
+        // typically ~11 s into the session). The intent was to
+        // avoid losing reliable packets to a soon-to-close socket.
         //
-        // Heartbeats are started from PlayerUdpListener when the
-        // zone-handoff completes (first gamedata from the new port).
-        // See PlayerUdpListener.handle() zoneHandoffActive logic.
+        // But not every session triggers a zone-handoff — the user-
+        // reported 2026-05-09 SYNCHRONIZING-overlay hang showed a
+        // session where the client never closed its login socket,
+        // so heartbeats never started, and TimeSync (which advances
+        // the client's state-machine 3/6 → 4 per
+        // FUN_0055b6f0 case 3) never streamed.
+        //
+        // Starting heartbeats NOW is safe: PlayerUdpListener's
+        // rebindClient() redirects future packets when the client
+        // does open a new socket, so at most a small handful of
+        // heartbeats are lost during the close-and-reopen window —
+        // and self-rescheduling means the client picks back up
+        // automatically once rebound. ReliableTimeSyncRequest (the
+        // explicit 0x03/0x0d C→S request) was the only thing
+        // keeping previous sessions alive at all.
+        pl.addEvent(new TimeSyncHeartbeatEvent());
+        pl.addEvent(new PoolStatusHeartbeat());
+        pl.addEvent(new ZoneStateHeartbeat());
 
         // ── TCP keepalive (0x83 0x8f) every ~10 s ──
         // Retail sends this on the TCP connection for the entire
