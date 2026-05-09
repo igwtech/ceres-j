@@ -6,6 +6,7 @@ import server.database.items.ItemManager;
 import server.gameserver.Player;
 
 import server.gameserver.packets.GamePacketDecoderUDP;
+import server.gameserver.packets.server_tcp.InteractionAck;
 import server.gameserver.packets.server_udp.InventoryMoveAck;
 import server.tools.Out;
 
@@ -42,8 +43,15 @@ public class InventoryMove extends GamePacketDecoderUDP  {
 			flags = ItemContainer.FLAG_DSTPOS_XY;
 		}
 		
-		if(ItemManager.moveItem(srccont, srcpos, dstcont, dstpos, flags))
+		if (ItemManager.moveItem(srccont, srcpos, dstcont, dstpos, flags)) {
 			pl.send(new InventoryMoveAck(pl, isrccont, srcpos, idstcont, dstpos));
+			// Retail closes inventory transactions with the
+			// InteractionAck pair on TCP. See InteractionAck javadoc
+			// for catalog evidence (224 retail samples; the pair
+			// pattern fires on inventory equip/use/drag-drop).
+			pl.send(new InteractionAck());
+			pl.send(new InteractionAck());
+		}
 	}
 
 }
