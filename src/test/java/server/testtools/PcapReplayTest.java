@@ -142,7 +142,16 @@ public class PcapReplayTest {
             PcapReplay.Record r = c2s.get(i);
             ReplayHarness.DriveResult res;
             try {
-                res = h.drive(r.bytes);
+                // UDP_RAW = outer-frame raw datagram (0x01
+                // handshake, 0x08 abort, raw 0x03 reliable). Drive
+                // it through decode() so handshake replies fire
+                // during replay — keeps S→C alignment with retail
+                // when the capture starts at handshake.
+                // UDP_SUB = inner sub-packet within a 0x13 outer
+                // frame. Drive via decodesub13().
+                res = (r.proto == PcapReplay.Proto.UDP_RAW)
+                        ? h.driveRaw(r.bytes)
+                        : h.drive(r.bytes);
             } catch (RuntimeException ex) {
                 report.append(String.format(
                         "[step %d] decoder threw on C→S sub %s: %s\n",

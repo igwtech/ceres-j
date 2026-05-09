@@ -104,6 +104,36 @@ public final class ReplayHarness {
         return r;
     }
 
+    /**
+     * Drive a single RAW UDP datagram through the decoder. Use
+     * this for non-0x13 outer-frame packets — handshake (0x01),
+     * abort (0x08), reliable-channel raw (0x03 outer), and the
+     * orphan opcodes the agent decoded (0x00/06/07/0d/0f/11/31).
+     *
+     * <p>{@link #drive(byte[])} only handles inner sub-packets
+     * within an outer 0x13 frame; without {@code driveRaw} the
+     * harness skips raw C→S and never emits the corresponding
+     * S→C, breaking the index-paired comparison against retail's
+     * S→C queue.
+     */
+    public DriveResult driveRaw(byte[] datagramBytes) {
+        GameServerEvent ev = decodeRaw(datagramBytes);
+        int tcpBefore = tcp.received().size();
+        int udpBefore = udp.received().size();
+        if (ev != null) {
+            ev.execute(player);
+        }
+        DriveResult r = new DriveResult(datagramBytes, ev,
+                tcp.received().subList(tcpBefore,
+                        tcp.received().size()),
+                udp.received().subList(udpBefore,
+                        udp.received().size()),
+                udp.rawBytes().subList(udpBefore,
+                        udp.rawBytes().size()));
+        history.add(r);
+        return r;
+    }
+
     /** Drive multiple sub-packets in order, returning the final
      *  step's result. Useful for sequence-level assertions. */
     public DriveResult driveAll(byte[]... subPackets) {
@@ -129,6 +159,29 @@ public final class ReplayHarness {
         } catch (Exception e) {
             throw new RuntimeException(
                     "ReplayHarness: failed to dispatch decodesub13", e);
+        }
+    }
+
+    /** Reflective wrapper around {@code decode(DatagramPacket,
+     *  Player)} for raw outer-frame UDP packets. */
+    private GameServerEvent decodeRaw(byte[] datagramBytes) {
+        try {
+            java.net.DatagramPacket dp = new java.net.DatagramPacket(
+                    datagramBytes, datagramBytes.length);
+            // Wire the source so HandshakeUDP can read it during
+            // setInterfaceId / port-binding.
+            dp.setAddress(java.net.InetAddress.getByName("127.0.0.1"));
+            dp.setPort(51769);
+            Method m = Class.forName(
+                    "server.gameserver.packets.GamePacketReaderUDP")
+                    .getDeclaredMethod("decode",
+                            java.net.DatagramPacket.class,
+                            server.gameserver.Player.class);
+            m.setAccessible(true);
+            return (GameServerEvent) m.invoke(null, dp, player);
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "ReplayHarness: failed to dispatch decode(raw)", e);
         }
     }
 
