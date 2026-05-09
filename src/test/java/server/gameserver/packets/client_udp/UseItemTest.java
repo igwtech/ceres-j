@@ -8,6 +8,7 @@ import org.junit.Test;
 
 import server.gameserver.CapturingTCPConnection;
 import server.gameserver.Player;
+import server.gameserver.packets.server_tcp.InteractionAck;
 import server.gameserver.packets.server_tcp.Packet838F;
 import server.gameserver.packets.server_udp.PacketTestFixture;
 import server.interfaces.ServerTCPPacket;
@@ -105,13 +106,14 @@ public class UseItemTest {
     }
 
     @Test
-    public void ackPrecedesStateChangePackets() {
-        // The retail contract is that 0x838f arrives BEFORE any
-        // dependent state-change. UseItem currently also sends
-        // OpenDoor (UDP) and a debug LocalChatMessage (UDP) —
-        // those are on a different transport so ordering is
-        // tested only on the TCP channel: nothing else may land
-        // on TCP before the Packet838F ack.
+    public void tcpAckTripletInRetailOrder() {
+        // The retail contract is:
+        //   1. 0x838f commit BEFORE any state-change packet
+        //   2. State-change packets (OpenDoor on UDP, etc.)
+        //   3. 0xa002 transaction-ack PAIR after the state-change
+        // Test the TCP ordering only — UDP state-change packets
+        // are on a different transport. Expected TCP triplet:
+        //   [Packet838F, InteractionAck, InteractionAck]
         Player pl = PacketTestFixture.newPlayer();
         CapturingTCPConnection cap = new CapturingTCPConnection();
         pl.setTcpConnection(cap);
@@ -119,8 +121,14 @@ public class UseItemTest {
         new UseItem(buildBody(99)).execute(pl);
 
         List<ServerTCPPacket> tcpSent = cap.received();
-        assertEquals("only the ack packet should land on TCP",
-                1, tcpSent.size());
-        assertTrue(tcpSent.get(0) instanceof Packet838F);
+        assertEquals("expected 3 TCP packets: 838f + 2× a002 ack",
+                3, tcpSent.size());
+        assertTrue("first must be Packet838F (pre-state commit)",
+                tcpSent.get(0) instanceof Packet838F);
+        assertTrue("second must be InteractionAck (post-state)",
+                tcpSent.get(1) instanceof InteractionAck);
+        assertTrue("third must be InteractionAck (retail emits "
+                + "the ack PAIR)",
+                tcpSent.get(2) instanceof InteractionAck);
     }
 }

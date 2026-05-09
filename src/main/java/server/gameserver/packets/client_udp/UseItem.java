@@ -3,6 +3,7 @@ package server.gameserver.packets.client_udp;
 import server.database.playerCharacters.PlayerCharacter;
 import server.gameserver.Player;
 import server.gameserver.packets.GamePacketDecoderUDP;
+import server.gameserver.packets.server_tcp.InteractionAck;
 import server.gameserver.packets.server_tcp.Packet838F;
 import server.gameserver.packets.server_udp.LocalChatMessage;
 import server.gameserver.packets.server_udp.OpenDoor;
@@ -35,6 +36,15 @@ public class UseItem extends GamePacketDecoderUDP {
 		pl.send(new LocalChatMessage(pl, text));
 
 		pl.send(new OpenDoor(id, pl));
+
+		// Retail emits the transaction-ack PAIR (a0 02) AFTER the
+		// state-change packets. Sequence over the wire:
+		//   0x83 0x8f  (commit, pre-state-change)   ← already sent
+		//   state-change packets (OpenDoor, etc.)   ← already sent
+		//   0xa0 0x02 ×2 (transaction-ack pair)     ← below
+		// See InteractionAck javadoc for catalog evidence.
+		pl.send(new InteractionAck());
+		pl.send(new InteractionAck());
 	}
 
 }
