@@ -4,6 +4,8 @@ import static org.junit.Assert.*;
 
 import org.junit.Test;
 
+import server.testtools.BytesIdenticalAssertion;
+
 /**
  * Unit tests for {@link Packet830D} — the GameinfoReady (0x83 0x0d)
  * server→client TCP packet sent at the start of every world entry
@@ -70,5 +72,17 @@ public class Packet830DTest {
                 (byte) 0x83, 0x0d, 0x00, 0x00
         };
         assertArrayEquals(expected, wireBytes(new Packet830D()));
+    }
+
+    @Test
+    public void retailCatalogMatchViaAssertionUtility() {
+        // Same check as exactBytesMatchRetailCapture but routed
+        // through BytesIdenticalAssertion — this is the
+        // recommended one-liner pattern for new pin tests.
+        // The utility strips the FE-frame envelope and diffs
+        // against the catalog body bytes (`830d0000`).
+        BytesIdenticalAssertion.assertMatchesRetail(
+                BytesIdenticalAssertion.sliceWire(new Packet830D()),
+                "tcp_s2c_830d");
     }
 }
