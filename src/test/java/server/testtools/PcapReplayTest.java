@@ -520,6 +520,23 @@ public class PcapReplayTest {
                 && offset >= 1 && offset <= 4) {
             return true;
         }
+        // 0x03/0x2c StartPos body[3..end] — all session/character
+        // state (entity ID, position floats, character model,
+        // texture indices). Verified 2026-05-09 against 4 retail
+        // pcaps (HANNIBAL, NORMAN, AUGUSTO, DRSTONE3): the only
+        // constant bytes are body[0..2] = 0x2c 0x01 0x01. The
+        // rest depends on retail player state we cannot mirror in
+        // the test fixture (spawn coords, MODEL_HEAD/TORSO/LEG,
+        // texture indices, class). Layout pinning lives in
+        // PositionUpdateByteIdentityTest; the harness checks the
+        // packet is emitted at the right step with the right
+        // wire size + constants and ignores the rest.
+        if (packet.length >= 4
+                && (packet[0] & 0xFF) == 0x03
+                && (packet[3] & 0xFF) == 0x2c
+                && offset >= 6) {
+            return true;
+        }
         // 0x03 reliable-channel sub-packet: bytes 1..2 are the
         // sequence counter (LE2). Each side's session counter is
         // independent — retail's may have advanced through dozens
