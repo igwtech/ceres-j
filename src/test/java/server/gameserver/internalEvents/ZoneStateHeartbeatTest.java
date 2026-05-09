@@ -61,25 +61,32 @@ public class ZoneStateHeartbeatTest {
     }
 
     @Test
-    public void noNpcsFallbackDoesNotThrow() throws Exception {
-        // Zone with 0 NPCs — heartbeat must take the phantom-
-        // broadcast path without throwing. We can't easily
-        // observe UDP datagrams from this test fixture, but
-        // the absence of an exception confirms the fallback
-        // wires through ObjectPositionBroadcast cleanly.
+    public void noNpcsBranchIsNoOpAndStillReschedules()
+            throws Exception {
+        // Zone with 0 NPCs — heartbeat must NOT broadcast the
+        // player's own position. A previous attempt did, which
+        // caused the modern client to render a duplicate
+        // "ghost-self" standing a few meters away from the
+        // real character. The heartbeat must still reschedule,
+        // since other ticks may pick up newly-spawned NPCs.
         Player pl = PacketTestFixture.newPlayer();
         pl.setloggedin();
         Zone z = new Zone(1, "plaza_p1");
         Field zf = Player.class.getDeclaredField("currentZone");
         zf.setAccessible(true);
         zf.set(pl, z);
-
         assertTrue("zone must have 0 NPCs for this test",
                 z.getAllNPCs().isEmpty());
 
-        // Pass = no exception escaped through the fallback
-        // ObjectPositionBroadcast construction.
+        Field elf = Player.class.getDeclaredField("eventList");
+        elf.setAccessible(true);
+        PriorityList queue = (PriorityList) elf.get(pl);
+
         new ZoneStateHeartbeat().execute(pl);
+
+        assertFalse("heartbeat must reschedule even on a zone "
+                + "with 0 NPCs (next tick may find new ones)",
+                queue.isEmpty());
     }
 
     @Test

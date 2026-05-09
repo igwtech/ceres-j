@@ -2,11 +2,9 @@ package server.gameserver.internalEvents;
 
 import java.util.List;
 
-import server.database.playerCharacters.PlayerCharacter;
 import server.gameserver.NPC;
 import server.gameserver.Player;
 import server.gameserver.Zone;
-import server.gameserver.packets.server_udp.ObjectPositionBroadcast;
 import server.gameserver.packets.server_udp.ZoneStateCompoundPacket;
 import server.tools.Out;
 import server.tools.Timer;
@@ -55,32 +53,14 @@ public class ZoneStateHeartbeat extends DummyEvent {
                 Out.writeln(Out.Error,
                     "ZoneStateHeartbeat: send failed: " + e.getMessage());
             }
-        } else {
-            // No NPCs in the zone — without ANY raw 0x1b broadcast
-            // the client's WORLDCLIENT watchdog times out at ~45 s
-            // with "Connection to worldserver failed". Fall back to
-            // broadcasting the player's own position via a phantom
-            // object id (mapId | 0x80 to keep it distinct from the
-            // self-mapId; same trick documented in
-            // memory/raw_1b_broadcast.md). This satisfies the
-            // watchdog while we wait for proper NPC spawning.
-            try {
-                PlayerCharacter pc = pl.getCharacter();
-                if (pc != null) {
-                    int phantomId = pl.getMapID() | 0x80;
-                    NPC phantom = new NPC(
-                            pc.getMisc(PlayerCharacter.MISC_X_COORDINATE),
-                            pc.getMisc(PlayerCharacter.MISC_Y_COORDINATE),
-                            pc.getMisc(PlayerCharacter.MISC_Z_COORDINATE),
-                            100, 0, 0, phantomId);
-                    pl.send(new ObjectPositionBroadcast(pl, phantom));
-                }
-            } catch (Exception e) {
-                Out.writeln(Out.Error,
-                    "ZoneStateHeartbeat: phantom send failed: "
-                    + e.getMessage());
-            }
         }
+        // No-NPCs branch: nothing to send. A previous attempt
+        // broadcast the player's own position with a phantom
+        // object id (mapId|0x80) to keep the WORLDCLIENT
+        // watchdog alive — but the modern client renders that
+        // as a duplicate ghost-self standing a few meters
+        // away. Other heartbeats (TimeSync, PoolStatus, CPing
+        // reply) are sufficient to keep the connection alive.
 
         ZoneStateHeartbeat next = new ZoneStateHeartbeat();
         next.npcIndex = this.npcIndex;
