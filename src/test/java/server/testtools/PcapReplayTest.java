@@ -114,6 +114,16 @@ public class PcapReplayTest {
         assertTrue("expected at least 1 C→S sub-packet in pcap",
                 !c2s.isEmpty());
 
+        // 0 NPCs by default — adding test NPCs causes the player's
+        // event handlers (sendNPCsinZone, etc.) to emit per-NPC
+        // traffic that diverges from retail's specific NPC IDs/
+        // positions, INCREASING harness divergences (DRSTONE3 1→7
+        // when tested 2026-05-09 with 5 NPCs). The skip predicates
+        // are tuned for "Ceres-J emits less than retail"; adding
+        // emits breaks that. The ReplayHarness(int npcCount) ctor
+        // is available for harness-derivative tests that need NPC
+        // emissions for specific scenarios (e.g. testing
+        // WorldNPCInfo emission ordering in isolation).
         ReplayHarness h = new ReplayHarness();
 
         // Replay every C→S sub-packet in order. Capture a

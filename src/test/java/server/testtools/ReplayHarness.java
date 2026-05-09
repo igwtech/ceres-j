@@ -48,11 +48,30 @@ public final class ReplayHarness {
     private final List<DriveResult> history = new ArrayList<>();
 
     public ReplayHarness() {
-        // newPlayerWithZone() so Movement / sendPlayersinZone /
-        // sendNPCsinZone don't NPE during replay. Tests that need
+        this(0);
+    }
+
+    /**
+     * Construct a harness with {@code npcCount} test NPCs populated
+     * in the player's zone. Use a non-zero count to exercise S→C
+     * paths that emit per-NPC traffic (WorldNPCInfo,
+     * NpcDataBroadcast, ObjectPositionBroadcast) — without NPCs
+     * those handlers iterate empty NPC lists and emit nothing,
+     * breaking the harness's S→C alignment against retail captures
+     * that DO have live NPCs.
+     *
+     * <p>Each NPC is at deterministic position with mapID
+     * {@code 0x0101+i}; see
+     * {@link PacketTestFixture#newPlayerWithZoneAndNpcs(int)}.
+     */
+    public ReplayHarness(int npcCount) {
+        // newPlayerWithZone[AndNpcs] so Movement / sendPlayersinZone
+        // / sendNPCsinZone don't NPE during replay. Tests that need
         // a zone-null fixture construct their Player directly via
         // PacketTestFixture.newPlayer() — not through this harness.
-        this.player = PacketTestFixture.newPlayerWithZone();
+        this.player = npcCount > 0
+                ? PacketTestFixture.newPlayerWithZoneAndNpcs(npcCount)
+                : PacketTestFixture.newPlayerWithZone();
         this.tcp = new CapturingTCPConnection();
         this.player.setTcpConnection(tcp);
         // Replace the random-keyed UDP connection with a capturing
