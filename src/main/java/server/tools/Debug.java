@@ -19,13 +19,15 @@ public final class Debug {
 	private static boolean debugSendingPackets;
 	private static boolean debugEvents;
         private static boolean debugReceivedPackets;
+	private static boolean debugSubPackets;
 
 	public static void init() throws StartupException {
 		debugUnknownPackets = Config.debugUnknownPackets;
 		debugSendingPackets = Config.debugSendingPackets;
 		debugEvents = Config.debugEvents;
                 debugReceivedPackets = Config.debugReceivedPackets;
-		if (debugUnknownPackets | debugEvents | debugSendingPackets | debugReceivedPackets) {
+		debugSubPackets = Config.debugSubPackets;
+		if (debugUnknownPackets | debugEvents | debugSendingPackets | debugReceivedPackets | debugSubPackets) {
 			try {
 				Out.fw_debug = new FileWriter("log" + File.separatorChar + "debug.log", true);
 			} catch (IOException e) {
@@ -37,7 +39,7 @@ public final class Debug {
 	}
 
 	public static void stopServer() {
-		if (debugUnknownPackets | debugEvents | debugSendingPackets | debugReceivedPackets) {
+		if (debugUnknownPackets | debugEvents | debugSendingPackets | debugReceivedPackets | debugSubPackets) {
 			try {
 				Out.fw_debug.close();
 			} catch (IOException e) {
@@ -51,6 +53,27 @@ public final class Debug {
 		if (debugUnknownPackets) {
 			Out.debug("Unknown", s);
 		}
+	}
+
+	/**
+	 * True when the operator has opted into per-sub-packet diagnostic
+	 * traces. UDP gameplay traffic generates these at ~90 Hz per
+	 * player, so callers must check this before formatting log lines
+	 * to avoid the string-build cost on the hot path.
+	 */
+	public static boolean isSubPacketsEnabled() {
+		return debugSubPackets;
+	}
+
+	public static void subPacket(String s) {
+		if (debugSubPackets) {
+			Out.debug("SubPkt", s);
+		}
+	}
+
+	/** Test seam: force the flag value (only used by unit tests). */
+	static void setSubPacketsEnabledForTest(boolean v) {
+		debugSubPackets = v;
 	}
 
 	public static void event(GameServerEvent e, Player p) {

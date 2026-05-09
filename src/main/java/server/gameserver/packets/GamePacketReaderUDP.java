@@ -29,40 +29,7 @@ public final class GamePacketReaderUDP {
 				}
 				byte[] subPacket = new byte[datasize];
 				pd.read(subPacket);
-				// Debug: log the first two bytes of every sub-packet so
-				// we can see exactly which sub-types the client is
-				// sending (0x03 reliable wrapper, 0x0b CPing, 0x20
-				// Movement, etc.). Helps identify missing decoders.
-				if (subPacket.length >= 1) {
-					int t0 = subPacket[0] & 0xFF;
-					int t1 = subPacket.length >= 4 ? subPacket[3] & 0xFF : -1;
-					server.tools.Out.writeln(server.tools.Out.Info,
-						"UDP sub-packet size=" + datasize
-						+ " type=0x" + String.format("%02x", t0)
-						+ (t0 == 0x03 ? " sub=0x" + String.format("%02x", t1) : ""));
-					// Diagnostic: dump the full bytes of 0x03->0x07
-					// multipart fragments coming FROM the client. Retail
-					// never sends these C→S, so receiving them means our
-					// session is in a state retail never enters — knowing
-					// the content is required to figure out why.
-					if (t0 == 0x03 && t1 == 0x07) {
-						StringBuilder hex = new StringBuilder();
-						for (byte b : subPacket) hex.append(String.format("%02x", b));
-						server.tools.Out.writeln(server.tools.Out.Info,
-							"CLIENT_MULTIPART_FRAG (" + subPacket.length + "B): " + hex);
-					}
-					// Also dump 0x03->0x1f GamePackets (inner opcodes we
-					// don't know yet) and 0x03->0x24-like ready triggers
-					// so we can correlate size patterns.
-					if (t0 == 0x03 && t1 == 0x1f) {
-						StringBuilder hex = new StringBuilder();
-						int n = Math.min(32, subPacket.length);
-						for (int k = 0; k < n; k++) hex.append(String.format("%02x", subPacket[k]));
-						if (subPacket.length > n) hex.append("...");
-						server.tools.Out.writeln(server.tools.Out.Info,
-							"CLIENT_GAMEPKT (" + subPacket.length + "B): " + hex);
-					}
-				}
+				logSubPacketDiagnostic(subPacket, datasize);
 				// ACK every reliable (0x03) sub-packet the client sends.
 				// The client's reliable delivery layer tracks unACKed
 				// reliables and aborts after ~15 s if none are ACKed.
@@ -101,6 +68,45 @@ public final class GamePacketReaderUDP {
 		default:
 			pd.reset();
 			return pd;
+		}
+	}
+
+	/**
+	 * Per-sub-packet diagnostic dump. Gated behind {@code subPackets}
+	 * because UDP gameplay traffic produces ~90 of these per player
+	 * per second — the string-format cost alone is non-trivial on
+	 * the hot path. Enable with {@code Debug = subPackets} in
+	 * ceres.cfg when chasing a missing decoder. Package-private so
+	 * unit tests can drive it directly without standing up a full
+	 * Player + DatagramPacket.
+	 */
+	static void logSubPacketDiagnostic(byte[] subPacket, int datasize) {
+		if (!server.tools.Debug.isSubPacketsEnabled()) return;
+		if (subPacket == null || subPacket.length < 1) return;
+		int t0 = subPacket[0] & 0xFF;
+		int t1 = subPacket.length >= 4 ? subPacket[3] & 0xFF : -1;
+		server.tools.Debug.subPacket(
+			"size=" + datasize
+			+ " type=0x" + String.format("%02x", t0)
+			+ (t0 == 0x03 ? " sub=0x" + String.format("%02x", t1) : ""));
+		// 0x03->0x07 multipart C→S: retail never sends these, so a
+		// hit means our session is in a state retail never enters.
+		// Full hex helps diagnose.
+		if (t0 == 0x03 && t1 == 0x07) {
+			StringBuilder hex = new StringBuilder();
+			for (byte b : subPacket) hex.append(String.format("%02x", b));
+			server.tools.Debug.subPacket(
+				"CLIENT_MULTIPART_FRAG (" + subPacket.length + "B): " + hex);
+		}
+		// 0x03->0x1f GamePackets: dump leading bytes so missing
+		// inner-opcode routes can be spotted.
+		if (t0 == 0x03 && t1 == 0x1f) {
+			StringBuilder hex = new StringBuilder();
+			int n = Math.min(32, subPacket.length);
+			for (int k = 0; k < n; k++) hex.append(String.format("%02x", subPacket[k]));
+			if (subPacket.length > n) hex.append("...");
+			server.tools.Debug.subPacket(
+				"CLIENT_GAMEPKT (" + subPacket.length + "B): " + hex);
 		}
 	}
 

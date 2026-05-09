@@ -26,8 +26,9 @@ public final class Config {
 	private static String wanIp;
 	public static boolean debugUnknownPackets = false;
 	public static boolean debugSendingPackets = false;
-	public static boolean debugEvents = false; 
+	public static boolean debugEvents = false;
         public static boolean debugReceivedPackets = false;
+	public static boolean debugSubPackets = false;
 
 	public static void init() throws StartupException {
 		if (properties != null) return;
@@ -46,27 +47,7 @@ public final class Config {
 		}
 
 		// reading debugging orders
-		String debugText = getProperty("Debug");
-		String[] debugTextParts = debugText.split(",");
-		for(int i = 0; i < debugTextParts.length; i++) {
-			if (debugTextParts[i].trim().equalsIgnoreCase("unknownPackets")) {
-				debugUnknownPackets = true;
-				continue;
-			}
-			if (debugTextParts[i].trim().equalsIgnoreCase("sendingPackets")) {
-				debugSendingPackets = true;
-				continue;
-			}
-			if (debugTextParts[i].trim().equalsIgnoreCase("events")) {
-				debugEvents = true;
-				continue;
-			}
-                        if (debugTextParts[i].trim().equalsIgnoreCase("receivedPackets")) {
-				debugReceivedPackets = true;
-				continue;
-			}
-				
-		}
+		applyDebugTokens(getProperty("Debug"));
 		
 		
 		// checking local IP
@@ -242,6 +223,26 @@ public final class Config {
 		}
 		Out.writeln(Out.Info, "getServerIP: client=" + socket.getInetAddress().getHostAddress() + " -> server=" + ip);
 		return ip;
+	}
+
+	/**
+	 * Parse a comma-separated {@code Debug} directive and flip the
+	 * corresponding {@code debug*} flags. Unknown tokens are
+	 * silently ignored — that matches the original behaviour and
+	 * keeps a typo from blocking startup. Package-private so the
+	 * unit tests can exercise the parser without touching ceres.cfg.
+	 */
+	static void applyDebugTokens(String debugText) {
+		if (debugText == null) return;
+		String[] parts = debugText.split(",");
+		for (int i = 0; i < parts.length; i++) {
+			String t = parts[i].trim();
+			if (t.equalsIgnoreCase("unknownPackets"))      debugUnknownPackets = true;
+			else if (t.equalsIgnoreCase("sendingPackets")) debugSendingPackets = true;
+			else if (t.equalsIgnoreCase("events"))         debugEvents = true;
+			else if (t.equalsIgnoreCase("receivedPackets")) debugReceivedPackets = true;
+			else if (t.equalsIgnoreCase("subPackets"))     debugSubPackets = true;
+		}
 	}
 
 }

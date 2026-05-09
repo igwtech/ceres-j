@@ -83,13 +83,21 @@ public final class Out {
 	}
 
 	public static void debug(String messageTypeString, String s) {
+		if (sdf == null) {
+			// Out.init() never ran (e.g. unit tests). Print to stdout
+			// only and skip the file write — mirrors writeln().
+			System.out.println("[" + messageTypeString + "] " + s);
+			return;
+		}
 		String complete = format(messageTypeString, s);
 		synchronized (lock) {
 			System.out.print(complete);
-			try {
-				fw_debug.write(complete);
-			} catch (IOException e) {
-				// Debug log write failed; output still goes to console
+			if (fw_debug != null) {
+				try {
+					fw_debug.write(complete);
+				} catch (IOException e) {
+					// Debug log write failed; output still goes to console
+				}
 			}
 		}
 	}
