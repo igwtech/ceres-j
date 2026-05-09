@@ -1,5 +1,6 @@
 package server.gameserver.packets.server_udp;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 import java.net.DatagramPacket;
@@ -9,88 +10,129 @@ import org.junit.Test;
 import server.gameserver.Player;
 
 /**
- * Tests for the {@link WorldWeather} packet layout.
+ * Byte-level tests for {@link WorldWeather}
+ * (UDP S→C reliable {@code 0x03/0x2e}).
  *
- * Layout (total 19 bytes with 2-byte sub-packet length header):
+ * <p>Verified against {@code docs/protocol/_data/packets.json}
+ * (869 retail samples). Layout (24 bytes total = 11-byte
+ * outer-frame envelope + 13-byte body):
+ *
  * <pre>
  *   0x00  0x13                UDP gamedata header
  *   0x01  short    counter    outer counter (LE)
  *   0x03  short    ckey       counter+sessionkey (LE)
- *   0x05  short    size       2-byte LE sub-packet length = total - 7
+ *   0x05  short    size       sub-packet length = total - 7
  *   0x07  byte     0x03       reliable wrapper
  *   0x08  short    seqCounter reliable sub-sequence
  *   0x0a  byte     0x2e       Weather sub-type
- *   0x0b  short    mapId      LE
- *   0x0d  byte     weatherId  0..3
- *   0x0e  byte     intensity  0..255
- *   0x0f  int      duration   LE seconds
+ *   0x0b  byte     0x01       weather_type (constant in retail)
+ *   0x0c  byte     active     0x00 inactive / 0x01 active
+ *   0x0d  3B       reserved   00 00 00
+ *   0x10  int      start_time LE32 minutes-of-day
+ *   0x14  int      end_time   LE32 typically equals start
  * </pre>
  */
 public class WorldWeatherTest {
 
     @Test
-    public void defaultConstructorUsesClearWeather() {
+    public void defaultConstructorEmitsInactiveAtNoon() {
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
-        pl.setMapID(4);
+        pl.setMapID(4);   // retained for compat, no longer encoded
 
         DatagramPacket[] dps = new WorldWeather(pl).getDatagramPackets();
         byte[] b = new byte[dps[0].getLength()];
         System.arraycopy(dps[0].getData(), 0, b, 0, b.length);
 
-        assertEquals("expected 19 bytes for a single-reliable Weather packet, got "
-                + PacketTestFixture.hex(b), 19, b.length);
+        assertEquals("expected 24 bytes for the reliable Weather "
+                + "packet, got " + PacketTestFixture.hex(b),
+                24, b.length);
         assertEquals(0x13, b[0] & 0xFF);
         assertEquals(0x03, b[7] & 0xFF);
         assertEquals("Weather sub-type", 0x2e, b[10] & 0xFF);
 
-        // mapId LE = 4
-        assertEquals(4, b[11] & 0xFF);
-        assertEquals(0, b[12] & 0xFF);
+        // body[0] type, [1] active, [2..4] reserved
+        assertEquals(0x01, b[11] & 0xFF);                 // type
+        assertEquals(WorldWeather.WEATHER_INACTIVE,
+                b[12] & 0xFF);                            // active
+        assertEquals(0x00, b[13] & 0xFF);
+        assertEquals(0x00, b[14] & 0xFF);
+        assertEquals(0x00, b[15] & 0xFF);
 
-        // Clear weather defaults
-        assertEquals("weatherId", WorldWeather.WEATHER_CLEAR, b[13] & 0xFF);
-        assertEquals("intensity", 0, b[14] & 0xFF);
-        assertEquals("duration byte 0", 0, b[15] & 0xFF);
-        assertEquals("duration byte 1", 0, b[16] & 0xFF);
-        assertEquals("duration byte 2", 0, b[17] & 0xFF);
-        assertEquals("duration byte 3", 0, b[18] & 0xFF);
+        // start_time + end_time both = 1440 (0x05a0 LE32)
+        int startLo = b[16] & 0xFF, startHi = b[17] & 0xFF;
+        assertEquals(0xa0, startLo);
+        assertEquals(0x05, startHi);
+        assertEquals(0x00, b[18] & 0xFF);
+        assertEquals(0x00, b[19] & 0xFF);
+        // end_time
+        assertEquals(0xa0, b[20] & 0xFF);
+        assertEquals(0x05, b[21] & 0xFF);
+        assertEquals(0x00, b[22] & 0xFF);
+        assertEquals(0x00, b[23] & 0xFF);
     }
 
     @Test
-    public void customStormValuesEncodeLittleEndian() {
+    public void activeStormEncodesLittleEndian() {
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
         pl.setMapID(1);
 
-        WorldWeather pkt = new WorldWeather(pl, WorldWeather.WEATHER_STORM, 0xff, 0x01020304);
+        // start = 0x000005a0 (1440), end = 0x01020304
+        WorldWeather pkt = new WorldWeather(pl,
+                WorldWeather.WEATHER_ACTIVE,
+                0x000005a0, 0x01020304);
         DatagramPacket[] dps = pkt.getDatagramPackets();
         byte[] b = new byte[dps[0].getLength()];
         System.arraycopy(dps[0].getData(), 0, b, 0, b.length);
 
-        assertEquals(19, b.length);
-        assertEquals(WorldWeather.WEATHER_STORM, b[13] & 0xFF);
-        assertEquals(0xff, b[14] & 0xFF);
+        assertEquals(24, b.length);
+        // active = 1
+        assertEquals(WorldWeather.WEATHER_ACTIVE, b[12] & 0xFF);
 
-        // Duration little-endian 0x01020304
-        assertEquals(0x04, b[15] & 0xFF);
-        assertEquals(0x03, b[16] & 0xFF);
-        assertEquals(0x02, b[17] & 0xFF);
-        assertEquals(0x01, b[18] & 0xFF);
+        // start_time LE 0x000005a0
+        assertEquals(0xa0, b[16] & 0xFF);
+        assertEquals(0x05, b[17] & 0xFF);
+        assertEquals(0x00, b[18] & 0xFF);
+        assertEquals(0x00, b[19] & 0xFF);
+
+        // end_time LE 0x01020304
+        assertEquals(0x04, b[20] & 0xFF);
+        assertEquals(0x03, b[21] & 0xFF);
+        assertEquals(0x02, b[22] & 0xFF);
+        assertEquals(0x01, b[23] & 0xFF);
+    }
+
+    @Test
+    public void retailSampleByteEqualSnapshotNoon() {
+        // Pin against retail catalog sample #3:
+        //   01 00 00 00 00 a0 05 00 00 a0 05 00 00
+        // (inactive, t=1440 noon, end=start)
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
+        DatagramPacket[] dps = new WorldWeather(pl).getDatagramPackets();
+        byte[] b = new byte[dps[0].getLength()];
+        System.arraycopy(dps[0].getData(), 0, b, 0, b.length);
+
+        byte[] expectedBody = {
+                0x01, 0x00, 0x00, 0x00, 0x00,
+                (byte) 0xa0, 0x05, 0x00, 0x00,
+                (byte) 0xa0, 0x05, 0x00, 0x00
+        };
+        byte[] actualBody = new byte[13];
+        System.arraycopy(b, 11, actualBody, 0, 13);
+        assertArrayEquals("body must match retail catalog sample "
+                + "#3 (01 00 00 00 00 a0 05 00 00 a0 05 00 00)",
+                expectedBody, actualBody);
     }
 
     @Test
     public void outerHeaderSizeBytePatchedCorrectly() {
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
-        pl.setMapID(1);
-
-        byte[] b;
         DatagramPacket[] dps = new WorldWeather(pl).getDatagramPackets();
-        b = new byte[dps[0].getLength()];
+        byte[] b = new byte[dps[0].getLength()];
         System.arraycopy(dps[0].getData(), 0, b, 0, b.length);
 
-        // sub-packet length is now 2 bytes LE at offset 5-6
         int innerSize = (b[5] & 0xFF) | ((b[6] & 0xFF) << 8);
-        // innerSize = total - 7 = 12 for a 19-byte packet (length field
-        // is 2 bytes at sizeposition=5; payload starts at 7).
-        assertEquals(19 - 7, innerSize);
+        // innerSize = total - 7 = 17 for a 24-byte packet
+        // (length field is at offset 5; payload starts at 7).
+        assertEquals(24 - 7, innerSize);
     }
 }
