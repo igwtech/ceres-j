@@ -3,6 +3,11 @@ WORKDIR /build
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 COPY src/ src/
+# BytesIdenticalAssertion tests load retail samples from
+# docs/protocol/_data/packets.json — copy the catalog into the
+# build stage so the parity tests can run during `mvn test`.
+# Runtime stage doesn't need this; it's test-time only.
+COPY docs/protocol/_data/ docs/protocol/_data/
 RUN mvn clean test -B
 RUN mvn clean package -B -DskipTests
 
