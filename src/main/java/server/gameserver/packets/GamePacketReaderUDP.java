@@ -249,6 +249,37 @@ public final class GamePacketReaderUDP {
 			return new Movement(subPacket);
 		case 0x2a:
 			return new RequestPositionUpdate(subPacket);
+		// ─── Catalog-driven recognition (task #137) ──────────────────
+		// Sub-packet top-bytes that retail captures show the *server*
+		// emits but our parser previously logged as "Unknown UDP13
+		// Packet". Recognising here keeps the operator log clean when
+		// retail traffic is replayed against the decoder (e.g. via
+		// the ReplayHarness). See docs/protocol/packets/udp_s2c_*.md
+		// for byte-level evidence and the per-opcode rationale.
+		case 0x00:
+			// 12-of-17 captures, 147 hits. Heterogeneous; well-attested.
+			return new Sub0x00Recognized(subPacket);
+		case 0x01:
+			// 3-of-17 captures, 13 hits. 3-byte reliable-ACK frame.
+			return new ReliableAckSubPacket(subPacket);
+		case 0x06:
+			// 4-of-17 captures, 6 hits. 1-byte singleton.
+			return new Sub0x06Recognized(subPacket);
+		case 0x07:
+			// 1-of-17 captures, 4 hits. 10-byte reliable-shaped wrapper.
+			return new Sub0x07Recognized(subPacket);
+		case 0x0d:
+			// 2-of-17 captures, 4 hits. 10-byte reliable-shaped wrapper.
+			return new Sub0x0DRecognized(subPacket);
+		case 0x0f:
+			// 5-of-17 captures, 11 hits. 10-byte reliable-shaped wrapper.
+			return new Sub0x0FRecognized(subPacket);
+		case 0x11:
+			// 2-of-17 captures, 2 hits. 10-byte reliable-shaped wrapper.
+			return new Sub0x11Recognized(subPacket);
+		case 0x31:
+			// 1-of-17 captures, 1 hit. 1-byte singleton.
+			return new Sub0x31Recognized(subPacket);
 		default:
 			pd.reset();
 			return pd;

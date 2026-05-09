@@ -31,21 +31,44 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+10-byte body, identical layout to the `0x38` variant of
+`UDP S->C 0x0f` but with value byte `0x01` instead of `0x04`:
+
+```
+offset  size  field
+   0      1   0x11         outer tag
+   1      1   0x00         envelope flag
+   2      1   0x03         reliable channel
+   3      2   seq LE16     reliable sequence
+   5      1   0x1f         GamePacket marker
+   6      2   txn LE16     0x0001
+   8      1   0x38         sub-tag
+   9      1   0x01         value byte (constant in this variant)
+```
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 10-byte shape. Both observed hits identical apart from
+the LE16 sequence number.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+2 of 17 captures, 2 hits. Top marker: `USE_ELEVATOR` (×1).
+
+The `USE_ELEVATOR` correlation, together with `0x0f`'s door /
+zone-transition markers, supports the hypothesis that
+`0x0f` and `0x11` are a related pair where the value byte
+encodes door/elevator state (`0x04` "open"? `0x01` "engaged"?).
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Same as `0x0f` — meaning of the `0x38` sub-tag is unverified.
+- Are `0x0f` and `0x11` two halves of a single state-machine
+  (e.g. open + close), or different door types (one-shot vs
+  recurring elevator)?
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+[`server.gameserver.packets.client_udp.Sub0x11Recognized`](../../../src/main/java/server/gameserver/packets/client_udp/Sub0x11Recognized.java)
+— recognise-only. Two-capture evidence is below threshold.
 

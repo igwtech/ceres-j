@@ -34,21 +34,37 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+Single byte, no payload:
+
+```
+offset  size  field
+   0      1   0x06   tag
+```
+
+All 6 observations across 4 captures are exactly the byte
+`06`. No timestamp / marker correlation strong enough to point
+at a specific gameplay event.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+None — every observed instance is the same 1-byte frame.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+4 of 17 captures, 6 hits. No top markers — the packet appears
+during steady-state gameplay rather than at named scenario edges.
+Captures with hits include `RETAIL_VEHICLE_DRONE` (×3),
+`RETAIL_CHARDEL_SUBWAY` (×1), `NORMAN` (×1) and
+`CREATION_LEVELING_LONG` (×1).
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Is this a transport-level beacon (channel poke / keepalive)?
+- Or a session-state notifier (e.g. "drop pending reliable", as
+  the symmetric C→S `0x06` would suggest)?
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+[`server.gameserver.packets.client_udp.Sub0x06Recognized`](../../../src/main/java/server/gameserver/packets/client_udp/Sub0x06Recognized.java)
+— recognise-only. No structure to act on yet.
 

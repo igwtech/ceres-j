@@ -25,21 +25,39 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+Single byte:
+
+```
+offset  size  field
+   0      1   0x31   tag
+```
+
+Only 1 hit in 1 capture (`RETAIL_ODA`). Insufficient evidence
+to commit any structural detail beyond "one byte, value `0x31`".
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+None observed.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+1 of 17 captures, 1 hit. No top markers.
+
+The C→S side already has `0x31 = RequestShortPlayerInfo`
+(handled in the dispatcher's `0x03/0x31` route). The S→C raw
+`0x31` here may be the unsolicited counterpart but the single
+observation precludes confirmation.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Is the S→C raw `0x31` related to the C→S
+  `0x03/0x31 RequestShortPlayerInfo` channel, or unrelated?
+- Why only one hit across 17 captures? Could be a corner-case
+  state notifier (e.g. "no such player").
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+[`server.gameserver.packets.client_udp.Sub0x31Recognized`](../../../src/main/java/server/gameserver/packets/client_udp/Sub0x31Recognized.java)
+— recognise-only. Single-capture evidence; needs more samples
+before any field-level work.
 

@@ -48,21 +48,67 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+Heterogeneous family — observations group cleanly by length but
+not by a single header layout. Size distribution from the corpus
+(147 hits across 12/17 captures):
+
+| Size | Count | Sample shape | Probable layout |
+|------|------:|--------------|-----------------|
+| 12B  | 101   | `00 3c 01 00 [LE32] 00 00 [LE16] 00` | tag-`3c` status update |
+| 6B   | 26    | `00 2d 00 [byte] 00 00`              | tag-`2d` short-event |
+| 4B   | 6     | `00 00 [byte] 00`                    | tag-`00` micro |
+| 5B   | 4     | various                              | unclear |
+| 9B   | 3     | various                              | unclear |
+| 3B/1B/13B/19B/58B | ≤2 each | various                | rare |
+
+The leading sub-tag byte (`3c` / `2d` / `00`) drives variant
+selection and is the dominant covariant with size. The `0x3c`
+variant (12B) is by far the most common.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+- **`00 3c …` (12B, 101 hits, 11 captures)** — the dominant
+  variant. Markers in ±2s windows include
+  `OUTSIDE_AREAM5_GENREP_OPEN`, `ZONING_AREAMC5_*`, and
+  `MEDBED_DONE`, all of which touch the player's location/state.
+  Likely a state-change broadcast keyed by an LE32 entity id.
+- **`00 2d …` (6B, 26 hits, 5 captures)** — short payload
+  variant. Sample bytes (`00 2d 00 64 01 00`,
+  `00 2d 00 88 00 00`, `00 2d 00 ec 00 00`) suggest a 1B+LE16
+  or LE16+LE16 inner pair.
+- **`00 00 …` (4B, 6 hits, 3 captures)** — micro variant. Two
+  payload bytes only.
+- **`00 03 …` (variable, 9B/13B observed)** — looks like an
+  embedded reliable wrapper (`03 [seq2] 1f 01 00 25 23 …`),
+  consistent with channel-duality where raw `0x00` carries an
+  inner `0x03/0x1f` GamePacket with sub-tag `0x25`.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Top markers (within ±2s) across the corpus:
+
+- `OUTSIDE_AREAM5_GENREP_OPEN` × 6
+- `ZONING_AREAMC5_COMMANDUNIT` × 3
+- `ZONING_AREAMC5_EXIT` × 3
+- `BEFORE_ENTER_SEWER`, `KILL_MOB4`, `LEAVE_TEAM`,
+  `LOCK_UNLOCK_SEATS_VEHICLE`, `MEDBED_DONE` × 1 each
+
+The bias toward zone/genrep markers points at
+location/teleport-edge events for the dominant `0x3c` variant.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- What entity does the LE32 in the `0x3c` variant identify?
+  Player id, spawn id, or zone id?
+- Are the `0x2d` and `0x3c` variants truly distinct messages, or
+  two sub-types of the same envelope?
+- Why does the `0x00 / 0x03 / 0x1f / 0x25 / 0x23` shape sometimes
+  appear here instead of as a regular `0x03`-channel reliable?
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+[`server.gameserver.packets.client_udp.Sub0x00Recognized`](../../../src/main/java/server/gameserver/packets/client_udp/Sub0x00Recognized.java)
+— recognise-only. Per the project rule "no speculation under 3
+captures per variant", we don't decode fields until each variant
+is verified against multi-capture evidence.
 

@@ -418,11 +418,20 @@ Sub-packet types (first byte of data):
 
 | ID | Name | Description |
 |----|------|-------------|
+| 0x00 | StatusFamily00 | Heterogeneous state-change broadcast (12B `00 3c …`, 6B `00 2d …`, 4B `00 00 …` variants); see [`packets/udp_s2c_00.md`](protocol/packets/udp_s2c_00.md) |
+| 0x01 | ReliableAck | 3B `[01][seq LE16]` — server-pushed reliable ACK; see [`packets/udp_s2c_01.md`](protocol/packets/udp_s2c_01.md) |
+| 0x02 | ACK-channel | Client/server reliable-ACK wrapper (also carries `1f / 3d / 11` heartbeats) |
 | 0x03 | Reliable | Reliable delivery wrapper |
+| 0x06 | Tag06 | 1B singleton — likely transport-level beacon; see [`packets/udp_s2c_06.md`](protocol/packets/udp_s2c_06.md) |
+| 0x07 | EnvVehicle07 | 10B reliable-shaped envelope w/ sub-tag `0x4a` (single-capture); see [`packets/udp_s2c_07.md`](protocol/packets/udp_s2c_07.md) |
 | 0x0b | CPing | Client ping |
 | 0x0c | TimeSync | Time synchronization request |
+| 0x0d | EnvNPC0D | 10B reliable-shaped envelope w/ sub-tag `0x2d` (NPC-data); see [`packets/udp_s2c_0d.md`](protocol/packets/udp_s2c_0d.md) |
+| 0x0f | EnvDoor0F | 10B reliable-shaped envelope w/ sub-tag `0x38` value `0x04` (door state); see [`packets/udp_s2c_0f.md`](protocol/packets/udp_s2c_0f.md) |
+| 0x11 | EnvElevator11 | 10B reliable-shaped envelope w/ sub-tag `0x38` value `0x01` (elevator state); see [`packets/udp_s2c_11.md`](protocol/packets/udp_s2c_11.md) |
 | 0x20 | Movement | Player movement update |
 | 0x2a | RequestPos | Request position update |
+| 0x31 | Tag31 | 1B singleton (single-capture); see [`packets/udp_s2c_31.md`](protocol/packets/udp_s2c_31.md) |
 
 ### 0x03 Reliable Sub-packets
 
