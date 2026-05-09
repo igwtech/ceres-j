@@ -28,11 +28,17 @@ import server.networktools.PacketBuilderUDP1303;
  */
 public class CashReceipt extends PacketBuilderUDP1303 {
 
-    /** Candidate cash field index inside the 41-byte body. */
-    public static final int FIELD_A_OFFSET_530K  = 7;   // e3 15 08 00 (offset within inner body)
-    public static final int FIELD_B_OFFSET_51M   = 11;  // d3 2f 18 03
-    public static final int FIELD_C_OFFSET_968K  = 19;  // 21 c8 0e 00
-    public static final int FIELD_D_OFFSET_2M    = 33;  // 51 c9 1e 00 (final 4 bytes of inner)
+    /** Candidate cash field offsets, as indices into {@link #RETAIL_BODY}
+     *  (the 37-byte trailer that follows the {@code 01 00 25 13}
+     *  prefix). The substitution constructor writes a 4-byte LE32 at
+     *  these positions. The previous constants were inconsistently
+     *  shifted (some trailer-relative, some inner-body-relative); fixed
+     *  here so each constant points at the actual LE32 field its
+     *  comment describes. */
+    public static final int FIELD_A_OFFSET_530K  = 3;   // e3 15 08 00 → 530,915
+    public static final int FIELD_B_OFFSET_51M   = 7;   // d3 2f 18 03 → 51,847,635
+    public static final int FIELD_C_OFFSET_968K  = 17;  // 21 c8 0e 00 → 968,225
+    public static final int FIELD_D_OFFSET_2M    = 33;  // 51 c9 1e 00 → 2,017,617
 
     /** Original retail bytes captured 2026-04-26 (37 bytes after `01 00 25 13`). */
     private static final byte[] RETAIL_BODY = {

@@ -19,12 +19,12 @@ import server.gameserver.Player;
  * tooling.
  *
  * <p>The four-argument substitution constructor with its
- * {@code FIELD_*_OFFSET_*} constants is admin-debug code with
- * known inconsistent offsets (some are trailer-relative, some
- * inner-body-relative). Tests for those slot semantics are
- * intentionally absent — they would lock in the inconsistency.
- * Fixing those constants is a separate task once we're sure the
- * cash bisection is no longer in active use.
+ * {@code FIELD_*_OFFSET_*} constants targets one of four
+ * candidate LE32 cash fields (used historically for HUD-cash
+ * bisection). The constants are now consistent (all
+ * trailer-relative, all pointing at the field their comment
+ * describes); tests below verify each slot lands at the right
+ * 4-byte position and that surrounding bytes stay intact.
  */
 public class CashReceiptByteIdentityTest {
 
@@ -98,5 +98,92 @@ public class CashReceiptByteIdentityTest {
         assertEquals(0x00, body[1] & 0xFF);
         assertEquals(0x25, body[2] & 0xFF);
         assertEquals(0x13, body[3] & 0xFF);
+    }
+
+    /**
+     * Trailer offset → wire offset = trailer + 4 (the 4-byte
+     * {@code 01 00 25 13} prefix at the start of the inner body).
+     */
+    private static int wireOffset(int trailerOffset) {
+        return 4 + trailerOffset;
+    }
+
+    /** Verify a substituted LE32 lands at the expected wire offset
+     *  AND the bytes immediately around it stay equal to the
+     *  retail verbatim baseline. */
+    private void assertSubstitution(int trailerOffset,
+                                     int substitutedValue,
+                                     byte[] expectedRetailVerbatim) {
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
+        byte[] body = extractInnerBody(datagramBytes(
+                new CashReceipt(pl, trailerOffset, substitutedValue)),
+                41);
+
+        int wireOff = wireOffset(trailerOffset);
+        assertEquals("substituted byte 0 (LE lo)",
+                substitutedValue & 0xFF,
+                body[wireOff + 0] & 0xFF);
+        assertEquals("substituted byte 1",
+                (substitutedValue >> 8) & 0xFF,
+                body[wireOff + 1] & 0xFF);
+        assertEquals("substituted byte 2",
+                (substitutedValue >> 16) & 0xFF,
+                body[wireOff + 2] & 0xFF);
+        assertEquals("substituted byte 3 (LE hi)",
+                (substitutedValue >> 24) & 0xFF,
+                body[wireOff + 3] & 0xFF);
+
+        // Every byte outside the 4-byte slot must match retail.
+        for (int i = 0; i < 41; i++) {
+            if (i >= wireOff && i < wireOff + 4) continue;
+            assertEquals("byte " + i + " must remain at retail "
+                    + "verbatim value",
+                    expectedRetailVerbatim[i] & 0xFF,
+                    body[i] & 0xFF);
+        }
+    }
+
+    @Test
+    public void fieldASubstitutionTargetsCorrectSlot() {
+        // FIELD_A = trailer offset 3 → wire offset 7 → e3 15 08 00
+        // (= 530,915 in retail).
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
+        byte[] verbatim = extractInnerBody(
+                datagramBytes(new CashReceipt(pl)), 41);
+        assertSubstitution(CashReceipt.FIELD_A_OFFSET_530K,
+                0xCAFEBABE, verbatim);
+    }
+
+    @Test
+    public void fieldBSubstitutionTargetsCorrectSlot() {
+        // FIELD_B = trailer offset 7 → wire offset 11 → d3 2f 18 03
+        // (= 51,847,635 in retail).
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
+        byte[] verbatim = extractInnerBody(
+                datagramBytes(new CashReceipt(pl)), 41);
+        assertSubstitution(CashReceipt.FIELD_B_OFFSET_51M,
+                0xDEADBEEF, verbatim);
+    }
+
+    @Test
+    public void fieldCSubstitutionTargetsCorrectSlot() {
+        // FIELD_C = trailer offset 17 → wire offset 21 → 21 c8 0e 00
+        // (= 968,225 in retail).
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
+        byte[] verbatim = extractInnerBody(
+                datagramBytes(new CashReceipt(pl)), 41);
+        assertSubstitution(CashReceipt.FIELD_C_OFFSET_968K,
+                0x12345678, verbatim);
+    }
+
+    @Test
+    public void fieldDSubstitutionTargetsCorrectSlot() {
+        // FIELD_D = trailer offset 33 → wire offset 37 → 51 c9 1e 00
+        // (= 2,017,617 in retail).
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
+        byte[] verbatim = extractInnerBody(
+                datagramBytes(new CashReceipt(pl)), 41);
+        assertSubstitution(CashReceipt.FIELD_D_OFFSET_2M,
+                0x87654321, verbatim);
     }
 }
