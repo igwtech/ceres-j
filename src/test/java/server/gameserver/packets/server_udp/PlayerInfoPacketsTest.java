@@ -109,40 +109,34 @@ public class PlayerInfoPacketsTest {
     }
 
     @Test
-    public void playerPositionUpdateEmbedsPosition() {
+    public void playerPositionUpdateEmitsRetailMinimalForm() {
+        // PlayerPositionUpdate now emits the 11-byte minimal form
+        // pinned to retail catalog samples (marker byte 0x20). The
+        // detailed byte-level coverage lives in
+        // PlayerPositionUpdateTest; this case just confirms the
+        // wire-frame envelope is intact for callers that care
+        // only about the outer 0x13/0x03/0x1b sequencing.
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
         PlayerCharacter pc = pl.getCharacter();
-        pc.setMisc(PlayerCharacter.MISC_X_COORDINATE, 0x100);
-        pc.setMisc(PlayerCharacter.MISC_Y_COORDINATE, 0x200);
-        pc.setMisc(PlayerCharacter.MISC_Z_COORDINATE, 0x300);
-        pc.setMisc(PlayerCharacter.MISC_ORIENTATION, 0x40);
-        pc.setMisc(PlayerCharacter.MISC_TILT, 0x10);
+        // Position fields no longer embedded — see PlayerPositionUpdate
+        // javadoc for why (extended form not yet pinned to retail).
 
         DatagramPacket[] dps = new PlayerPositionUpdate(pl, pc, 2).getDatagramPackets();
         byte[] b = new byte[dps[0].getLength()];
         System.arraycopy(dps[0].getData(), 0, b, 0, b.length);
 
-        assertEquals(0x13, b[0] & 0xFF);
-        assertEquals(0x03, b[7] & 0xFF);
-        assertEquals("REL sub-type", 0x1b, b[10] & 0xFF);
-
+        assertEquals("outer 0x13",       0x13, b[0] & 0xFF);
+        assertEquals("reliable 0x03",    0x03, b[7] & 0xFF);
+        assertEquals("sub-opcode 0x1b",  0x1b, b[10] & 0xFF);
         // mapId at [11..12] = 2
         assertEquals(2, b[11] & 0xFF);
         assertEquals(0, b[12] & 0xFF);
-
-        // Two zero padding bytes + subPacketType 0x03 at [15]
-        assertEquals(0, b[13] & 0xFF);
-        assertEquals(0, b[14] & 0xFF);
-        assertEquals(0x03, b[15] & 0xFF);
-
-        // Position is written as signed short (value + 32000), little-endian:
-        //   Y = 0x200 + 32000 = 0x7f00, Z = 0x300 + 32000 = 0x8000
-        //   X = 0x100 + 32000 = 0x7e00
-        int y = (b[16] & 0xFF) | ((b[17] & 0xFF) << 8);
-        int z = (b[18] & 0xFF) | ((b[19] & 0xFF) << 8);
-        int x = (b[20] & 0xFF) | ((b[21] & 0xFF) << 8);
-        assertEquals(0x200 + 32000, y);
-        assertEquals(0x300 + 32000, z);
-        assertEquals(0x100 + 32000, x);
+        // Marker byte 0x20 at offset [15] — the critical fix
+        // that distinguishes reliable position-authority echo
+        // from the unreliable 0x1b broadcast. Pre-fix this was
+        // 0x03 and the modern client rejected the packet.
+        assertEquals(0x00, b[13] & 0xFF);
+        assertEquals(0x00, b[14] & 0xFF);
+        assertEquals("position-authority marker", 0x20, b[15] & 0xFF);
     }
 }
