@@ -51,17 +51,25 @@ public class TimeSyncByteIdentityTest {
 
     @Test
     public void trailingFourBytesAreRetailWorldId() {
-        // The critical fix: trailing 4 bytes must be `d5 0a 58 00`,
-        // not the previously-emitted `fb 0a 00 00`. Catalog evidence:
-        // 80/80 retail samples carry these exact bytes.
+        // The trailing 4 bytes are `d5 0a [LE16 var] 00`. Bytes 8..9
+        // are CONSTANT (0xd5 0x0a) across all retail captures —
+        // tag prefix. Bytes 10..11 are session-state, varying per
+        // session: HANNIBAL/NORMAN/AUGUSTO emit 0x0020, DRSTONE3
+        // emits 0x0051. We pin to 0x0020 (3/4 retail samples) and
+        // mask byte 10 in the pcap-replay harness as session-derived.
+        // Pre-fix history: `fb 0a 00 00` (wrong) → `d5 0a 58 00`
+        // (single-capture extrapolation, also wrong) → current
+        // `d5 0a 20 00` (most common retail value).
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
 
         byte[] body = extractInnerBody(datagramBytes(
                 new TimeSync(pl, 0)));
-        assertEquals(0xD5, body[8]  & 0xFF);
-        assertEquals(0x0A, body[9]  & 0xFF);
-        assertEquals(0x58, body[10] & 0xFF);
-        assertEquals(0x00, body[11] & 0xFF);
+        assertEquals("body[8] = 0xd5 const", 0xD5, body[8]  & 0xFF);
+        assertEquals("body[9] = 0x0a const", 0x0A, body[9]  & 0xFF);
+        assertEquals("body[10] = 0x20 (session-state, default)",
+                0x20, body[10] & 0xFF);
+        assertEquals("body[11] = 0x00 const",
+                0x00, body[11] & 0xFF);
     }
 
     @Test

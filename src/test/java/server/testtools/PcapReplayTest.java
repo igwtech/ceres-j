@@ -565,6 +565,41 @@ public class PcapReplayTest {
                 && offset >= 1 && offset <= 4) {
             return true;
         }
+        // 0x03/0x23 zoneInfo variant — body[2] = wire offset 6 is
+        // session/zone state. Verified 2026-05-09 across 4 retail
+        // pcaps: HANNIBAL=0x10, NORMAN=0x01, DRSTONE3=0x84,
+        // AUGUSTO=0x00. The 7-byte zoneInfo body is
+        // {@code 20 00 ?? 00 00 00}; constants at body[0..1] and
+        // [3..5], variable byte at [2]. Matches the
+        // {@code [03 (sub-op 0x23) 20 00 ?? 00 00 00]} 7-byte form
+        // only — longer 0x03/0x23 variants (sessionInfo,
+        // postTransitionInfo) have different body shapes that don't
+        // collide with this offset.
+        if (packet.length == 10
+                && (packet[0] & 0xFF) == 0x03
+                && (packet[3] & 0xFF) == 0x23
+                && (packet[4] & 0xFF) == 0x20
+                && (packet[5] & 0xFF) == 0x00
+                && offset == 6) {
+            return true;
+        }
+        // 0x03/0x0d TimeSync — body bytes 1..4 (= wire offset
+        // 4..7) are the server_time LE32, derived from
+        // Timer.getIngametime() at emit-time. Test fixture's Timer
+        // state ≠ retail's. Body bytes 9..12 (= wire offset 12..15)
+        // are the trailing world/zone tag — bytes 9..10 are
+        // CONSTANT (0xd5 0x0a) but bytes 11..12 vary per session
+        // (0x0020 dominant, 0x0051 in DRSTONE3). Mask the variable
+        // server_time AND byte 14 (the variable tag byte).
+        // Verified 2026-05-09 across HANNIBAL/NORMAN/DRSTONE3/AUGUSTO.
+        if (packet.length == 16
+                && (packet[0] & 0xFF) == 0x03
+                && (packet[3] & 0xFF) == 0x0d) {
+            // server_time LE32
+            if (offset >= 4 && offset <= 7) return true;
+            // session-state tag low byte
+            if (offset == 14) return true;
+        }
         // 0x03/0x2c StartPos body[3..end] — all session/character
         // state (entity ID, position floats, character model,
         // texture indices). Verified 2026-05-09 against 4 retail
