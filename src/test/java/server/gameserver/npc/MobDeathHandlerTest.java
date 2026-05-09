@@ -12,8 +12,10 @@ import org.junit.Before;
 import org.junit.Test;
 
 import server.gameserver.NPC;
+import server.gameserver.Player;
 import server.gameserver.WorldMessageBus;
 import server.gameserver.Zone;
+import server.gameserver.packets.server_udp.PacketTestFixture;
 
 /**
  * Functional tests for {@link MobDeathHandler}: the consumer that
@@ -29,7 +31,14 @@ public class MobDeathHandlerTest {
         }
     }
 
+    static final class CapturedDespawn {
+        final Player recipient;
+        final int entityId;
+        CapturedDespawn(Player r, int id) { recipient = r; entityId = id; }
+    }
+
     private List<CapturedKill> killed;
+    private List<CapturedDespawn> despawns;
     private Map<Integer, Zone> zoneMap;
 
     @Before
@@ -37,11 +46,14 @@ public class MobDeathHandlerTest {
         MobManager.resetForTesting();
         MobDeathHandler.resetForTesting();
         killed = new ArrayList<>();
+        despawns = new ArrayList<>();
         zoneMap = new HashMap<>();
         MobDeathHandler.setZoneLookupForTesting(
                 id -> zoneMap.get(id));
         MobDeathHandler.setKillLoggerForTesting(
                 (i, n) -> killed.add(new CapturedKill(i, n)));
+        MobDeathHandler.setDespawnSinkForTesting(
+                (r, id) -> despawns.add(new CapturedDespawn(r, id)));
     }
 
     @After
@@ -176,5 +188,103 @@ public class MobDeathHandlerTest {
         assertEquals(0x100, i.killerUid);
         // Bus scope is global until per-zone ticks.
         assertEquals(-1, i.zoneId());
+    }
+
+    // ─── 0x03/0x26 RemoveWorldItem fan-out ─────────────────────────
+
+    @Test
+    public void deathFansOutDespawnToEveryZonePlayer() {
+        // Three players in zone — every one of them must get a
+        // RemoveWorldItem broadcast for the dead NPC.
+        Zone z = newZone(7);
+        z.addNPCtoZone(0, 0, 0, 100, 0, 0);
+        NPC mob = z.getAllNPCs().get(0);
+        int npcId = mob.getMapID();
+
+        Player p1 = PacketTestFixture.newPlayer();
+        Player p2 = PacketTestFixture.newPlayer();
+        Player p3 = PacketTestFixture.newPlayer();
+        z.registerPlayer(p1);
+        z.registerPlayer(p2);
+        z.registerPlayer(p3);
+
+        MobDeathHandler.dispatch(new MobDeathIntent(npcId, 7, 0x999));
+
+        assertEquals("expected 3 despawn fan-outs (one per player)",
+                3, despawns.size());
+        for (CapturedDespawn d : despawns) {
+            assertEquals("entity_id must match dead NPC's map id",
+                    npcId, d.entityId);
+        }
+        // All three recipients distinct.
+        assertEquals(3, despawns.stream().map(d -> d.recipient)
+                .distinct().count());
+    }
+
+    @Test
+    public void emptyZoneSendsNoDespawn() {
+        Zone z = newZone(7);
+        z.addNPCtoZone(0, 0, 0, 100, 0, 0);
+        NPC mob = z.getAllNPCs().get(0);
+
+        MobDeathHandler.dispatch(new MobDeathIntent(mob.getMapID(), 7, 0));
+
+        assertTrue("no players → no despawn", despawns.isEmpty());
+        // NPC still removed.
+        assertTrue(z.getAllNPCs().isEmpty());
+        assertEquals(1, killed.size());
+    }
+
+    @Test
+    public void despawnSinkExceptionDoesNotInterruptOtherRecipients() {
+        Zone z = newZone(7);
+        z.addNPCtoZone(0, 0, 0, 100, 0, 0);
+        NPC mob = z.getAllNPCs().get(0);
+        int npcId = mob.getMapID();
+
+        Player good1 = PacketTestFixture.newPlayer();
+        Player bad   = PacketTestFixture.newPlayer();
+        Player good2 = PacketTestFixture.newPlayer();
+        z.registerPlayer(good1);
+        z.registerPlayer(bad);
+        z.registerPlayer(good2);
+
+        MobDeathHandler.setDespawnSinkForTesting((r, id) -> {
+            if (r == bad) throw new RuntimeException("simulated");
+            despawns.add(new CapturedDespawn(r, id));
+        });
+
+        MobDeathHandler.dispatch(new MobDeathIntent(npcId, 7, 0));
+
+        // The bad recipient threw but the others still got their
+        // despawn — fan-out continues past per-recipient errors.
+        assertEquals(2, despawns.size());
+    }
+
+    @Test
+    public void despawnHappensBeforeKillLogger() {
+        // Order matters: clients should see the model disappear
+        // before any side effects of the kill (XP credit, loot
+        // drop) — those follow in later commits.
+        Zone z = newZone(7);
+        z.addNPCtoZone(0, 0, 0, 100, 0, 0);
+        NPC mob = z.getAllNPCs().get(0);
+        int npcId = mob.getMapID();
+
+        Player p = PacketTestFixture.newPlayer();
+        z.registerPlayer(p);
+
+        // Capture relative ordering by appending to a shared list.
+        List<String> events = new ArrayList<>();
+        MobDeathHandler.setDespawnSinkForTesting(
+                (r, id) -> events.add("despawn"));
+        MobDeathHandler.setKillLoggerForTesting(
+                (i, n) -> events.add("logger"));
+
+        MobDeathHandler.dispatch(new MobDeathIntent(npcId, 7, 0));
+
+        assertEquals(2, events.size());
+        assertEquals("despawn", events.get(0));
+        assertEquals("logger",  events.get(1));
     }
 }

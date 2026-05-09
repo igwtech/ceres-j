@@ -1,9 +1,11 @@
 package server.gameserver.npc;
 
 import server.gameserver.NPC;
+import server.gameserver.Player;
 import server.gameserver.WorldMessageBus;
 import server.gameserver.Zone;
 import server.gameserver.ZoneManager;
+import server.gameserver.packets.server_udp.RemoveWorldItem;
 import server.tools.Out;
 
 /**
@@ -34,8 +36,17 @@ public final class MobDeathHandler {
         void log(MobDeathIntent intent, NPC removedNpc);
     }
 
-    private static ZoneLookup  zoneLookup  = MobDeathHandler::defaultZoneLookup;
-    private static KillLogger  killLogger  = MobDeathHandler::defaultKillLogger;
+    /** Strategy for emitting the RemoveWorldItem broadcast to a
+     *  single recipient. Default uses {@link Player#send}. Tests
+     *  inject a list-capturing variant to assert fan-out. */
+    @FunctionalInterface
+    public interface DespawnSink {
+        void sendDespawn(Player recipient, int entityId);
+    }
+
+    private static ZoneLookup   zoneLookup   = MobDeathHandler::defaultZoneLookup;
+    private static KillLogger   killLogger   = MobDeathHandler::defaultKillLogger;
+    private static DespawnSink  despawnSink  = MobDeathHandler::defaultDespawnSink;
 
     private MobDeathHandler() {}
 
@@ -62,6 +73,21 @@ public final class MobDeathHandler {
                 + " (already reaped?)");
             return;
         }
+        // Broadcast 0x03/0x26 RemoveWorldItem to every player in
+        // the zone so their local entity tables despawn the model.
+        // Retail emits 253 of these across 10/17 captures, all
+        // tightly correlated with KILL_MOB markers — this is the
+        // canonical mob-death client signal.
+        for (Player r : z.getAllPlayers()) {
+            if (r == null) continue;
+            try {
+                despawnSink.sendDespawn(r, intent.npcId);
+            } catch (Exception e) {
+                Out.writeln(Out.Error,
+                    "MobDeathHandler: despawn send failed for "
+                    + "npc=" + intent.npcId + ": " + e.getMessage());
+            }
+        }
         try {
             killLogger.log(intent, removed);
         } catch (Exception e) {
@@ -86,6 +112,10 @@ public final class MobDeathHandler {
             + " zone=" + intent.zoneIdField);
     }
 
+    private static void defaultDespawnSink(Player recipient, int entityId) {
+        recipient.send(new RemoveWorldItem(recipient, entityId));
+    }
+
     // ─── Test seams ─────────────────────────────────────────────────
 
     public static void setZoneLookupForTesting(ZoneLookup l) {
@@ -96,8 +126,13 @@ public final class MobDeathHandler {
         killLogger = (k == null) ? MobDeathHandler::defaultKillLogger : k;
     }
 
+    public static void setDespawnSinkForTesting(DespawnSink s) {
+        despawnSink = (s == null) ? MobDeathHandler::defaultDespawnSink : s;
+    }
+
     public static void resetForTesting() {
         zoneLookup = MobDeathHandler::defaultZoneLookup;
         killLogger = MobDeathHandler::defaultKillLogger;
+        despawnSink = MobDeathHandler::defaultDespawnSink;
     }
 }
