@@ -79,6 +79,24 @@ public class PcapReplayTestHelpersTest {
     }
 
     @Test
+    public void unreplicableNpcBroadcast_skipsRaw1bWhenCerJEmitsWrappedReliable() {
+        // Raw 0x1b (19B) and 0x13-wrapped reliable 0x03/0x1b are
+        // DIFFERENT wire shapes — they can never byte-match. Pre-fix
+        // bug (resolved 2026-05-09): the predicate accepted any 0x1b
+        // inside cerJBytes (including wrapped reliable), pairing
+        // them against retail's raw 0x1b → manufactured a divergence.
+        byte[] retailRaw1b = new byte[19];
+        retailRaw1b[0] = 0x1b;
+        byte[] cerJWrappedRel = new byte[]{0x13, 0x06, 0x00, 0x3f,
+                0x01, 0x0f, 0x00, 0x03, 0x06, 0x00, 0x1b,
+                (byte) 0xed, 0x03, 0x00, 0x00};
+        assertTrue("retail raw 0x1b should skip when Ceres-J emits "
+                + "wrapped reliable (different shape)",
+                PcapReplayTest.isUnreplicableNpcBroadcast(
+                        retailRaw1b, cerJWrappedRel));
+    }
+
+    @Test
     public void unreplicableNpcBroadcast_skipsWhenCerJEmittedNothing() {
         byte[] retail = new byte[19];
         retail[0] = 0x1b;
@@ -193,6 +211,34 @@ public class PcapReplayTestHelpersTest {
         byte[] cerJ   = new byte[]{0x0b, 0x00, 0x00, 0x00, 0x00,
                 0x12, 0x34, 0x56, 0x78};
         assertFalse(PcapReplayTest
+                .isUnreplicableEntityState(retail, cerJ));
+    }
+
+    @Test
+    public void entityState_skipsRaw0x20EntityBroadcast() {
+        // Raw 0x20 top-level entity broadcast (NPC spawn / position).
+        byte[] retail = new byte[]{0x20, (byte) 0xfb, 0x03,
+                (byte) 0x95, 0x7c, 0x00, (byte) 0x80, 0x29,
+                0x7f, 0x35, 0x00, 0x00, 0x00};
+        byte[] cerJ = new byte[]{0x0b, 0x00, 0x00, 0x00, 0x00,
+                0x12, 0x34, 0x56, 0x78};   // SPing
+        assertTrue(PcapReplayTest
+                .isUnreplicableEntityState(retail, cerJ));
+    }
+
+    @Test
+    public void entityState_skipsRaw0x3cEntityBroadcast() {
+        byte[] retail = new byte[]{0x3c, 0x10, 0x20, 0x30};
+        byte[] cerJ = new byte[]{0x03, 0x0a, 0x00, 0x0d};
+        assertTrue(PcapReplayTest
+                .isUnreplicableEntityState(retail, cerJ));
+    }
+
+    @Test
+    public void entityState_skips03_2fUpdateModel() {
+        byte[] retail = new byte[]{0x03, 0x05, 0x00, 0x2f, 0x01};
+        byte[] cerJ = new byte[]{0x03, 0x0a, 0x00, 0x23, 0x20};
+        assertTrue(PcapReplayTest
                 .isUnreplicableEntityState(retail, cerJ));
     }
 

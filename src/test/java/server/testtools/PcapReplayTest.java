@@ -529,8 +529,12 @@ public class PcapReplayTest {
      *    <li>{@code 0x03/0x07} — multipart fragments (CharInfo
      *        content varies per character; large multipart bursts
      *        depend on entity state)</li>
-     *    <li>raw {@code 0x1f}, raw {@code 0x2d} — unwrapped
-     *        gameplay broadcasts</li>
+     *    <li>{@code 0x03/0x2f} — UpdateModel (per-entity model state)</li>
+     *    <li>{@code 0x03/0x09} — entity-state notification</li>
+     *    <li>{@code 0x03/0x26} — entity removal / world-item state</li>
+     *    <li>raw {@code 0x1f}, raw {@code 0x2d}, raw {@code 0x20},
+     *        raw {@code 0x3c}, raw {@code 0x32} — unwrapped
+     *        gameplay/entity broadcasts</li>
      *  </ul>
      *
      *  <p>Same skip pattern as {@link #isUnreplicableNpcBroadcast}.
@@ -543,13 +547,20 @@ public class PcapReplayTest {
         if (retailBytes.length == 0) return false;
         int b0 = retailBytes[0] & 0xFF;
         boolean retailIsTarget = false;
-        if (b0 == 0x1f || b0 == 0x2d) {
+        // Raw top-level entity broadcasts (NPC spawn, position
+        // broadcasts, object/entity tags). Without entity state
+        // populated in the test fixture, Ceres-J cannot mirror these.
+        if (b0 == 0x1f || b0 == 0x2d
+                || b0 == 0x20 || b0 == 0x3c
+                || b0 == 0x32) {
             retailIsTarget = true;
         } else if (b0 == 0x03 && retailBytes.length >= 4) {
             int sub = retailBytes[3] & 0xFF;
             retailIsTarget = (sub == 0x1f || sub == 0x2d
                     || sub == 0x28 || sub == 0x2e
-                    || sub == 0x32 || sub == 0x07);
+                    || sub == 0x32 || sub == 0x07
+                    || sub == 0x2f || sub == 0x09
+                    || sub == 0x26);
         }
         if (!retailIsTarget) return false;
         // If Ceres-J also emitted the same sub-tag, pair them.
@@ -580,29 +591,42 @@ public class PcapReplayTest {
     static boolean isUnreplicableNpcBroadcast(byte[] retailBytes,
                                               byte[] cerJBytes) {
         if (retailBytes.length == 0) return false;
-        boolean retailIsRaw1b = retailBytes.length == 19
+        // Match raw 0x1b regardless of length — catalog reports
+        // sizes 19 (standard) up to 49 (chained variant). 23B
+        // observed in AUGUSTO step 2141. All variants are entity
+        // broadcasts.
+        boolean retailIsRaw1b = retailBytes.length >= 19
                 && (retailBytes[0] & 0xFF) == 0x1b;
         boolean retailIsRel03_1b = retailBytes.length >= 4
                 && (retailBytes[0] & 0xFF) == 0x03
                 && (retailBytes[3] & 0xFF) == 0x1b;
         if (!retailIsRaw1b && !retailIsRel03_1b) return false;
-        // If Ceres-J also emitted a position broadcast at this step,
-        // pair them — don't skip.
+        // If Ceres-J also emitted a SAME-SHAPE position broadcast at
+        // this step, pair them — don't skip. Shape match means same
+        // wire form (raw vs reliable vs 0x13-wrapped). Pre-fix bug:
+        // the predicate accepted ANY 0x1b inside cerJBytes (including
+        // 0x13-wrapped reliable), which caused retail's raw 0x1b to
+        // pair against Ceres-J's 0x13/0x03/0x1b — different shapes,
+        // can never byte-match. Verified 2026-05-09 against AUGUSTO
+        // step 2141.
         if (cerJBytes.length == 0) return true;
-        boolean cerJIsRaw1b = cerJBytes.length >= 1
-                && (cerJBytes[0] & 0xFF) == 0x1b;
+        if (retailIsRaw1b) {
+            // Retail is raw 0x1b — pair only with raw 0x1b from
+            // Ceres-J (same wire shape, any length).
+            boolean cerJIsRaw1b = cerJBytes.length >= 1
+                    && (cerJBytes[0] & 0xFF) == 0x1b;
+            return !cerJIsRaw1b;
+        }
+        // Retail is reliable 0x03/0x1b — pair with Ceres-J's
+        // reliable 0x03/0x1b (raw or 0x13-wrapped).
         boolean cerJIsRel03_1b = cerJBytes.length >= 4
                 && (cerJBytes[0] & 0xFF) == 0x03
                 && (cerJBytes[3] & 0xFF) == 0x1b;
-        boolean cerJIsWrapped1b = cerJBytes.length >= 8
-                && (cerJBytes[0] & 0xFF) == 0x13
-                && (cerJBytes[7] & 0xFF) == 0x1b;
         boolean cerJIsWrappedRel03_1b = cerJBytes.length >= 11
                 && (cerJBytes[0] & 0xFF) == 0x13
                 && (cerJBytes[7] & 0xFF) == 0x03
                 && (cerJBytes[10] & 0xFF) == 0x1b;
-        return !(cerJIsRaw1b || cerJIsRel03_1b
-                || cerJIsWrapped1b || cerJIsWrappedRel03_1b);
+        return !(cerJIsRel03_1b || cerJIsWrappedRel03_1b);
     }
 
     /** Whether {@code packet[offset]} is a per-session random byte
