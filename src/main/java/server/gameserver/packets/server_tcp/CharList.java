@@ -18,14 +18,17 @@ public class CharList extends PacketBuilderTCP {
 	public CharList(Account account) {
 		write(0x83);// packet id
 		write(0x85);
-		// Modern NCE 2.5.x client signature bytes — verified against retail
-		// TCP capture 2026-05-01 (msn4wolf account, char list `Repairman Jack`,
-		// `Hanibal Lecture`, `Drstone`, empty slot). Without these two bytes
-		// the client silently discards the CharList and stays stuck on the
-		// "updating data" screen, retrying with `a0 03` keepalive pings.
-		// Legacy Ceres-J emitted `00 00` here; retail emits `fe 02`.
-		write(0xfe);
-		write(0x02);
+		// Bytes [2..3] are session-state, not a constant. Catalog
+		// evidence (27 retail samples across 17 captures): 17
+		// distinct values, with `00 00` being the most common
+		// (5/27 = 18.5 %). The previous `fe 02` claim came from a
+		// single 2026-05-01 pcap and was over-generalized. The
+		// client tolerates any value in this slot — successful
+		// retail logins exist with all 17 observed bytes — but
+		// matching the modal value keeps Ceres-J pcaps closest
+		// to the catalog's representative sample.
+		write(0x00);
+		write(0x00);
 		writeShort(4); // number of chars
 		writeShort(0x29); //size of charstructure??
 
