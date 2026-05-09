@@ -234,7 +234,14 @@ public class PcapReplayTest {
 
     /** First-byte-mismatch diff. Returns null when bytes match,
      *  else a short human-readable description of the divergence
-     *  (length, first differing offset). */
+     *  (length, first differing offset).
+     *
+     *  <p>Inherently session-derived bytes are exempted from the
+     *  comparison — see {@link #isSessionDerivedByte}. UDPAlive's
+     *  {@code -sessionkey LE2 + port LE2} (bytes 3..6) are random
+     *  per server boot and per ephemeral-port allocation; treating
+     *  them as divergence would mask every real bug after the
+     *  handshake. */
     static String diff(byte[] expected, byte[] actual) {
         if (expected == null || actual == null) {
             return "null buffer (expected="
@@ -246,7 +253,8 @@ public class PcapReplayTest {
         int n = Math.min(expected.length, actual.length);
         int firstDiff = -1;
         for (int i = 0; i < n; i++) {
-            if (expected[i] != actual[i]) {
+            if (expected[i] != actual[i]
+                    && !isSessionDerivedByte(expected, i)) {
                 firstDiff = i;
                 break;
             }
@@ -272,6 +280,27 @@ public class PcapReplayTest {
                             actual[firstDiff] & 0xFF));
         }
         return sb.toString();
+    }
+
+    /** Whether {@code packet[offset]} is a per-session random byte
+     *  that the harness must exempt from byte-equal comparison.
+     *
+     *  <p>Currently masks:
+     *  <ul>
+     *    <li>{@code 0x04} UDPAlive bytes 3..6 — {@code -sessionkey
+     *    LE2 + port LE2}, both server-random.</li>
+     *  </ul>
+     *
+     *  <p>Add more masks here as the harness encounters new
+     *  session-derived layouts. Each mask should cite its
+     *  reference packet doc (e.g. {@code udp_s2c_04.md}). */
+    static boolean isSessionDerivedByte(byte[] packet, int offset) {
+        if (packet.length == 7
+                && (packet[0] & 0xFF) == 0x04
+                && offset >= 3 && offset <= 6) {
+            return true;
+        }
+        return false;
     }
 
     private static String hexPreview(byte[] b, int n) {

@@ -60,7 +60,24 @@ public final class GamePacketReaderUDP {
 		GamePacketDecoderUDP pd = new UnknownClientUDPPacket(dp);
 		switch (pd.read()) {
 		case 0x01:
-			return new HandshakeUDP(dp);
+			// Two distinct 0x01 wire shapes:
+			//   ≥10 B: UDP 3-way handshake (per HandshakeUDP, which
+			//          skips 9 bytes and reads byte 9 as interfaceId)
+			//   3 B  : post-handshake reliable-ACK request shaped
+			//          [0x01][seq LE2] (e.g. retail's 010100, 010200,
+			//          ..., 011100 bursts seen across all 17 captures
+			//          — see docs/protocol/packets/udp_c2s_01.md).
+			// Routing every 0x01 to HandshakeUDP regardless of size
+			// caused the server to fire two spurious UDPAlive replies
+			// for every ACK request. Discriminate by length.
+			if (dp.getLength() >= 10) {
+				return new HandshakeUDP(dp);
+			}
+			byte[] ackBody = new byte[dp.getLength()];
+			System.arraycopy(dp.getData(), dp.getOffset(),
+					ackBody, 0, ackBody.length);
+			return new server.gameserver.packets.client_udp
+					.ReliableAckSubPacket(ackBody);
 		case 0x03:
 			return new SyncUDP(dp);
 		case 0x08:
