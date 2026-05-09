@@ -193,6 +193,11 @@ public final class Config {
 	}
 
 	public static String getServerIP(Socket socket) {
+		// Defensive: tests sometimes drive packet builders without
+		// a real socket. Return loopback so UDPServerData and
+		// friends stay testable; production sockets always provide
+		// a real client address.
+		if (socket == null) return "127.0.0.1";
 		String ip;
 		byte[] clientip = socket.getInetAddress().getAddress();
 
