@@ -141,4 +141,71 @@ public class PcapReplayTestHelpersTest {
         assertFalse(PcapReplayTest.isUnreplicableInitBurst(
                 new byte[0], cerj));
     }
+
+    // ─── isUnreplicableEntityState (NEW 2026-05-09) ─────────────
+
+    @Test
+    public void entityState_skipsRetail03_1fGameplayWhenCerJEmitsOther() {
+        // Retail emits 0x03/0x1f gameplay tags (NPC AI, weapon-fire,
+        // etc.) which require entity state Ceres-J's test fixture
+        // doesn't have. Skip when Ceres-J emits a different reliable.
+        byte[] retail = new byte[]{0x03, (byte) 0xb4, 0x01, 0x1f,
+                0x01, 0x00, 0x25, 0x23, 0x31};
+        byte[] cerJ   = new byte[]{0x03, 0x0a, 0x00, 0x1b,  // 0x03/0x1b
+                0x00, (byte) 0xec, 0x00, 0x00, 0x20};
+        assertTrue(PcapReplayTest
+                .isUnreplicableEntityState(retail, cerJ));
+    }
+
+    @Test
+    public void entityState_skipsRetail03_2dWhenCerJEmitsOther() {
+        byte[] retail = new byte[]{0x03, 0x05, 0x00, 0x2d, 0x10,
+                0x20, 0x30, 0x40};
+        byte[] cerJ   = new byte[]{0x0b, 0x00, 0x00, 0x00, 0x00,
+                0x12, 0x34, 0x56, 0x78};   // SPing
+        assertTrue(PcapReplayTest
+                .isUnreplicableEntityState(retail, cerJ));
+    }
+
+    @Test
+    public void entityState_skipsRetailRaw1fWhenCerJEmitsOther() {
+        byte[] retail = new byte[]{0x1f, 0x01, 0x00, 0x25, 0x23};
+        byte[] cerJ   = new byte[]{0x03, 0x0a, 0x00, 0x0d};  // 0x03/0x0d
+        assertTrue(PcapReplayTest
+                .isUnreplicableEntityState(retail, cerJ));
+    }
+
+    @Test
+    public void entityState_doesNOTSkipWhenCerJEmitsSameSubTag() {
+        // Both emit 0x03/0x1f → pair them, don't skip.
+        byte[] retail = new byte[]{0x03, (byte) 0xb4, 0x01, 0x1f,
+                0x01};
+        byte[] cerJ   = new byte[]{0x03, 0x0a, 0x00, 0x1f, 0x02};
+        assertFalse(PcapReplayTest
+                .isUnreplicableEntityState(retail, cerJ));
+    }
+
+    @Test
+    public void entityState_doesNOTSkipNonTargetSubTags() {
+        // 0x03/0x33 ChatList is not in the target set — don't skip.
+        byte[] retail = new byte[]{0x03, 0x15, 0x00, 0x33,
+                (byte) 0xff, 0x00};
+        byte[] cerJ   = new byte[]{0x0b, 0x00, 0x00, 0x00, 0x00,
+                0x12, 0x34, 0x56, 0x78};
+        assertFalse(PcapReplayTest
+                .isUnreplicableEntityState(retail, cerJ));
+    }
+
+    @Test
+    public void entityState_handles0x13WrappedCerJEmissions() {
+        // Ceres-J's 0x13-wrapped 0x03/0x1f reliable should be
+        // unwrapped and matched against retail's 0x03/0x1f.
+        byte[] retail = new byte[]{0x03, 0x05, 0x00, 0x1f, 0x01};
+        byte[] cerJWrapped = new byte[]{0x13, 0x01, 0x00, 0x10,
+                0x20, 0x05, 0x00, 0x03, 0x0a, 0x00, 0x1f, 0x02};
+        assertFalse("0x13-wrapped 0x03/0x1f should NOT skip — pair "
+                + "with retail's 0x03/0x1f",
+                PcapReplayTest.isUnreplicableEntityState(retail,
+                        cerJWrapped));
+    }
 }

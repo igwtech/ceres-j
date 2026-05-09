@@ -16,18 +16,17 @@ public class GetTimeSync extends GamePacketDecoderUDP {
 	}
 
 	public void execute(Player pl) {
-		// Retail emits a 7-byte 0x03/0x23 zoneInfo
-		// {@code [20 00 ?? 00 00 00]} BEFORE the TimeSync reply
-		// (verified 4/4 captures HANNIBAL/NORMAN/DRSTONE3/AUGUSTO,
-		// 2026-05-09; DRSTONE3 step 10 retail queue order:
-		// InfoResponse first, then TimeSync). body[2] is session/
-		// zone state — varies per session (0x10/0x01/0x84/0x00).
-		// Pcap-replay harness DRSTONE3 step 10 surfaced both the
-		// missing emit AND the correct ordering.
-		pl.send(InfoResponse.zoneInfo(pl));
 		pl.send(new TimeSync(pl, clienttime));
 //		new ZoneEntered().send(session);
 		pl.getZone().sendPlayersinZone(pl);
 		pl.getZone().sendnewPlayerinZone(pl);
+		// Note: a previous attempt (commit 69ff2d3) emitted
+		// InfoResponse.zoneInfo here based on DRSTONE3 step 10
+		// evidence. Reverted 2026-05-09 — NORMAN replay showed
+		// retail emits zoneInfo at step 9 (RequestPositionUpdate)
+		// not step 10. The DRSTONE3 step-10 zoneInfo is likely a
+		// buffered emission from earlier (delayed by the 814B
+		// multipart 0x03/0x2c at step 9). Moved to
+		// RequestPositionUpdate.execute() instead.
 	}
 }

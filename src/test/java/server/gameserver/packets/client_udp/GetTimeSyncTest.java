@@ -5,7 +5,6 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 
 import server.gameserver.Player;
-import server.gameserver.packets.server_udp.InfoResponse;
 import server.gameserver.packets.server_udp.PacketTestFixture;
 import server.gameserver.packets.server_udp.TimeSync;
 import server.testtools.CapturingUDPConnection;
@@ -13,17 +12,15 @@ import server.interfaces.ServerUDPPacket;
 
 /**
  * Functional test for {@link GetTimeSync} — the C→S 0x0c handler
- * that emits both the {@link TimeSync} reply AND a
- * {@link InfoResponse#zoneInfo(Player)} packet (the latter added
- * 2026-05-09 to match retail behavior verified in
- * HANNIBAL/NORMAN/DRSTONE3/AUGUSTO captures).
+ * that emits a {@link TimeSync} reply.
  *
- * <p>Pcap-replay harness against DRSTONE3 step 10 surfaced the
- * missing zoneInfo emit: retail emits the 7-byte zoneInfo
- * {@code [03 (sub-op 0x23) 20 00 ?? 00 00 00]} after every
- * TimeSync reply. body[2] is session/zone state — varies per
- * capture (0x10/0x01/0x84/0x00). The harness masks that one byte;
- * everything else must match.
+ * <p>Note: a previous version of this handler also emitted a
+ * {@code 0x03/0x23} InfoResponse zoneInfo, based on DRSTONE3 step
+ * 10 evidence. Reverted 2026-05-09 — NORMAN replay showed retail
+ * emits the zoneInfo at step 9 (RequestPositionUpdate), not step 10.
+ * The DRSTONE3 step-10 zoneInfo is likely a buffered emission from
+ * earlier (delayed by the 814B multipart 0x03/0x2c at step 9). The
+ * zoneInfo emit moved to {@link RequestPositionUpdate}.
  */
 public class GetTimeSyncTest {
 
@@ -50,62 +47,21 @@ public class GetTimeSyncTest {
     }
 
     @Test
-    public void executeEmitsInfoResponseThenTimeSyncInRetailOrder()
-            throws Exception {
-        // Retail emit order for C→S GetTimeSync (verified DRSTONE3
-        // step 10): InfoResponse 0x23 zoneInfo FIRST, TimeSync 0x0d
-        // SECOND. The pcap-replay harness pairs S→C by index against
-        // retail's queue, so reversing the order would manufacture
-        // two divergences (0x23 vs 0x0d, 0x0d vs 0x23).
+    public void executeEmitsTimeSyncReply() throws Exception {
+        // The first emission must be TimeSync (the reply to C→S
+        // GetTimeSync). Subsequent emissions are zone-broadcasts
+        // (sendPlayersinZone, sendnewPlayerinZone) which are 0 in
+        // the test fixture (no zone-resident players).
         Player pl = PacketTestFixture.newPlayerWithZone();
         CapturingUDPConnection cap = installCapturing(pl);
 
         new GetTimeSync(buildBody(0xdeadbeef)).execute(pl);
 
         java.util.List<ServerUDPPacket> emitted = cap.received();
-        assertTrue("execute() must emit ≥2 UDP packets, got "
-                + emitted.size(), emitted.size() >= 2);
-        assertTrue("first emission must be InfoResponse zoneInfo, "
-                + "got "
+        assertFalse("execute() must emit at least one packet",
+                emitted.isEmpty());
+        assertTrue("first emission must be TimeSync, got "
                 + emitted.get(0).getClass().getSimpleName(),
-                emitted.get(0) instanceof InfoResponse);
-        assertTrue("second emission must be TimeSync, got "
-                + emitted.get(1).getClass().getSimpleName(),
-                emitted.get(1) instanceof TimeSync);
-    }
-
-    @Test
-    public void emittedInfoResponseHasZoneInfoBody() throws Exception {
-        // Verify the InfoResponse emitted is the zoneInfo variant
-        // (body[0..1]=0x20 0x00, body[3..5]=00 00 00) — not
-        // sessionInfo or postTransitionInfo. Pin against the
-        // retail 7B form `[20 00 ?? 00 00 00]`.
-        Player pl = PacketTestFixture.newPlayerWithZone();
-        CapturingUDPConnection cap = installCapturing(pl);
-
-        new GetTimeSync(buildBody(0)).execute(pl);
-
-        java.util.List<byte[]> raws = cap.rawBytes();
-        // emitted[0] is the InfoResponse (retail emit order, verified
-        // DRSTONE3 step 10). Raws follow the same order:
-        // raws[0] is InfoResponse's wire bytes, raws[1] is TimeSync's.
-        assertTrue("≥2 raw datagrams captured", raws.size() >= 2);
-        byte[] ir = raws.get(0);
-        // 0x13 wrapper (7B) + 0x03 reliable + seq LE2 + sub-op 0x23
-        // + 6B body = 17 bytes total.
-        assertEquals("zoneInfo total wire size = 17B",
-                17, ir.length);
-        assertEquals("0x13 outer", 0x13, ir[0] & 0xFF);
-        assertEquals("0x03 reliable", 0x03, ir[7] & 0xFF);
-        assertEquals("sub-op 0x23", 0x23, ir[10] & 0xFF);
-        // Body at ir[11..16] = `20 00 10 00 00 00` (factory's
-        // placeholder; body[2] = 0x10 matches HANNIBAL retail).
-        assertEquals("body[0]", 0x20, ir[11] & 0xFF);
-        assertEquals("body[1]", 0x00, ir[12] & 0xFF);
-        assertEquals("body[2] (placeholder, retail varies)",
-                0x10, ir[13] & 0xFF);
-        assertEquals("body[3]", 0x00, ir[14] & 0xFF);
-        assertEquals("body[4]", 0x00, ir[15] & 0xFF);
-        assertEquals("body[5]", 0x00, ir[16] & 0xFF);
+                emitted.get(0) instanceof TimeSync);
     }
 }
