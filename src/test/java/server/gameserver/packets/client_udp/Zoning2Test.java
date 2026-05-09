@@ -9,6 +9,7 @@ import org.junit.Test;
 
 import server.gameserver.CapturingTCPConnection;
 import server.gameserver.Player;
+import server.gameserver.packets.server_tcp.InteractionAck;
 import server.gameserver.packets.server_tcp.Location;
 import server.gameserver.packets.server_tcp.Packet830D;
 import server.gameserver.packets.server_udp.PacketTestFixture;
@@ -41,14 +42,20 @@ public class Zoning2Test {
         new Zoning2(body()).execute(pl);
 
         List<ServerTCPPacket> sent = cap.received();
-        assertEquals("expected exactly Packet830D + Location",
-                2, sent.size());
+        assertEquals("expected Packet830D + Location + 2× "
+                + "InteractionAck (retail close-transaction pair)",
+                4, sent.size());
         assertTrue("first must be Packet830D, got "
                 + sent.get(0).getClass().getName(),
                 sent.get(0) instanceof Packet830D);
         assertTrue("second must be Location, got "
                 + sent.get(1).getClass().getName(),
                 sent.get(1) instanceof Location);
+        assertTrue("third must be InteractionAck (post-state)",
+                sent.get(2) instanceof InteractionAck);
+        assertTrue("fourth must be InteractionAck (retail "
+                + "emits the ack PAIR)",
+                sent.get(3) instanceof InteractionAck);
     }
 
     @Test
