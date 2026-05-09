@@ -12,10 +12,33 @@ import java.util.zip.Inflater;
 
 /**
  * Parses NC2 client world data files ({@code worlds\**\*.dat} and
- * {@code worlds\**\*.bsp}). Both share an identical container format;
- * BSP files carry the engine geometry while DAT files carry the
- * gameplay-relevant element streams (objects, doors, NPCs, waypoints,
- * triggers).
+ * {@code worlds\**\*.bsp}). Both share the OUTER container format
+ * (12-byte magic + LE32 uncompressed size + zlib stream), but the
+ * INNER content differs:
+ *
+ * <ul>
+ *   <li>{@code .dat} files contain the gameplay-relevant element
+ *       streams ({@code PWorldFileHeader} → sections → elements:
+ *       objects, doors, NPCs, waypoints, triggers, regions, etc.).
+ *       This parser handles those.</li>
+ *   <li>{@code .bsp} files contain raw GBSP (Genesis3D BSP)
+ *       geometry data after a 12-byte NC-specific header. NO
+ *       element streams. This parser identifies them as
+ *       geometry-only and produces zero elements (correct
+ *       behavior — the engine renders the geometry; the server
+ *       reads NPC/door/object spawn data from {@code .dat}).</li>
+ * </ul>
+ *
+ * <p>Verified 2026-05-09 against 16 .bsp files from a fresh NC2
+ * client install: all start with NC prefix `00 00 00 00 1c 00 00
+ * 00 01 00 00 00` followed by `GBSP` magic at inner offset 12,
+ * version 0, chunk_count 17. See {@code tools/dump-bsp-structure.py}.
+ *
+ * <p>Future GBSP chunk-level decoding would unlock server-side
+ * collision detection, line-of-sight validation, and AI
+ * pathfinding — but the chunk format is non-trivial (likely a
+ * Genesis3D variant with custom chunk-size header) and out of
+ * scope for the current importer.</p>
  *
  * <h3>Outer container (16 bytes)</h3>
  *
