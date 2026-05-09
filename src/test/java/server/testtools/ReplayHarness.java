@@ -93,6 +93,7 @@ public final class ReplayHarness {
         if (ev != null) {
             ev.execute(player);
         }
+        drainImminentEvents();
         DriveResult r = new DriveResult(subPacket, ev,
                 tcp.received().subList(tcpBefore,
                         tcp.received().size()),
@@ -123,6 +124,7 @@ public final class ReplayHarness {
         if (ev != null) {
             ev.execute(player);
         }
+        drainImminentEvents();
         DriveResult r = new DriveResult(datagramBytes, ev,
                 tcp.received().subList(tcpBefore,
                         tcp.received().size()),
@@ -132,6 +134,49 @@ public final class ReplayHarness {
                         udp.rawBytes().size()));
         history.add(r);
         return r;
+    }
+
+    /**
+     * Drain Player.eventList of events that would fire within
+     * the next 250 ms. Mimics the production
+     * {@code Player.run()} loop without spinning.
+     *
+     * <p>Why 250 ms: handshake replies are scheduled
+     * {@code now + 100 ms} via {@link
+     * server.gameserver.packets.client_udp.HandshakeUDP}; reliable
+     * acks similarly. Heartbeats reschedule themselves
+     * {@code now + 500..1100 ms} into the future so they will
+     * <em>not</em> drain — preventing a runaway loop where a
+     * heartbeat fires, reschedules itself, fires again, etc.
+     */
+    private void drainImminentEvents() {
+        // Reflective access to private eventList — no public
+        // drain hook on Player today.
+        try {
+            java.lang.reflect.Field f =
+                    server.gameserver.Player.class
+                            .getDeclaredField("eventList");
+            f.setAccessible(true);
+            server.tools.PriorityList queue =
+                    (server.tools.PriorityList) f.get(player);
+            long deadline = server.tools.Timer.getRealtime() + 250;
+            // Hard cap on iterations so a misbehaving event that
+            // re-queues itself with eventTime <= deadline can't
+            // hang the harness.
+            for (int i = 0; i < 64; i++) {
+                if (queue.isEmpty()) break;
+                server.interfaces.GameServerEvent first =
+                        (server.interfaces.GameServerEvent)
+                                queue.getFirst();
+                if (first == null) break;
+                if (first.getEventTime() > deadline) break;
+                queue.removeFirst();
+                first.execute(player);
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(
+                    "ReplayHarness: failed to drain eventList", e);
+        }
     }
 
     /** Drive multiple sub-packets in order, returning the final
