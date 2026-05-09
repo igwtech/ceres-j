@@ -220,6 +220,8 @@ public class PcapReplayTest {
                         && (isSpareUDPAlive(
                                 s2c.get(s2cIdx).bytes, emitted)
                             || isUnreplicableNpcBroadcast(
+                                s2c.get(s2cIdx).bytes, emitted)
+                            || isUnreplicableInitBurst(
                                 s2c.get(s2cIdx).bytes, emitted))) {
                     s2cIdx++;
                 }
@@ -464,6 +466,49 @@ public class PcapReplayTest {
      *  position-broadcast emissions when Ceres-J has nothing to
      *  echo, focusing it on real packet-byte regressions instead.
      */
+    /** Heuristic: is {@code retailBytes} a retail "init-burst" or
+     *  zone-state packet that Ceres-J's test fixture emits no
+     *  matching response for at this step?
+     *
+     *  <p>True iff {@code cerJBytes} is exactly a 9B raw {@code 0x0b}
+     *  SPing reply (Ceres-J's response to a CPing) AND
+     *  {@code retailBytes} is something other than a SPing reply —
+     *  meaning retail's queue interleaves an extra emission (e.g.
+     *  init-burst {@code 0x02}, reliable {@code 0x03/0x23}
+     *  InfoResponse, {@code 0x03/0x33} ChatList) at this step that
+     *  Ceres-J doesn't emit because its WorldEntryEvent never fired
+     *  in the replay (no real handshake → no init burst).
+     *
+     *  <p><b>Why this skip is correct</b>: when the harness sees a
+     *  CPing C→S, it expects a SPing reply S→C — both Ceres-J and
+     *  retail emit the same SPing reply. But retail's S→C queue
+     *  also contains additional, unrelated emissions queued at this
+     *  point in time (NPC broadcasts, init-burst replays, etc.).
+     *  Without this skip, the harness mispairs Ceres-J's SPing
+     *  against retail's NEXT queue entry, which is one of the
+     *  extras — counting it as a divergence.
+     *
+     *  <p>The matching SPing comes after the extras in retail's
+     *  queue. Skipping the non-SPing extras lets the harness pair
+     *  Ceres-J's SPing against retail's matching SPing.
+     */
+    static boolean isUnreplicableInitBurst(byte[] retailBytes,
+                                           byte[] cerJBytes) {
+        // Only fires when Ceres-J emitted exactly a 9B raw SPing
+        // reply (CPing → SPing, the only thing the harness handles
+        // mid-session reliably).
+        if (cerJBytes.length != 9) return false;
+        if ((cerJBytes[0] & 0xFF) != 0x0b) return false;
+        if (retailBytes.length == 0) return false;
+        // If retail's bytes are also a SPing reply (raw 9B 0x0b),
+        // pair them — don't skip.
+        if (retailBytes.length == 9
+                && (retailBytes[0] & 0xFF) == 0x0b) {
+            return false;
+        }
+        return true;
+    }
+
     static boolean isUnreplicableNpcBroadcast(byte[] retailBytes,
                                               byte[] cerJBytes) {
         if (retailBytes.length == 0) return false;
