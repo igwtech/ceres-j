@@ -6,6 +6,7 @@ import server.database.playerCharacters.PlayerCharacter;
 
 import server.gameserver.Player;
 import server.gameserver.packets.GamePacketDecoderUDP;
+import server.gameserver.packets.server_tcp.InteractionAck;
 import server.gameserver.packets.server_udp.InventoryMoveDenied;
 import server.tools.Out;
 
@@ -37,9 +38,15 @@ public class InsideF2InvMove extends GamePacketDecoderUDP  {
 		
 		flags = ItemContainer.FLAG_DSTPOS_XY;
 		
-		if(!ItemManager.moveItem(srccont, srcpos, dstcont, dstpos, flags)){
+		if (!ItemManager.moveItem(srccont, srcpos, dstcont, dstpos, flags)) {
 			Out.writeln(Out.Info, "ItemMove not Allowed! Do something!");
 			pl.send(new InventoryMoveDenied(pl, PlayerCharacter.PLAYERCONTAINER_F2, srcpos, PlayerCharacter.PLAYERCONTAINER_F2, dstpos));
+		} else {
+			// Retail closes the inventory transaction with the
+			// InteractionAck pair on TCP. See InteractionAck
+			// javadoc; same wiring pattern as InventoryMove.
+			pl.send(new InteractionAck());
+			pl.send(new InteractionAck());
 		}
 	}
 
