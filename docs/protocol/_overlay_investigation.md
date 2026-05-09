@@ -91,22 +91,17 @@ exchanges of ~17 sequence numbers each, just before IN_WORLD.
   state-init data the client absolutely needs to advance state
   3/6 → 4 (overlay clear).
 
-### Bug #3 — Multipart CharInfo vs single 0x03/0x2c StartPos
+### Bug #3 — ~~Multipart CharInfo vs single 0x03/0x2c~~ NOT A BUG
 
-Retail captures show CharInfo delivered as **two single-packet
-0x03/0x2c** sends (71B + 810B), not multipart 0x03/0x07. Ceres-J's
-WorldEntryEvent emits a single multipart 0x03/0x07 stream with
-discriminator 0x01 (CharInfo) + 0x02 (CharsysInfo).
-
-The `nc2_tutorial_shard_finding.md` memory says CharInfo channel is
-size-based: ≤900B → single 0x03/0x2c; >900B → multipart 0x03/0x07.
-But retail's 810B sample is sent as 0x03/0x2c, and our payload is
-~430B which would also fit single. We may be unnecessarily
-multiparting and triggering the multipart-reassembly state which
-doesn't satisfy the same client-side state-machine path.
-
-**Action:** confirm whether using `0x03/0x2c` single (≤900B) closes
-the overlay independently of bugs #1/#2.
+Verified 2026-05-09: `PacketBuilderUDP130307.getDatagramPackets()`
+already dispatches by size — body ≤900B → single 0x03/0x2c via
+`emitSingle()`; >900B → multipart 0x03/0x07. CharInfo is correctly
+sent as single 0x03/0x2c for sub-900B payloads. Ceres-J emits
+ONE 0x03/0x2c at ~427B body whereas retail emits TWO 0x03/0x2c
+(71B + 810B). The two-packet retail variant may carry different
+data (one ack/init + one full CharInfo), but our single-packet
+form has been working correctly per past verification. Discount
+this as the overlay-clear cause.
 
 ## Recommended order
 
