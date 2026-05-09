@@ -138,6 +138,16 @@ public class PcapReplayTest {
         int recognisedCount = 0;
         int unrecognisedCount = 0;
 
+        // Collect EVERY divergence (not just the first) so each
+        // test run produces a complete backlog snapshot. The
+        // failure message lists all of them grouped by sub-tag,
+        // most-frequent-first — same diagnostic pattern that made
+        // the agent reports useful.
+        java.util.List<String> divergences =
+                new java.util.ArrayList<>();
+        java.util.Map<String, Integer> divergenceCountBySubTag =
+                new java.util.LinkedHashMap<>();
+
         for (int i = 0; i < c2s.size(); i++) {
             PcapReplay.Record r = c2s.get(i);
             ReplayHarness.DriveResult res;
@@ -207,9 +217,8 @@ public class PcapReplayTest {
                 if (s2cIdx >= s2c.size()) break;
                 PcapReplay.Record exp = s2c.get(s2cIdx++);
                 String diff = diff(exp.bytes, emitted);
-                if (diff != null && firstDivergenceStep < 0) {
-                    firstDivergenceStep = i;
-                    firstDivergenceMsg = String.format(
+                if (diff != null) {
+                    String divMsg = String.format(
                             "step %d (C→S %s):%n"
                             + "  expected S→C [%dB]: %s%n"
                             + "  actual   S→C [%dB]: %s%n"
@@ -220,6 +229,14 @@ public class PcapReplayTest {
                             emitted.length,
                             hexPreview(emitted, 32),
                             diff);
+                    if (firstDivergenceStep < 0) {
+                        firstDivergenceStep = i;
+                        firstDivergenceMsg = divMsg;
+                    }
+                    divergences.add(divMsg);
+                    String subTagKey = subTagKeyOf(exp.bytes);
+                    divergenceCountBySubTag.merge(
+                            subTagKey, 1, Integer::sum);
                 }
             }
         }
@@ -234,6 +251,19 @@ public class PcapReplayTest {
                 .append(s2c.size()).append('\n');
 
         if (firstDivergenceStep >= 0) {
+            report.append('\n');
+            report.append("Total divergences: ")
+                    .append(divergences.size())
+                    .append('\n');
+            report.append("By sub-tag (most-frequent first):\n");
+            divergenceCountBySubTag.entrySet().stream()
+                    .sorted((a, b) -> b.getValue()
+                            - a.getValue())
+                    .forEach(e -> report.append("  ")
+                            .append(e.getKey())
+                            .append(" × ")
+                            .append(e.getValue())
+                            .append('\n'));
             report.append('\n');
             report.append("FIRST DIVERGENCE at step ")
                     .append(firstDivergenceStep)
@@ -316,6 +346,29 @@ public class PcapReplayTest {
                             actual[firstDiff] & 0xFF));
         }
         return sb.toString();
+    }
+
+    /** Format the packet's outer + sub-tag (or first byte if not
+     *  a 0x03/* reliable) for grouping divergences. Examples:
+     *  {@code "0x03/0x2c"}, {@code "0x04"}, {@code "0x13/0x03/0x1b"}.
+     *  Useful for "where are most of the divergences clustered"
+     *  question. */
+    static String subTagKeyOf(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) return "(empty)";
+        int b0 = bytes[0] & 0xFF;
+        if (b0 == 0x03 && bytes.length >= 4) {
+            return String.format("0x03/0x%02x",
+                    bytes[3] & 0xFF);
+        }
+        if (b0 == 0x13 && bytes.length >= 8) {
+            int inner = bytes[7] & 0xFF;
+            if (inner == 0x03 && bytes.length >= 11) {
+                return String.format("0x13/0x03/0x%02x",
+                        bytes[10] & 0xFF);
+            }
+            return String.format("0x13/0x%02x", inner);
+        }
+        return String.format("0x%02x", b0);
     }
 
     /** Heuristic: is {@code retailBytes} a "spare" UDPAlive that
