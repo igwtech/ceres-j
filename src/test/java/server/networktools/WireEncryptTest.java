@@ -5,6 +5,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Random;
 
@@ -30,8 +31,19 @@ public class WireEncryptTest {
 
         // 4-byte wire header prepended (seed + length).
         assertEquals(plain.length + 4, wire.length);
-        // Plaintext must NOT be visible at the start of the wire bytes.
-        assertNotEquals(plain[0], wire[4]);
+
+        // Encryption must not be a no-op. Single-byte equality is
+        // a 1-in-256 random hit (the seed is random per call), so
+        // assert across the whole payload: at least one byte must
+        // differ. This also catches "encrypt() returns the input
+        // shifted by 4" regressions.
+        boolean differs = false;
+        for (int i = 0; i < plain.length; i++) {
+            if (plain[i] != wire[4 + i]) { differs = true; break; }
+        }
+        assertTrue("encrypted wire must differ from plaintext "
+                + "in at least one byte (encryption is not a no-op)",
+                differs);
 
         byte[] decoded = WireEncrypt.decrypt(wire);
         assertArrayEquals(plain, decoded);
