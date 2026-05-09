@@ -1,11 +1,26 @@
 package server.database.accounts;
 
+import java.util.UUID;
+
 import server.database.playerCharacters.PlayerCharacterManager;
 import server.gameserver.GameServerTCPConnection;
 
 public class Account {
 
 	private int id;
+	/**
+	 * RFC 4122 UUID identifier separate from the integer {@link #id}.
+	 *
+	 * <p>The integer id stays load-bearing for the NC2 wire protocol — it is
+	 * broadcast as the account UID in {@code 0x8305} UDPServerData and similar
+	 * packets, and the SOAP API/client/server pair were designed around it.
+	 * The UUID is the new identifier used by the SOAP launcher endpoints
+	 * (session tokens, authentication keys, ServiceInstanceIdentifier, all
+	 * defined as the {@code guid} simple type in the project's WSDL/XML
+	 * schemas) so external services can address accounts without ever
+	 * touching the wire-protocol integer space.
+	 */
+	private UUID uuid;
 	private String username;
 	private String password;
 	int character[] = new int[4];
@@ -51,6 +66,19 @@ public class Account {
 
 	public int getId() {
 		return id;
+	}
+
+	/**
+	 * Returns this account's UUID (may be {@code null} if not yet loaded
+	 * from the database — callers writing freshly-created accounts should
+	 * call {@link #setUuid(UUID)} or rely on AccountManager to mint one).
+	 */
+	public UUID getUuid() {
+		return uuid;
+	}
+
+	public void setUuid(UUID uuid) {
+		this.uuid = uuid;
 	}
 
 	public String getPassword() {

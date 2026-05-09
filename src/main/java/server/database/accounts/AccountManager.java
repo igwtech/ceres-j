@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.UUID;
 
 import server.database.SqliteDatabase;
 import server.exceptions.StartupException;
@@ -42,10 +43,11 @@ public class AccountManager {
 		}
 
 		try (Statement stmt = conn.createStatement();
-			 ResultSet rs = stmt.executeQuery("SELECT id, username, password, char1, char2, char3, char4, status FROM accounts")) {
+			 ResultSet rs = stmt.executeQuery("SELECT id, uuid, username, password, char1, char2, char3, char4, status FROM accounts")) {
 
 			while (rs.next()) {
 				Account ua = new Account(rs.getInt("id"));
+				ua.setUuid(SqliteDatabase.getUuid(rs, "uuid"));
 				ua.setUsername(rs.getString("username"));
 				ua.setPassword(rs.getString("password"));
 				ua.setChar(0, rs.getInt("char1"));
@@ -73,14 +75,20 @@ public class AccountManager {
 				synchronized (accountList) {
 					for (Iterator<Account> i = accountList.iterator(); i.hasNext(); ) {
 						Account ua = i.next();
+						// Defensive UUID mint — accounts loaded from a
+						// schema-migrated DB always have one, but in-memory
+						// constructions (e.g. tests, dev-mode signup) may
+						// arrive here without one set.
+						if (ua.getUuid() == null) ua.setUuid(UUID.randomUUID());
 						ps.setInt(1, ua.getId());
-						ps.setString(2, ua.getUsername());
-						ps.setString(3, ua.getPassword());
-						ps.setInt(4, ua.getChar(0));
-						ps.setInt(5, ua.getChar(1));
-						ps.setInt(6, ua.getChar(2));
-						ps.setInt(7, ua.getChar(3));
-						ps.setString(8, ua.getStatus());
+						SqliteDatabase.setUuid(ps, 2, ua.getUuid());
+						ps.setString(3, ua.getUsername());
+						ps.setString(4, ua.getPassword());
+						ps.setInt(5, ua.getChar(0));
+						ps.setInt(6, ua.getChar(1));
+						ps.setInt(7, ua.getChar(2));
+						ps.setInt(8, ua.getChar(3));
+						ps.setString(9, ua.getStatus());
 						ps.addBatch();
 					}
 				}
@@ -111,16 +119,22 @@ public class AccountManager {
 		Connection conn = SqliteDatabase.getConnection();
 		if (conn == null) return;
 
+		// Defensive UUID mint — keeps the column NOT NULL invariant for
+		// accounts that bypassed createAccount() (e.g. legacy code paths
+		// constructing an Account by id directly).
+		if (ua.getUuid() == null) ua.setUuid(UUID.randomUUID());
+
 		String upsert = upsertSql();
 		try (PreparedStatement ps = conn.prepareStatement(upsert)) {
 			ps.setInt(1, ua.getId());
-			ps.setString(2, ua.getUsername());
-			ps.setString(3, ua.getPassword());
-			ps.setInt(4, ua.getChar(0));
-			ps.setInt(5, ua.getChar(1));
-			ps.setInt(6, ua.getChar(2));
-			ps.setInt(7, ua.getChar(3));
-			ps.setString(8, ua.getStatus());
+			SqliteDatabase.setUuid(ps, 2, ua.getUuid());
+			ps.setString(3, ua.getUsername());
+			ps.setString(4, ua.getPassword());
+			ps.setInt(5, ua.getChar(0));
+			ps.setInt(6, ua.getChar(1));
+			ps.setInt(7, ua.getChar(2));
+			ps.setInt(8, ua.getChar(3));
+			ps.setString(9, ua.getStatus());
 			ps.executeUpdate();
 		} catch (SQLException e) {
 			Out.writeln(Out.Error, "Error saving account " + ua.getUsername() + ": " + e.getMessage());
@@ -134,9 +148,10 @@ public class AccountManager {
 	static String upsertSql() {
 		if (SqliteDatabase.isPostgres()) {
 			return "INSERT INTO accounts ("
-				+ "id, username, password, char1, char2, char3, char4, status) "
-				+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+				+ "id, uuid, username, password, char1, char2, char3, char4, status) "
+				+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
 				+ "ON CONFLICT (id) DO UPDATE SET "
+				+ "uuid = EXCLUDED.uuid, "
 				+ "username = EXCLUDED.username, "
 				+ "password = EXCLUDED.password, "
 				+ "char1 = EXCLUDED.char1, "
@@ -146,8 +161,8 @@ public class AccountManager {
 				+ "status = EXCLUDED.status";
 		}
 		return "INSERT OR REPLACE INTO accounts ("
-			+ "id, username, password, char1, char2, char3, char4, status) "
-			+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+			+ "id, uuid, username, password, char1, char2, char3, char4, status) "
+			+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 	}
 
 	private static void findaccountCounter() {
@@ -233,9 +248,29 @@ public class AccountManager {
 
 	private static Account createAccount(String username, String password) {
 		Account ua = new Account(accountCounter);
+		ua.setUuid(UUID.randomUUID());
 		ua.setUsername(username);
 		ua.setPassword(password);
 		accountCounter++;
 		return ua;
+	}
+
+	/**
+	 * Look up an account by its UUID — the identifier the SOAP API uses
+	 * for session tokens, authentication keys, and ServiceInstanceIdentifier.
+	 *
+	 * <p>Returns {@code null} when no match exists or when {@code uuid} is
+	 * itself {@code null}. Comparison is reference-safe via
+	 * {@link UUID#equals(Object)}.
+	 */
+	public static Account findByUuid(UUID uuid) {
+		if (uuid == null) return null;
+		synchronized (accountList) {
+			for (Iterator<Account> i = accountList.iterator(); i.hasNext(); ) {
+				Account ua = i.next();
+				if (uuid.equals(ua.getUuid())) return ua;
+			}
+		}
+		return null;
 	}
 }

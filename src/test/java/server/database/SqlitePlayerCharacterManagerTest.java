@@ -261,7 +261,7 @@ public class SqlitePlayerCharacterManagerTest {
             int strPts, int dexPts, int conPts, int intPts, int psiPts,
             int f2ContId, int goguContId, int qbContId) throws Exception {
 
-        String sql = "INSERT INTO player_characters (id, name, " + q("class") + ", " + q("profession") + ", " +
+        String sql = "INSERT INTO player_characters (id, uuid, name, " + q("class") + ", " + q("profession") + ", " +
                 q("location") + ", " + q("faction") + ", " +
                 q("model_head") + ", " + q("model_torso") + ", " + q("model_leg") + ", " + q("model_hair") + ", " + q("model_beard") + ", " +
                 q("texture_head") + ", " + q("texture_torso") + ", " + q("texture_leg") + ", " +
@@ -271,7 +271,7 @@ public class SqlitePlayerCharacterManagerTest {
                 q("psi_lvl") + ", " + q("psi_pts") + ", " +
                 buildSubskillColumns() + ", " +
                 "f2_inventory_cont_id, gogu_inventory_cont_id, qb_inventory_cont_id) " +
-                "VALUES (?, ?, ?, ?, ?, ?, " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, " +
                 "0, 0, 0, 0, 0, " +
                 "0, 0, 0, " +
                 "0, 0, 0, 0, 0, 0, " +
@@ -282,6 +282,7 @@ public class SqlitePlayerCharacterManagerTest {
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             int idx = 1;
             ps.setInt(idx++, id);
+            ps.setString(idx++, java.util.UUID.randomUUID().toString());
             ps.setString(idx++, name);
             ps.setInt(idx++, clazz);
             ps.setInt(idx++, profession);
@@ -319,7 +320,7 @@ public class SqlitePlayerCharacterManagerTest {
         StringBuilder colsSb = new StringBuilder();
         StringBuilder valsSb = new StringBuilder();
 
-        colsSb.append("id, name, " + q("class") + ", " + q("profession") + ", " + q("location") + ", " + q("faction") + ", ");
+        colsSb.append("id, uuid, name, " + q("class") + ", " + q("profession") + ", " + q("location") + ", " + q("faction") + ", ");
         colsSb.append(q("model_head") + ", " + q("model_torso") + ", " + q("model_leg") + ", " + q("model_hair") + ", " + q("model_beard") + ", ");
         colsSb.append(q("texture_head") + ", " + q("texture_torso") + ", " + q("texture_leg") + ", ");
         colsSb.append(q("x_coordinate") + ", " + q("y_coordinate") + ", " + q("z_coordinate") + ", " + q("orientation") + ", " + q("tilt") + ", " + q("status") + ", ");
@@ -327,7 +328,7 @@ public class SqlitePlayerCharacterManagerTest {
                        q("con_lvl") + ", " + q("con_pts") + ", " + q("int_lvl") + ", " + q("int_pts") + ", " +
                        q("psi_lvl") + ", " + q("psi_pts"));
 
-        valsSb.append("?, ?, 6, 3, 5, 2, ");
+        valsSb.append("?, ?, ?, 6, 3, 5, 2, ");
         valsSb.append("10, 11, 12, 13, 14, ");
         valsSb.append("20, 21, 22, ");
         valsSb.append("1000, 2000, 3000, 180, 45, 0, ");
@@ -348,7 +349,8 @@ public class SqlitePlayerCharacterManagerTest {
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, id);
-            ps.setString(2, name);
+            ps.setString(2, java.util.UUID.randomUUID().toString());
+            ps.setString(3, name);
             ps.executeUpdate();
         }
     }

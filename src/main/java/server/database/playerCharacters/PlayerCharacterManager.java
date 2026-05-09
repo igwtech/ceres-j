@@ -8,6 +8,7 @@ import java.sql.Statement;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.ListIterator;
+import java.util.UUID;
 
 import server.database.SqliteDatabase;
 import server.database.accounts.Account;
@@ -45,6 +46,15 @@ public class PlayerCharacterManager {
 			while (rs.next()) {
 				PlayerCharacter pc = new PlayerCharacter();
 				pc.setName(rs.getString("name"));
+
+				// Load the UUID. Wrapped so a missing column (e.g. legacy
+				// schemas that haven't migrated yet for some reason) leaves
+				// the field null and the application keeps booting.
+				try {
+					pc.setUuid(SqliteDatabase.getUuid(rs, "uuid"));
+				} catch (SQLException uuidErr) {
+					// Column missing / unreadable — log once and continue.
+				}
 
 				// Load MISCLIST fields
 				for (int i = 0; i < PlayerCharacter.MISCLIST.length; i++) {
@@ -208,11 +218,16 @@ public class PlayerCharacterManager {
 	}
 
 	private static void saveCharacterInternal(Connection conn, PlayerCharacter pc) throws SQLException {
+		// Defensive UUID mint — characters created before this migration
+		// landed may arrive at save() time without one.
+		if (pc.getUuid() == null) pc.setUuid(UUID.randomUUID());
+
 		// Collect the column names FIRST so we can reuse them for
 		// both the INSERT list and (PostgreSQL only) the ON CONFLICT
 		// SET clause. Column[0] is always "id" — the conflict key.
 		java.util.List<String> cols = new java.util.ArrayList<>();
 		cols.add("id");
+		cols.add("uuid");
 		cols.add("name");
 		for (int i = 0; i < PlayerCharacter.MISCLIST.length; i++) {
 			if (PlayerCharacter.MISCLIST[i] != null && i != PlayerCharacter.MISC_ID) {
@@ -242,6 +257,9 @@ public class PlayerCharacterManager {
 
 			// id (PK)
 			ps.setInt(paramIdx++, pc.getMisc(PlayerCharacter.MISC_ID));
+
+			// uuid (SOAP-API identifier; orthogonal to wire-protocol id)
+			SqliteDatabase.setUuid(ps, paramIdx++, pc.getUuid());
 
 			// name
 			ps.setString(paramIdx++, pc.getName());
@@ -369,6 +387,23 @@ public class PlayerCharacterManager {
 		}
 	}
 
+	/**
+	 * Look up a character by UUID — the SOAP-API identifier.
+	 * Returns {@code null} when no character has the given UUID, or when
+	 * {@code uuid} is itself {@code null}.
+	 */
+	public static PlayerCharacter findByUuid(UUID uuid) {
+		if (uuid == null) return null;
+		synchronized (pcList) {
+			ListIterator<PlayerCharacter> it = pcList.listIterator();
+			while (it.hasNext()) {
+				PlayerCharacter pc = it.next();
+				if (uuid.equals(pc.getUuid())) return pc;
+			}
+		}
+		return null;
+	}
+
 	public static boolean checkCharName(String name) {
 		synchronized (pcList) {
 			ListIterator<PlayerCharacter> it = pcList.listIterator();
@@ -449,6 +484,12 @@ public class PlayerCharacterManager {
 		synchronized (pcList) {
 			pc.setMisc(PlayerCharacter.MISC_ID, pcCounter);
 			pcCounter++;
+
+			// Mint a UUID for the SOAP-API identifier track. The
+			// integer MISC_ID is still the wire-protocol identity
+			// — the UUID is purely for the launcher / web-admin
+			// REST surface that should never see the integer.
+			if (pc.getUuid() == null) pc.setUuid(UUID.randomUUID());
 
 			pcList.add(pc);
 			account.setChar(spot, pc.getMisc(PlayerCharacter.MISC_ID));

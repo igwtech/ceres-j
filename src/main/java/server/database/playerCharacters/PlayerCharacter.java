@@ -1,5 +1,7 @@
 package server.database.playerCharacters;
 
+import java.util.UUID;
+
 import server.database.items.ItemContainer;
 import server.database.items.ItemManager;
 import server.database.modelTextures.ModelTexture;
@@ -162,6 +164,16 @@ public class PlayerCharacter {
 	private static final int SKILL_DATA_UNSET = Integer.MIN_VALUE;
 
 	private String name = new String();
+
+	/**
+	 * RFC 4122 UUID identifier for this character. The integer
+	 * {@code MISC_ID} stays the wire-protocol identity (it travels in
+	 * CharInfo, position broadcasts, and entity IDs across the UDP
+	 * channel). The UUID is the cross-system identifier exposed by the
+	 * SOAP API's {@code guid} simple type for external integrations
+	 * that should not touch the integer ID space.
+	 */
+	private UUID uuid;
 	private int[] misc = new int[MISCLIST.length];
 	private int[] skillslvl = new int[SKILLS.length];
 	private int[] skillspts = new int[SKILLS.length];
@@ -248,6 +260,20 @@ public class PlayerCharacter {
 
 	public void setName(String string) {
 		name = string;
+	}
+
+	/**
+	 * Returns this character's UUID. May be {@code null} until the
+	 * character is loaded from / persisted to the database — newly
+	 * built {@code PlayerCharacter} instances get one minted by
+	 * {@link PlayerCharacterManager#createCharacter} on insert.
+	 */
+	public UUID getUuid() {
+		return uuid;
+	}
+
+	public void setUuid(UUID uuid) {
+		this.uuid = uuid;
 	}
 
 	public void setSubskillLVL(int i, int j) {

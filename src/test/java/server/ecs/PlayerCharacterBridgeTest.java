@@ -174,7 +174,7 @@ public class PlayerCharacterBridgeTest {
 		StringBuilder cols = new StringBuilder();
 		StringBuilder vals = new StringBuilder();
 
-		cols.append("id, name, " + q("class") + ", " + q("profession") + ", " + q("location") + ", " + q("faction") + ", ");
+		cols.append("id, uuid, name, " + q("class") + ", " + q("profession") + ", " + q("location") + ", " + q("faction") + ", ");
 		cols.append(q("model_head") + ", " + q("model_torso") + ", " + q("model_leg") + ", " + q("model_hair") + ", " + q("model_beard") + ", ");
 		cols.append(q("texture_head") + ", " + q("texture_torso") + ", " + q("texture_leg") + ", ");
 		cols.append(q("x_coordinate") + ", " + q("y_coordinate") + ", " + q("z_coordinate") + ", " + q("orientation") + ", " + q("tilt") + ", " + q("status") + ", ");
@@ -182,7 +182,8 @@ public class PlayerCharacterBridgeTest {
 				q("con_lvl") + ", " + q("con_pts") + ", " + q("int_lvl") + ", " + q("int_pts") + ", " +
 				q("psi_lvl") + ", " + q("psi_pts"));
 
-		vals.append("?, ?, 6, 3, 5, 2, ");
+		// uuid is a positional placeholder so each test gets a fresh value
+		vals.append("?, ?, ?, 6, 3, 5, 2, ");
 		vals.append("10, 11, 12, 13, 14, ");
 		vals.append("20, 21, 22, ");
 		vals.append("1000, 2000, 3000, 180, 45, 0, ");
@@ -201,7 +202,8 @@ public class PlayerCharacterBridgeTest {
 		String sql = "INSERT INTO player_characters (" + cols + ") VALUES (" + vals + ")";
 		try (PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setInt(1, id);
-			ps.setString(2, name);
+			ps.setString(2, java.util.UUID.randomUUID().toString());
+			ps.setString(3, name);
 			ps.executeUpdate();
 		}
 	}

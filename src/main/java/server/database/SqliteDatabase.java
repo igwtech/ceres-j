@@ -12,6 +12,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 import server.database.importer.ClientDataImporter;
 import server.database.playerCharacters.PlayerCharacter;
@@ -33,7 +34,7 @@ public final class SqliteDatabase {
      *           faction_sympathies (JSON) and per-skill xp/rate/max.</li>
      * </ul>
      */         
-    public static final int CURRENT_SCHEMA_VERSION = 4;
+    public static final int CURRENT_SCHEMA_VERSION = 5;
 
     /**
      * CharInfo fidelity columns added in schema v1. Each entry is
@@ -213,12 +214,69 @@ public final class SqliteDatabase {
         return "\"" + columnName + "\"";
     }
 
+    /**
+     * Dialect-appropriate column type for an RFC 4122 UUID.
+     * PostgreSQL has a native {@code UUID} type that stores 16 bytes and
+     * accepts the canonical 36-char string format on input. SQLite has no
+     * native UUID type, so we store the 36-char hyphenated form in a TEXT
+     * column. Both branches present the same {@code UUID.toString()}
+     * canonical string at the JDBC layer; PostgreSQL's driver auto-converts
+     * to/from {@link java.util.UUID} via {@link ResultSet#getString} /
+     * {@link PreparedStatement#setObject}.
+     */
+    public static String uuidColumnType() {
+        return isPostgres ? "UUID" : "TEXT";
+    }
+
+    /**
+     * Bind a {@link UUID} as a prepared statement parameter using the
+     * dialect-native form. PostgreSQL accepts the {@link UUID} object
+     * directly via {@link PreparedStatement#setObject(int, Object)};
+     * SQLite must take the canonical 36-char string. {@code null} is
+     * bound as SQL NULL on both sides.
+     */
+    public static void setUuid(PreparedStatement ps, int idx, UUID uuid) throws SQLException {
+        if (uuid == null) {
+            ps.setNull(idx, isPostgres ? java.sql.Types.OTHER : java.sql.Types.VARCHAR);
+            return;
+        }
+        if (isPostgres) {
+            ps.setObject(idx, uuid);
+        } else {
+            ps.setString(idx, uuid.toString());
+        }
+    }
+
+    /**
+     * Read a UUID column from a {@link ResultSet}. Both PostgreSQL and SQLite
+     * yield the canonical hyphenated string via {@code getString}, so a single
+     * code path suffices. Returns {@code null} when the column is SQL NULL.
+     */
+    public static UUID getUuid(ResultSet rs, String column) throws SQLException {
+        String s = rs.getString(column);
+        if (s == null || s.isBlank()) return null;
+        try {
+            return UUID.fromString(s);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     private static void createTables() throws SQLException {
+        String uuidType = uuidColumnType();
         try (Statement stmt = connection.createStatement()) {
-            // Accounts table
+            // Accounts table.
+            // NOTE: the integer `id` column remains the primary key — it is
+            // load-bearing for the NC2 wire protocol (account UID broadcast in
+            // 0x8305 UDPServerData). The `uuid` column is the new identifier
+            // used by the SOAP API (`guid` simple type) for session tokens
+            // and authentication keys. Fresh installs create both columns
+            // up front; legacy DBs get the column added + backfilled in
+            // migrateSchema() below.
             stmt.execute(
                 "CREATE TABLE IF NOT EXISTS accounts (" +
                 "  id INTEGER PRIMARY KEY," +
+                "  uuid " + uuidType + " NOT NULL UNIQUE," +
                 "  username TEXT NOT NULL UNIQUE," +
                 "  password TEXT NOT NULL," +
                 "  char1 INTEGER DEFAULT 0," +
@@ -229,10 +287,14 @@ public final class SqliteDatabase {
                 ")"
             );
 
-            // Player characters table — all fields from MISCLIST, SKILLS, SUBSKILLS, container IDs
+            // Player characters table — all fields from MISCLIST, SKILLS, SUBSKILLS, container IDs.
+            // The integer `id` column remains the wire-protocol identity
+            // (MISC_ID in CharInfo, entity IDs in 0x1b position broadcasts);
+            // `uuid` is added for SOAP API integrations only.
             StringBuilder pcSql = new StringBuilder();
             pcSql.append("CREATE TABLE IF NOT EXISTS player_characters (");
             pcSql.append("  id INTEGER PRIMARY KEY,");
+            pcSql.append("  uuid ").append(uuidType).append(" NOT NULL UNIQUE,");
             pcSql.append("  name TEXT NOT NULL,");
 
             // MISCLIST fields (indices 1..21 where non-null, excluding id at index 15)
@@ -435,9 +497,105 @@ public final class SqliteDatabase {
             }
         }
 
+        if (currentVersion < 5) {
+            // v4 → v5: add `uuid` column to accounts and player_characters.
+            // Used by the SOAP API endpoints (LauncherInterface,
+            // SessionManagement, PublicInterface) which all type their
+            // session tokens / authentication keys / service identifiers as
+            // the `guid` simple type — equivalent to java.util.UUID. The
+            // wire-protocol-load-bearing integer `id` columns are NOT
+            // touched.
+            //
+            // Migration is three-phase to satisfy NOT NULL UNIQUE:
+            //   1. ADD COLUMN nullable (SQLite cannot add NOT NULL without
+            //      a default, and we want random per-row UUIDs not a
+            //      shared default).
+            //   2. Backfill every existing row with UUID.randomUUID().
+            //   3. Tighten with a UNIQUE index (SQLite) or ALTER COLUMN
+            //      SET NOT NULL + ADD CONSTRAINT UNIQUE (PostgreSQL).
+            backfillUuidColumn("accounts");
+            backfillUuidColumn("player_characters");
+        }
+
         writeSchemaVersion(CURRENT_SCHEMA_VERSION);
 
         Out.writeln(Out.Info, "Schema migrated to version " + CURRENT_SCHEMA_VERSION);
+    }
+
+    /**
+     * Add a {@code uuid} column to {@code table} if missing, backfill all
+     * existing rows with {@link UUID#randomUUID()}, and tighten with a
+     * UNIQUE constraint. Idempotent — re-running this on a table that
+     * already has the column simply backfills rows whose value is NULL
+     * and re-applies the UNIQUE index (CREATE UNIQUE INDEX IF NOT EXISTS).
+     *
+     * <p>The column ends up effectively NOT NULL: all existing rows get a
+     * value, and the {@link #createTables()} CREATE statement declares
+     * NOT NULL on fresh DBs. We do not retroactively run
+     * {@code ALTER COLUMN SET NOT NULL} on SQLite because SQLite has no
+     * such command without a full table rebuild — the
+     * application layer (AccountManager, PlayerCharacterManager) is
+     * responsible for always supplying a UUID on insert.
+     */
+    private static void backfillUuidColumn(String table) throws SQLException {
+        Set<String> existing = getExistingColumns(table);
+        boolean addedHere = false;
+        try (Statement stmt = connection.createStatement()) {
+            if (!existing.contains("uuid")) {
+                // ADD COLUMN nullable on both backends — SQLite can't add a
+                // NOT NULL column without a literal default, and we want
+                // random per-row UUIDs.
+                stmt.execute("ALTER TABLE " + table + " ADD COLUMN uuid " + uuidColumnType());
+                addedHere = true;
+            }
+        }
+
+        // Backfill any rows that don't have a UUID yet.
+        // We read all id values first, then issue one UPDATE per row with
+        // UUID.randomUUID() on the application side. This keeps random
+        // generation portable across SQLite and PostgreSQL without
+        // depending on backend-specific functions like gen_random_uuid().
+        java.util.List<Integer> idsNeedingUuid = new java.util.ArrayList<>();
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT id FROM " + table + " WHERE uuid IS NULL")) {
+            while (rs.next()) idsNeedingUuid.add(rs.getInt(1));
+        }
+        if (!idsNeedingUuid.isEmpty()) {
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "UPDATE " + table + " SET uuid = ? WHERE id = ?")) {
+                for (int id : idsNeedingUuid) {
+                    setUuid(ps, 1, UUID.randomUUID());
+                    ps.setInt(2, id);
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+            Out.writeln(Out.Info, "Backfilled " + idsNeedingUuid.size()
+                + " " + table + " rows with new UUIDs");
+        }
+
+        // Apply / re-apply UNIQUE constraint. CREATE UNIQUE INDEX IF NOT
+        // EXISTS is idempotent on both backends and does not require
+        // re-creating the table.
+        if (addedHere || !idsNeedingUuid.isEmpty() || !existing.contains("uuid")) {
+            try (Statement stmt = connection.createStatement()) {
+                stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS "
+                    + table + "_uuid_uniq ON " + table + " (uuid)");
+            }
+        }
+
+        // PostgreSQL also lets us tighten to NOT NULL — do so once the
+        // backfill is complete. SQLite has no equivalent and would require
+        // a full table rebuild; we settle for the application-layer
+        // guarantee plus the CREATE TABLE NOT NULL clause for fresh DBs.
+        if (isPostgres) {
+            try (Statement stmt = connection.createStatement()) {
+                stmt.execute("ALTER TABLE " + table + " ALTER COLUMN uuid SET NOT NULL");
+            } catch (SQLException ignored) {
+                // Already NOT NULL — PG raises no-op as success on most
+                // versions, but tolerate the rare error path.
+            }
+        }
     }
 
     /**
@@ -546,7 +704,7 @@ public final class SqliteDatabase {
             int char4Idx = findIndex(headers, "char4");
             int statusIdx = findIndex(headers, "status");
 
-            String insertSql = "INSERT INTO accounts (id, username, password, char1, char2, char3, char4, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            String insertSql = "INSERT INTO accounts (id, uuid, username, password, char1, char2, char3, char4, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             connection.setAutoCommit(false);
             try (PreparedStatement ps = connection.prepareStatement(insertSql)) {
@@ -558,13 +716,15 @@ public final class SqliteDatabase {
                     if (fields.length < headers.length) continue;
 
                     ps.setInt(1, Integer.parseInt(fields[idIdx].trim()));
-                    ps.setString(2, fields[usernameIdx].trim());
-                    ps.setString(3, fields[passwordIdx].trim());
-                    ps.setInt(4, Integer.parseInt(fields[char1Idx].trim()));
-                    ps.setInt(5, Integer.parseInt(fields[char2Idx].trim()));
-                    ps.setInt(6, Integer.parseInt(fields[char3Idx].trim()));
-                    ps.setInt(7, Integer.parseInt(fields[char4Idx].trim()));
-                    ps.setString(8, fields[statusIdx].trim());
+                    // CSV import predates UUIDs — mint a fresh UUID per row.
+                    setUuid(ps, 2, UUID.randomUUID());
+                    ps.setString(3, fields[usernameIdx].trim());
+                    ps.setString(4, fields[passwordIdx].trim());
+                    ps.setInt(5, Integer.parseInt(fields[char1Idx].trim()));
+                    ps.setInt(6, Integer.parseInt(fields[char2Idx].trim()));
+                    ps.setInt(7, Integer.parseInt(fields[char3Idx].trim()));
+                    ps.setInt(8, Integer.parseInt(fields[char4Idx].trim()));
+                    ps.setString(9, fields[statusIdx].trim());
                     ps.addBatch();
                     count++;
                 }
@@ -607,9 +767,11 @@ public final class SqliteDatabase {
 
             String[] headers = parseCsvLine(headerLine);
 
-            // Build a dynamic INSERT statement based on columns
-            StringBuilder insertCols = new StringBuilder("name");
-            StringBuilder insertPlaceholders = new StringBuilder("?");
+            // Build a dynamic INSERT statement based on columns. Always
+            // include uuid (minted per-row below) since the column is
+            // NOT NULL UNIQUE.
+            StringBuilder insertCols = new StringBuilder("uuid, name");
+            StringBuilder insertPlaceholders = new StringBuilder("?, ?");
 
             // Map CSV header names to SQLite column names
             for (int i = 0; i < PlayerCharacter.MISCLIST.length; i++) {
@@ -644,6 +806,9 @@ public final class SqliteDatabase {
                     if (fields.length < headers.length) continue;
 
                     int paramIdx = 1;
+
+                    // uuid (always minted fresh — CSV predates UUIDs)
+                    setUuid(ps, paramIdx++, UUID.randomUUID());
 
                     // name
                     ps.setString(paramIdx++, fields[findIndex(headers, "name")].trim());

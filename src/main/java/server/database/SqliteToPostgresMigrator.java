@@ -129,8 +129,29 @@ public final class SqliteToPostgresMigrator {
             try (PreparedStatement ps = dst.prepareStatement(sql)) {
                 while (rs.next()) {
                     for (int i = 0; i < common.size(); i++) {
-                        Object val = rs.getObject(common.get(i));
-                        ps.setObject(i + 1, val);
+                        String colName = common.get(i);
+                        Object val = rs.getObject(colName);
+                        // SQLite stores UUIDs as TEXT but PostgreSQL has a
+                        // native UUID type. The PG JDBC driver won't auto-
+                        // coerce a String into a UUID column via setObject,
+                        // so convert explicitly here. Tolerate malformed
+                        // input by leaving such rows with a freshly-minted
+                        // UUID (consistent with the migrate path).
+                        if ("uuid".equalsIgnoreCase(colName)) {
+                            if (val instanceof String) {
+                                try {
+                                    ps.setObject(i + 1, java.util.UUID.fromString((String) val));
+                                } catch (IllegalArgumentException badUuid) {
+                                    ps.setObject(i + 1, java.util.UUID.randomUUID());
+                                }
+                            } else if (val == null) {
+                                ps.setObject(i + 1, java.util.UUID.randomUUID());
+                            } else {
+                                ps.setObject(i + 1, val);
+                            }
+                        } else {
+                            ps.setObject(i + 1, val);
+                        }
                     }
                     ps.addBatch();
                     count++;

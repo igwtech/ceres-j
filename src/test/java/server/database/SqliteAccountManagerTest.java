@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.UUID;
 
 import org.junit.After;
 import org.junit.Before;
@@ -28,19 +29,20 @@ public class SqliteAccountManagerTest {
         conn = DriverManager.getConnection("jdbc:sqlite::memory:");
         SqliteDatabase.initWithConnection(conn);
 
-        // Insert test accounts directly
+        // Insert test accounts directly. The uuid column is NOT NULL UNIQUE
+        // so every row needs its own value; we pre-allocate them inline.
         try (Statement stmt = conn.createStatement()) {
             stmt.executeUpdate(
-                "INSERT INTO accounts (id, username, password, char1, char2, char3, char4, status) " +
-                "VALUES (1, 'testuser', 'testpass', 0, 0, 0, 0, '')"
+                "INSERT INTO accounts (id, uuid, username, password, char1, char2, char3, char4, status) " +
+                "VALUES (1, '" + UUID.randomUUID() + "', 'testuser', 'testpass', 0, 0, 0, 0, '')"
             );
             stmt.executeUpdate(
-                "INSERT INTO accounts (id, username, password, char1, char2, char3, char4, status) " +
-                "VALUES (2, 'admin', 'adminpass', 10, 20, 0, 0, 'admin')"
+                "INSERT INTO accounts (id, uuid, username, password, char1, char2, char3, char4, status) " +
+                "VALUES (2, '" + UUID.randomUUID() + "', 'admin', 'adminpass', 10, 20, 0, 0, 'admin')"
             );
             stmt.executeUpdate(
-                "INSERT INTO accounts (id, username, password, char1, char2, char3, char4, status) " +
-                "VALUES (3, 'banned', 'bannedpass', 0, 0, 0, 0, 'banned')"
+                "INSERT INTO accounts (id, uuid, username, password, char1, char2, char3, char4, status) " +
+                "VALUES (3, '" + UUID.randomUUID() + "', 'banned', 'bannedpass', 0, 0, 0, 0, 'banned')"
             );
         }
 
@@ -99,8 +101,8 @@ public class SqliteAccountManagerTest {
         // Create a new account via SQL, then reload
         try (Statement stmt = conn.createStatement()) {
             stmt.executeUpdate(
-                "INSERT INTO accounts (id, username, password, char1, char2, char3, char4, status) " +
-                "VALUES (100, 'newuser', 'newpass', 0, 0, 0, 0, '')"
+                "INSERT INTO accounts (id, uuid, username, password, char1, char2, char3, char4, status) " +
+                "VALUES (100, '" + UUID.randomUUID() + "', 'newuser', 'newpass', 0, 0, 0, 0, '')"
             );
         }
 
@@ -120,8 +122,8 @@ public class SqliteAccountManagerTest {
         // SQLite UNIQUE constraint on username should prevent duplicates
         try (Statement stmt = conn.createStatement()) {
             stmt.executeUpdate(
-                "INSERT INTO accounts (id, username, password, char1, char2, char3, char4, status) " +
-                "VALUES (99, 'testuser', 'otherpass', 0, 0, 0, 0, '')"
+                "INSERT INTO accounts (id, uuid, username, password, char1, char2, char3, char4, status) " +
+                "VALUES (99, '" + UUID.randomUUID() + "', 'testuser', 'otherpass', 0, 0, 0, 0, '')"
             );
             fail("Should have thrown SQLException for duplicate username");
         } catch (java.sql.SQLException e) {
