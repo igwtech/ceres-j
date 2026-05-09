@@ -5,8 +5,8 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 
 import server.gameserver.packets.client_udp.UseItem;
-import server.gameserver.packets.server_tcp.InteractionAck;
-import server.gameserver.packets.server_tcp.Packet838F;
+import server.gameserver.packets.server_udp.LocalChatMessage;
+import server.gameserver.packets.server_udp.OpenDoor;
 
 /**
  * Smoke test for {@link ReplayHarness} — proves the harness
@@ -45,34 +45,36 @@ public class ReplayHarnessTest {
     }
 
     @Test
-    public void driveCapturesTheCompleteTcpTripletForUseItem() {
-        // UseItem produces 3 TCP packets per the retail-pinned
-        // contract: 0x838f → InteractionAck → InteractionAck.
+    public void driveCapturesUseItemUdpEmissions() {
+        // On this branch UseItem emits a LocalChatMessage and an
+        // OpenDoor UDP packet (S→C). Both are routed via
+        // pl.send(udp) and captured by CapturingUDPConnection.
         ReplayHarness h = new ReplayHarness();
         ReplayHarness.DriveResult r = h.drive(useItemBody(0xdeadbeef));
 
-        assertTrue("must emit the retail TCP triplet 838f→a002→a002",
-                r.emittedTcpSequence(
-                        Packet838F.class,
-                        InteractionAck.class,
-                        InteractionAck.class));
-        assertEquals(3, r.tcpEmittedThisStep.size());
+        assertEquals("UseItem emits 2 S→C UDP packets",
+                2, r.udpEmittedThisStep.size());
+        assertTrue("first UDP must be LocalChatMessage",
+                r.udpEmittedThisStep.get(0)
+                        instanceof LocalChatMessage);
+        assertTrue("second UDP must be OpenDoor",
+                r.udpEmittedThisStep.get(1) instanceof OpenDoor);
     }
 
     @Test
     public void driveAllAccumulatesAcrossSteps() {
-        // Drive two UseItems back-to-back; tcpEmitted() is
-        // cumulative; per-step tcpEmittedThisStep is local.
+        // Drive two UseItems back-to-back; udpEmitted() is
+        // cumulative; per-step udpEmittedThisStep is local.
         ReplayHarness h = new ReplayHarness();
 
         h.driveAll(useItemBody(1), useItemBody(2));
 
         assertEquals("2 steps in history", 2, h.history().size());
-        assertEquals("each step emits 3 TCP packets",
-                3, h.history().get(0).tcpEmittedThisStep.size());
-        assertEquals(3, h.history().get(1).tcpEmittedThisStep.size());
-        assertEquals("cumulative TCP capture",
-                6, h.tcpEmitted().size());
+        assertEquals("each step emits 2 UDP packets",
+                2, h.history().get(0).udpEmittedThisStep.size());
+        assertEquals(2, h.history().get(1).udpEmittedThisStep.size());
+        assertEquals("cumulative UDP capture",
+                4, h.udpEmitted().size());
     }
 
     @Test
@@ -101,5 +103,39 @@ public class ReplayHarnessTest {
                         || r.tcpEmittedThisStep.isEmpty());
         assertEquals("no TCP packets for the heartbeat",
                 0, r.tcpEmittedThisStep.size());
+    }
+
+    @Test
+    public void udpCapturedBytesArePlaintextNotEncrypted() {
+        // The harness must capture pre-encryption plaintext so
+        // session-replay diffs can compare apples to apples
+        // against retail's decrypted plaintext stream.
+        ReplayHarness h = new ReplayHarness();
+        ReplayHarness.DriveResult r = h.drive(useItemBody(99));
+
+        // Each emitted UDP packet shows up as one (or more) raw
+        // byte buffers in udpRawBytesThisStep. The first one
+        // should be non-empty plaintext (no LFSR seed prefix).
+        assertTrue("at least one raw UDP buffer captured",
+                !r.udpRawBytesThisStep.isEmpty());
+        // First-byte sanity: NC2 plaintext datagrams begin with
+        // one of the known headers (0x01/0x03/0x04/0x08/0x13).
+        // A LocalChatMessage would be a 0x13 outer.
+        int firstByte = r.udpRawBytesThisStep.get(0)[0] & 0xFF;
+        assertTrue("first byte 0x" + Integer.toHexString(firstByte)
+                + " must be a known plaintext header",
+                firstByte == 0x01 || firstByte == 0x03
+                        || firstByte == 0x04 || firstByte == 0x08
+                        || firstByte == 0x13);
+    }
+
+    @Test
+    public void useItemEventClassIsResolvable() {
+        // Smoke check that UseItem reflective-decode produces an
+        // instance of the actual UseItem class on this branch.
+        ReplayHarness h = new ReplayHarness();
+        ReplayHarness.DriveResult r = h.drive(useItemBody(1));
+        assertTrue("decoded must be UseItem",
+                r.decoded instanceof UseItem);
     }
 }

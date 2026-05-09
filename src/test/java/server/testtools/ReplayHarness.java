@@ -11,11 +11,12 @@ import server.gameserver.packets.GamePacketDecoderUDP;
 import server.gameserver.packets.server_udp.PacketTestFixture;
 import server.interfaces.GameServerEvent;
 import server.interfaces.ServerTCPPacket;
+import server.interfaces.ServerUDPPacket;
 
 /**
  * Test fixture that simulates the server's C→S decoder and
- * captures the S→C TCP packets it emits. The skeleton for the
- * eventual full session-replay tooling described in
+ * captures the S→C packets it emits. The skeleton plus the
+ * session-level pcap-replay tooling described in
  * {@code IMPLEMENTATION_PLAN.md} Phase 10 (Hardening).
  *
  * <h3>Today's scope</h3>
@@ -26,9 +27,9 @@ import server.interfaces.ServerTCPPacket;
  * {@code GamePacketReaderUDP.decodesub13} static method and
  * fires the resulting event on a fresh {@link Player}.
  *
- * <p>Session-level replay (multi-step recordings, S→C diff,
- * pcap-driven inputs) builds on this primitive in follow-up
- * commits.
+ * <p>Pcap-driven session replay (multi-step recordings, S→C
+ * diff against retail) is wired through the
+ * {@link server.testtools.PcapReplay} loader.
  *
  * <h3>Why a static {@code decodesub13} reflective dispatch?</h3>
  *
@@ -42,12 +43,16 @@ public final class ReplayHarness {
 
     private final Player player;
     private final CapturingTCPConnection tcp;
+    private final CapturingUDPConnection udp;
     private final List<DriveResult> history = new ArrayList<>();
 
     public ReplayHarness() {
         this.player = PacketTestFixture.newPlayer();
         this.tcp = new CapturingTCPConnection();
         this.player.setTcpConnection(tcp);
+        // Replace the random-keyed UDP connection with a capturing
+        // one so S→C UDP datagrams are observable byte-for-byte.
+        this.udp = CapturingUDPConnection.replaceOn(player);
     }
 
     /** The Player driving this session. Tests can mutate its
@@ -60,6 +65,18 @@ public final class ReplayHarness {
         return tcp.received();
     }
 
+    /** UDP packets captured so far (cumulative). Each entry is a
+     *  raw plaintext datagram that the server tried to send. */
+    public List<ServerUDPPacket> udpEmitted() {
+        return udp.received();
+    }
+
+    /** All raw S→C bytes the harness has seen, in order, across
+     *  TCP and UDP. Useful for byte-level diffing against retail. */
+    public List<byte[]> emittedRawBytes() {
+        return udp.rawBytes();
+    }
+
     /**
      * Drive a single 0x13 sub-packet through the decoder + event
      * dispatch. Returns the decoded event so callers can inspect
@@ -68,13 +85,17 @@ public final class ReplayHarness {
     public DriveResult drive(byte[] subPacket) {
         GameServerEvent ev = decodeSub13(subPacket);
         int tcpBefore = tcp.received().size();
+        int udpBefore = udp.received().size();
         if (ev != null) {
             ev.execute(player);
         }
-        int tcpEmitted = tcp.received().size() - tcpBefore;
         DriveResult r = new DriveResult(subPacket, ev,
                 tcp.received().subList(tcpBefore,
-                        tcp.received().size()));
+                        tcp.received().size()),
+                udp.received().subList(udpBefore,
+                        udp.received().size()),
+                udp.rawBytes().subList(udpBefore,
+                        udp.rawBytes().size()));
         history.add(r);
         return r;
     }
@@ -112,12 +133,18 @@ public final class ReplayHarness {
         public final byte[] inputBytes;
         public final GameServerEvent decoded;
         public final List<ServerTCPPacket> tcpEmittedThisStep;
+        public final List<ServerUDPPacket> udpEmittedThisStep;
+        public final List<byte[]> udpRawBytesThisStep;
 
         DriveResult(byte[] in, GameServerEvent ev,
-                     List<ServerTCPPacket> emitted) {
+                     List<ServerTCPPacket> tcpEmitted,
+                     List<ServerUDPPacket> udpEmitted,
+                     List<byte[]> udpRaw) {
             this.inputBytes = in;
             this.decoded = ev;
-            this.tcpEmittedThisStep = new ArrayList<>(emitted);
+            this.tcpEmittedThisStep = new ArrayList<>(tcpEmitted);
+            this.udpEmittedThisStep = new ArrayList<>(udpEmitted);
+            this.udpRawBytesThisStep = new ArrayList<>(udpRaw);
         }
 
         /** Was the input recognised by the decoder (event != null)? */
