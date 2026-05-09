@@ -7,6 +7,7 @@ import server.database.accounts.Account;
 import server.database.playerCharacters.PlayerCharacter;
 import server.gameserver.GameServerUDPConnection;
 import server.gameserver.Player;
+import server.gameserver.Zone;
 
 /**
  * Lightweight factory for constructing {@link Player} instances suitable for
@@ -75,6 +76,54 @@ public final class PacketTestFixture {
             pl.setUdpConnection(con);
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
+        }
+        return pl;
+    }
+
+    /**
+     * Same as {@link #newPlayer()} but also installs an empty-
+     * but-real {@link Zone} so handlers that delegate to
+     * {@code currentZone} (Movement, sendPlayersinZone,
+     * sendNPCsinZone) don't NPE.
+     *
+     * <p>Use this for pcap-replay tests and any test that exercises
+     * a real-game-traffic codepath. {@link #newPlayer()} keeps the
+     * zone-null default so the existing fixture-relies-on-no-zone
+     * tests (Location fallback, RequestInfoAboutWorldID, etc.)
+     * keep their expected setup.
+     *
+     * <p>The Zone constructor calls
+     * {@code NpcSpawnManager.loadForZone(id)}, which gracefully
+     * returns an empty list when no SQLite connection has been
+     * initialised — exactly the path tests take. Zone extends
+     * Thread but we don't start() it.
+     */
+    public static Player newPlayerWithZone() {
+        Player pl = newPlayer();
+        try {
+            Zone z = new Zone(1, "test_zone");
+            java.lang.reflect.Field zoneField =
+                    Player.class.getDeclaredField("currentZone");
+            zoneField.setAccessible(true);
+            zoneField.set(pl, z);
+
+            // Also register in ZoneManager.zoneList so calls to
+            // Player.updateZone() (which run during Movement zone-
+            // crossing handlers) find our test Zone instead of
+            // resetting currentZone to null. Movement.java line 94
+            // is the typical caller during pcap replay.
+            java.lang.reflect.Field zlField =
+                    server.gameserver.ZoneManager.class
+                            .getDeclaredField("zoneList");
+            zlField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            java.util.TreeMap<Integer,
+                    server.gameserver.Zone> zoneList =
+                (java.util.TreeMap<Integer,
+                        server.gameserver.Zone>) zlField.get(null);
+            zoneList.put(1, z);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Unable to install Zone", e);
         }
         return pl;
     }

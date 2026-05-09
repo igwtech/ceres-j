@@ -47,7 +47,11 @@ public final class ReplayHarness {
     private final List<DriveResult> history = new ArrayList<>();
 
     public ReplayHarness() {
-        this.player = PacketTestFixture.newPlayer();
+        // newPlayerWithZone() so Movement / sendPlayersinZone /
+        // sendNPCsinZone don't NPE during replay. Tests that need
+        // a zone-null fixture construct their Player directly via
+        // PacketTestFixture.newPlayer() — not through this harness.
+        this.player = PacketTestFixture.newPlayerWithZone();
         this.tcp = new CapturingTCPConnection();
         this.player.setTcpConnection(tcp);
         // Replace the random-keyed UDP connection with a capturing
