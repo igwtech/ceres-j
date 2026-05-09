@@ -53,21 +53,108 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+The high-frequency client-to-server multiplexer. Carries gameplay
+events (item use, weapon fire, inventory moves, dialog choices,
+heartbeats, chat-channel changes, …) within a single sub-tag.
+188,947 retail observations across 17/17 captures — the busiest
+C→S packet by an order of magnitude.
+
+Verified 2026-05-09 against 67 samples drawn from AUGUSTO, CASH,
+CREATION, DRSTONE3, DRSTONE4 retail captures.
+
+**Common body layout (post {@code 0x1f} sub-op):**
+
+```
+[0]      0x1f                    sub-opcode (constant)
+[1..2]   0x0001  LE16            CONSTANT prefix (67/67 samples) —
+                                  likely "client-direction" or
+                                  "uncompressed" tag
+[3]      action tag              selects the gameplay event class
+                                  (see Variants section)
+[4]      sub-action              event-specific (e.g. 0x11 for
+                                  heartbeat, 0x1e for inventory-move)
+[5..N]   payload                 sub-action-specific
+```
+
+### Most common sub-shape — heartbeat (`tag 0x3d`)
+
+70% of all C→S 0x03/0x1f traffic is the client in-flight heartbeat
+emitted at ~90 Hz during gameplay:
+
+```
+9B  1f 01 00 3d 11 00 00 00 00       — heartbeat sub-action 0x11
+                                       (fixed body, fires constantly)
+12B 1f 01 00 3d 32 00 00 00 [4B]     — heartbeat sub-action 0x32 with
+                                       4-byte status snapshot
+```
+
+The 0x3d/0x11 sub-action is documented as the "in-flight ACK burst
+for server-pushed reliables" — fires at ~90/sec during gameplay,
+no server response required.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Tag byte distribution across 67 samples:
+
+| tag  | count | meaning                                            |
+|-----:|------:|----------------------------------------------------|
+| 0x3d |    47 | heartbeat / in-flight ACK (70% of all traffic)     |
+| 0x4c |     7 | ChangedChannels (chat channel subscription state)  |
+| 0x25 |     6 | inventory/F2-panel sub-actions (matches memory      |
+|      |       | project_opcode_structure.md sub-tag map)            |
+| 0x3e |     5 | unknown (TODO)                                     |
+| 0x32 |     2 | unknown (TODO)                                     |
+
+### Sub-tag detail (from {@code memory/project_opcode_structure.md}):
+
+The 0x03/0x1f S→C sub-tag map applies symmetrically here:
+
+- 0x01 — weapon-fire
+- 0x17 — use-obj (UseItem trigger)
+- 0x1a — dialog
+- 0x1e — InventoryMove (verified — handled by Ceres-J)
+- 0x26 — vendor/loot
+- 0x2a — mission-grant
+- 0x3b — chat (whisper/team/clan/buddy — routed via SubtagRouter)
+
+Empirically observed in retail samples: 0x25, 0x3d, 0x3e, 0x32, 0x4c.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Top markers (within ±2s):
+- `OUTSIDE_AREAM5_TRADING_PLAYER × 72` — player-trade events
+- `WALK_TO_PEPPERPARK_1 × 48` — walking heartbeats
+- `MOB_AGGRO × 45` — combat-state updates
+- `MOB_COMBAT_AND_DESPAWN × 32` — combat resolution
+- `KILL_MOB2 × 29` — kill confirmation
+
+Highest concentration: RETAIL_VEHICLE_DRONE × 74,790 (40% of all
+obs) — combat/PvP captures emit heaviest. Heartbeat traffic
+dominates per-second rate; gameplay-event traffic dominates per-
+event diversity.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Tag {@code 0x3e} — 5 samples, all `1f 01 00 3e 01 00 00 00 01`
+  fixed shape. Looks like an ACK or session-flag toggle. Not
+  decoded.
+- Tag {@code 0x32} — 2 samples, e.g. `1f 01 00 32 02 55 86 01 00`.
+  Different variants in different captures (`02 55 86 01 00` vs
+  `02 fe 85 01 00`). Possibly an entity-target ID payload.
+- Per-tag full sub-action enumeration — many sub-actions per tag
+  observed but not exhaustively decoded.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Decoded in `server.gameserver.packets.GamePacketReaderUDP.decodesub13`:
+
+- `case 0x1f:` switches on sub-action byte (offset 3 of body)
+- `0x17` → {@link server.gameserver.packets.client_udp.UseItem}
+- `0x1b` → {@link server.gameserver.packets.client_udp.LocalChat}
+- `0x1e` → {@link server.gameserver.packets.client_udp.InventoryMove}
+- `0x25` → switch on byte 4: `0x14`=InsideF2InvMove, `0x17`=InventoryCombineItems
+- `0x3b` → SubtagRouter (cross-channel chat)
+- `0x3d` → recognise-only (heartbeat — server has nothing to do)
+- `0x4c` → {@link server.gameserver.packets.client_udp.ChangedChannels}
+- default → fall-through (UnknownClientUDPPacket)
 
