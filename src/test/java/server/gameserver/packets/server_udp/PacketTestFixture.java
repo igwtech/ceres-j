@@ -129,6 +129,61 @@ public final class PacketTestFixture {
     }
 
     /**
+     * Same as {@link #newPlayerWithZone()} but populates the zone
+     * with {@code count} test NPCs at deterministic positions.
+     *
+     * <p>Each NPC is registered at mapID {@code 0x0101 + i} (the
+     * retail-convention 0x101-0x1FF NPC ID range), with position
+     * {@code (1000+i*10, 2000+i*10, 3000+i*10)}, HP=100, armor=10,
+     * type=42, scriptName="WSK", modelName="wsk.mdl", angle=0.
+     *
+     * <p>Use this for harness scenarios where retail emits per-NPC
+     * traffic (WorldNPCInfo, NpcDataBroadcast, ObjectPositionBroadcast)
+     * — without NPCs, those events fire but iterate empty NPC lists
+     * and emit nothing, breaking the harness's S→C alignment.
+     *
+     * <p>Returns the populated Player. NPCs are accessible via
+     * {@code pl.getZone().getAllNPCs()}.
+     */
+    public static Player newPlayerWithZoneAndNpcs(int count) {
+        Player pl = newPlayerWithZone();
+        Zone z = pl.getZone();
+        try {
+            // Direct insertion via reflection — Zone.addNPCtoZone()
+            // calls sendNPCsinZone() which iterates playerList; that's
+            // empty in the fixture, so it's a no-op, but we want full
+            // control over the NPC IDs (mapID 0x0101+i instead of the
+            // 257+ allocator's first-free slot).
+            java.lang.reflect.Field npcListF =
+                    Zone.class.getDeclaredField("NPCList");
+            npcListF.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            java.util.Map<Integer, server.gameserver.NPC> npcList =
+                    (java.util.Map<Integer,
+                            server.gameserver.NPC>) npcListF.get(z);
+            for (int i = 0; i < count; i++) {
+                int mapId = 0x0101 + i;
+                int x = 1000 + i * 10;
+                int y = 2000 + i * 10;
+                int zCoord = 3000 + i * 10;
+                // NPC ctor: (id, zoneId, type, name, scriptName,
+                //            modelName, x, y, z, angle, hp, armor)
+                server.gameserver.NPC npc =
+                        new server.gameserver.NPC(
+                                mapId, /*zoneId*/ 1, /*type*/ 42,
+                                "TestNPC" + i, "WSK", "wsk.mdl",
+                                x, y, zCoord, /*angle*/ 0,
+                                /*hp*/ 100, /*armor*/ 10);
+                npcList.put(mapId, npc);
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(
+                    "Unable to populate Zone NPCList", e);
+        }
+        return pl;
+    }
+
+    /**
      * Same as {@link #newPlayer()} but overrides the random UDP session key
      * with a fixed value so packet outputs are byte-exact reproducible.
      */
