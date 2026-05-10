@@ -43,8 +43,33 @@ public class ReliableAckSubPacket extends GamePacketDecoderUDP {
 
     @Override
     public void execute(Player pl) {
-        // Recognise-only. Server-side reliable-retransmit state
-        // is not modelled; the outer dispatcher already handles
-        // the symmetric ACK direction.
+        if (pl == null || pl.getUdpConnection() == null) return;
+        int seq = ackSeq();
+        if (seq < 0) return;
+        // Look up the requested seq in the per-session ring;
+        // re-emit via the 0x02 simplified-reliable wrapper.
+        // Without this the client's "Synchronizing into city zone"
+        // overlay never clears (task #136 / #151 — retail captures
+        // show ~17 ack-requests in 2 rounds within ~1s post-
+        // handshake, all expecting matching 0x02 retransmits).
+        server.networktools.ReliablePacketRing ring =
+                pl.getUdpConnection().reliableRing();
+        byte[] body = ring.get(seq);
+        if (body == null) {
+            // Evicted or never emitted. Silently ignore — the
+            // client's reliable layer has its own bounded retry /
+            // give-up logic.
+            server.tools.Out.writeln(server.tools.Out.Info,
+                    "ReliableAck: seq " + seq
+                    + " not in ring (evicted or never emitted)");
+            return;
+        }
+        // Re-wrap with [0x02][counter LE2] then append the original
+        // sub-packet body (sub-op + payload). Same shape as
+        // retail's 0x02 retransmit.
+        server.networktools.PacketBuilderUDP1302 retransmit =
+                new server.networktools.PacketBuilderUDP1302(pl);
+        retransmit.write(body);
+        pl.send(retransmit);
     }
 }
