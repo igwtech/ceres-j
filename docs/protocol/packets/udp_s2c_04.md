@@ -49,21 +49,76 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+UDPAlive — UDP keepalive emitted by the server. Verified
+2026-05-10 against 51 samples from 17/17 retail captures.
+Fixed 7-byte raw datagram (NO 0x13 outer wrapper).
+
+```
+[0]      0x04                   sub-opcode (constant)
+[1]      mapID                  player's world-object id (low byte;
+                                 typically 1)
+[2]      interfaceId             zone interface (typically 0x00;
+                                 0x02 in DRSTONE_post-zoning; 0x04
+                                 in PLAZA — a nested-zone marker)
+[3..4]   -sessionkey LE16        negated UDP session key (per
+                                 session, random per server boot)
+[5..6]   server_port LE16        UDP port the server listens on
+                                 (per-session ephemeral port)
+```
+
+Sample retail bytes:
+```
+04 01 00 54 20 79 8c    AUGUSTO  port=0x8c79=35961
+04 01 00 ca 04 fc 86    CASH     port=0x86fc=34556
+04 04 00 11 32 2b 90    PLAZA    interface=0x04, port=0x902b=36907
+04 02 00 01 77 40 da    DRSTONE  interface=0x02, port=0xda40=55872
+```
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 7-byte form across 4,939 retail observations. NO size
+variation. Per-session content is byte-stable (the sessionkey
+and port don't change within a session, so all UDPAlives in one
+session are byte-identical).
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Two emit phases per session (per task #158):
+1. **Handshake-reply burst** — 4× UDPAlive within ~0.1 ms at
+   the end of the 3-way handshake (HandshakeUDPAnswer +
+   HandshakeUDPAnswer2 emit them).
+2. **Periodic keepalive** — additional UDPAlives at ~3 s
+   spacing throughout the session. 4 more in HANNIBAL = 8 total
+   per session.
+
+Now wired in Ceres-J via {@link
+server.gameserver.internalEvents.UDPAliveHeartbeat} (3 s
+self-rescheduling event, started from `WorldEntryEvent`).
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Why the {@code -sessionkey} (negated) at body[3..4] instead of
+  the raw value? Possibly a client-side NAT-traversal
+  validation: the server sends {@code -sessionkey} so the client
+  can verify by negating its own copy. Untested hypothesis.
+- The interface byte at [2] varies across captures (0x00, 0x02,
+  0x04) — probably reflects NC2's zone-interface system (city
+  vs sewer vs apartment) but not yet pinned per-zone.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+`server.gameserver.packets.server_udp.UDPAlive` — emits the
+verified 7-byte body. Fired from:
+- {@link
+  server.gameserver.packets.client_udp.HandshakeUDP} — the 4×
+  handshake-reply burst.
+- {@link
+  server.gameserver.internalEvents.UDPAliveHeartbeat} — periodic
+  ~3 s keepalive (task #158, this session).
+
+The harness {@link
+server.testtools.PcapReplayTest#isSpareUDPAlive} skip predicate
+exempts retail's "spare" UDPAlives that arrive between Ceres-J's
+handshake-reply burst and the matching CPing/SPing pair; this
+prevented false divergences before UDPAliveHeartbeat was added.
 
