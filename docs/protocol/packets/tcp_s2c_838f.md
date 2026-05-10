@@ -53,21 +53,49 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+TCP keepalive — sent on the persistent TCP connection ~10s
+cadence. Fixed 7-byte body, all-zero after the opcode.
+
+```
+[0..1]   83 8f                  TCP opcode (constant)
+[2..6]   00 00 00 00 00          padding (constant)
+```
+
+All 1,392 observations are byte-identical: `83 8f 00 00 00 00 00`
+(7 bytes total). NO size or content variation.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 7-byte form across all retail captures. Pure constant.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Server-to-client TCP keepalive emitted at ~10s cadence
+throughout the session. Without it the client's TCP layer may
+time out (the client doesn't acknowledge keepalives via TCP-level
+heartbeats; Layer-7 0x838f fills that gap).
+
+Top markers in the catalog correlate with idle session phases —
+this packet keeps the TCP socket warm during quiet gameplay
+moments.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+None — pure constant keepalive, fully decoded.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+`server.gameserver.packets.server_tcp.Packet838F` — emits the
+verified 7-byte constant body.
+
+Fired from {@link
+server.gameserver.internalEvents.TcpKeepaliveEvent} — periodic
+self-rescheduling event started by `WorldEntryEvent`. ~10s
+cadence matches retail.
+
+Tests:
+- `Packet838FByteIdentityTest` — pins the 7-byte constant.
+- `TcpKeepaliveEventTest` — pins the periodic self-rescheduling.
+
+Closed task #130 (P3-decode) + task #140 (P3-impl).
 
