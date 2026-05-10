@@ -106,7 +106,40 @@ fa 2f 01 2e
 
 ## Variants
 
-Sub-action distribution (top 15 across 52 samples):
+**Update 2026-05-10**: re-extracted across 8 captures with no
+per-pcap cap → 6,740 total samples. Two distinct sub-action
+families emerge based on body[2..3] category:
+
+### Category `0x0003` — high-frequency NPC tick updates
+
+All 5 most-common sub-actions are in this family (~5,500
+combined samples):
+
+| sub-action | count | likely meaning                                |
+|-----------:|------:|-----------------------------------------------|
+| 0xdb       | 1912  | NPC anim / position tick (broadcast)          |
+| 0xaa       | 1291  | NPC AI state tick                             |
+| 0xe7       | 1210  | NPC despawn / combat-state                    |
+| 0xee       | 1208  | NPC misc tick                                 |
+| 0xf4       | 1119  | NPC update                                    |
+
+Layout (post {@code 0x2d [sub-action] 0x03 0x00 0x00} = 5B
+header):
+```
+[5..8]   entity_ref LE32         e.g. `75 d0 07 00` = 0x0007d075
+[9..12]  4 bytes — varies        position/anim component?
+[13..16] 4 bytes
+[17..20] 4 bytes — varies (LE32 entity hash often visible:
+                            `e0 f7 2f 01` recurs)
+[21..end] sub-action-specific tail (~32B)
+```
+
+### Category `0x0001` — low-frequency lifecycle events
+
+The 0x0001 family carries lifecycle events (NPC spawn, state
+transitions, HP/stat updates, removal) — was originally
+documented from a 52-sample subset. Sub-action distribution (top
+15 from that subset):
 
 | sub-action | count | likely meaning (inferred from markers)        |
 |-----------:|------:|-----------------------------------------------|
