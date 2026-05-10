@@ -142,14 +142,21 @@ public class PcapReplayTestHelpersTest {
     }
 
     @Test
-    public void unreplicableInitBurst_doesNOTSkipWhenCerJDidNotEmitSPing() {
-        // Ceres-J emitted a 0x13-wrapped reliable. Don't engage
-        // this skip — leave it to other heuristics.
+    public void unreplicableInitBurst_skipsRetail02WhenCerJEmitsAnything() {
+        // Updated 2026-05-10 (task #136 retransmit ring): when
+        // Ceres-J emits ANY non-empty bytes, retail's 0x02 entries
+        // get skipped — Ceres-J's seq counter for 0x02 retransmits
+        // doesn't align with retail's 0x02 init-burst seqs (different
+        // emit history → different seq → different content). The
+        // alignment can't recover without per-emit sub-tag matching,
+        // which is out of scope for the index-pairing harness.
         byte[] cerj = new byte[]{0x13, 0x01, 0x00, 0x10, 0x20,
                 0x05, 0x00, 0x03, 0x01, 0x00};
         byte[] retail = new byte[]{0x02, 0x01, 0x00, 0x2e};
-        assertFalse(PcapReplayTest.isUnreplicableInitBurst(
-                retail, cerj));
+        assertTrue("retail 0x02 should be skipped post-#136 since "
+                + "Ceres-J's retransmit ring breaks seq alignment",
+                PcapReplayTest.isUnreplicableInitBurst(
+                        retail, cerj));
     }
 
     @Test

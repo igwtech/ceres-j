@@ -45,6 +45,9 @@ public class ReliableAckSubPacketTest {
     public void executeEmitsRetransmitForKnownSeq() throws Exception {
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
+        // Retransmit handler is gated on isloggedin() to suppress
+        // pcap-replay alignment noise — set it in tests.
+        pl.setloggedin();
         CapturingUDPConnection cap = installCapturing(pl);
 
         // Emit a reliable so seq=1 is recorded into the ring.
@@ -92,6 +95,9 @@ public class ReliableAckSubPacketTest {
     public void executeIsNoOpForUnknownSeq() throws Exception {
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
+        // Retransmit handler is gated on isloggedin() to suppress
+        // pcap-replay alignment noise — set it in tests.
+        pl.setloggedin();
         CapturingUDPConnection cap = installCapturing(pl);
 
         // No reliable emitted → ring is empty → ack for seq=99
@@ -128,6 +134,9 @@ public class ReliableAckSubPacketTest {
         // session-derived field changed).
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
+        // Retransmit handler is gated on isloggedin() to suppress
+        // pcap-replay alignment noise — set it in tests.
+        pl.setloggedin();
         CapturingUDPConnection cap = installCapturing(pl);
 
         new ChatList(pl).getDatagramPackets();   // seq=1

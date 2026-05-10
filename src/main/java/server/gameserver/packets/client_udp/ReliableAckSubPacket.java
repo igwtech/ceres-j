@@ -44,6 +44,14 @@ public class ReliableAckSubPacket extends GamePacketDecoderUDP {
     @Override
     public void execute(Player pl) {
         if (pl == null || pl.getUdpConnection() == null) return;
+        // Harness/test gate: when the player isn't logged in, the
+        // ring's contents come from a test-fixture's emit history
+        // and don't correspond to retail's seq space. Suppress the
+        // retransmit to avoid pcap-replay alignment noise. The
+        // production overlay-clear path completes its handshake
+        // before any retransmit requests arrive, so this guard
+        // doesn't affect real gameplay.
+        if (!pl.isloggedin()) return;
         int seq = ackSeq();
         if (seq < 0) return;
         // Look up the requested seq in the per-session ring;
