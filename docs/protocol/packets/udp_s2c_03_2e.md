@@ -53,21 +53,66 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+Vehicle/drone state broadcast. Verified 2026-05-10 against 63
+samples from 17/17 retail captures. Fixed 14-byte body:
+
+```
+[0]      0x2e                   sub-opcode (constant)
+[1]      0x01                   CONSTANT (63/63 samples)
+[2]      action_byte             varies (0x00, 0x01, 0x02, 0x03)
+[3]      0x00                   CONSTANT
+[4..5]   entity_ref LE16         varies — observed values:
+                                  0x0044, 0x0164, 0x009d, 0x010d,
+                                  0x014e, 0x0d9b, ... mostly small
+[6..9]   counter/timestamp LE32  varies — observed range 40K..130K
+                                  (0x0000b8af, 0x0001cade, etc.)
+[10..13] DUPLICATE of bytes 6..9  exact byte-for-byte copy of [6..9]
+```
+
+The DUPLICATED LE32 is the most striking feature — `[6..9]` and
+`[10..13]` are identical in 63/63 samples observed. Likely a
+"new value + old value" pair (state-change broadcast where both
+match means "no change") OR a redundant-validation field
+(client validates by comparing).
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 14-byte form across all 869 retail observations. NO size
+variation. The action byte at [2] varies (0x00/0x01/0x02/0x03 —
+4 distinct states) but body shape is always 14 B.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Top per-capture concentrations correlate with vehicle/drone-heavy
+captures (RETAIL_VEHICLE_DRONE has the highest counts). Periodic
+emission during vehicle operation.
+
+The constant `01 00` prefix at body[2..3] (when action=0x00 byte
+[2]=0) suggests this isn't a discriminator but a fixed framing byte.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Why is the LE32 at [6..9] duplicated at [10..13]? Not yet
+  pinned. Possibilities:
+  1. New-vs-old state pair (currently unchanged in observed
+     samples; would diverge during transitions)
+  2. Redundant-validation tag (client checks both halves match)
+  3. Vehicle-state packed differently across two slots
+- The action_byte enum (0x00/0x01/0x02/0x03): vehicle on / off /
+  brake / accelerate? Not observed correlating with any specific
+  marker yet.
+- Counter/timestamp at [6..9]: monotonic per-vehicle? Reset
+  per-session? The values within a single capture/vehicle drift
+  by tens/hundreds across emits — suggests a tick counter.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Ceres-J does not currently emit {@code 0x03/0x2e}. Vehicle state
+broadcasts would require plumbing player-vehicle relationship
+data into a periodic broadcast scheduler — out of scope for
+current player-only emulation.
+
+The decoder routes C→S 0x03/0x2e through `SubtagRouter` (drone-
+control). For S→C, no handler exists; would need a new
+`VehicleStateBroadcast` builder if implemented.
 
