@@ -52,21 +52,52 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+Client-side raw {@code 0x1f} — counterpart to the wrapped
+{@code 0x03/0x1f} GamePackets multiplexer (see `udp_c2s_03_1f.md`),
+but RAW (unreliable) variant. Verified 2026-05-10 against 20
+samples from 5 retail captures.
+
+Fixed 4-byte wire form:
+
+```
+[0]      0x1f                   sub-opcode
+[1]      target/event_id        varies per session/character
+                                (e.g. 0xed in AUGUSTO, 0x08 in CASH,
+                                0x02 in CREATION, 0x29/0x2b in DRSTONE4)
+[2]      0x01                   CONSTANT
+[3]      0x55                   CONSTANT
+```
+
+Within a single session byte[1] tends to be stable — the player's
+current target/interactive entity. Across sessions/characters it
+changes.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 4-byte form across all 3,424 retail observations. NO size
+variation.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Client emits when interacting with a target entity (mouseover /
+combat target / dialog NPC). The {@code 01 55} trailer is fixed —
+likely an event class discriminator.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Byte[1] semantic: target NPC ID? Object reference?
+- The {@code 0x55} ('U' ASCII) trailer is suspicious-constant —
+  could be a hardcoded "client UI event" marker or a 1-byte
+  enum tag.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Not currently emitted. Decoding in `GamePacketReaderUDP.decode()`
+maps the raw 0x1f opcode but the body content isn't fully
+processed. This packet is fire-and-forget client-side
+notification — no server response expected.
+
+If a future use case requires interpreting it, the handler should
+read body[1] as the target/event_id and dispatch based on
+session state.
 
