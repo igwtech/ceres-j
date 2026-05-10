@@ -48,21 +48,90 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+TCP S→C 0x830d — `GameinfoReady`. Fixed 4-byte body, all-zero
+trailer. Verified 2026-05-10 against samples from 16/17 retail
+captures.
+
+```
+[0..1]   83 0d                  TCP opcode (constant)
+[2..3]   00 00                  CONSTANT padding
+```
+
+Wire framing in TCP: `fe 04 00 83 0d 00 00` (3-byte prefix
+`[fe][len LE16=4]` + 4-byte body). Total wire size 7 bytes for
+the standalone form.
+
+All 54 observations are byte-identical: `83 0d 00 00`. NO
+content variation.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 4-byte form. The packet is most often **bundled** in the
+same TCP segment with neighbouring packets:
+
+- After `0x8305 UDPServerData` (28-byte body) — typical
+  zone-handoff bundle: `[fe1c00 8305 ...28B...] [fe0400 830d
+  0000]` = 38B segment.
+- Standalone — `fe 04 00 83 0d 00 00` = 7B segment, emitted
+  later in session.
+- Bundled with `0x830c Location` — `[fe0400 830d 0000] [fe1d00
+  830c ...29B...]` = 70B segment (seen in
+  `RETAIL_LONG_PARTY_A/B` zoning to plaza).
+
+Total 6 captures emit the standalone 7B form; all others bundle
+it after `0x8305`.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Fired immediately after the server has staged the UDP gameserver
+session (`0x8305 UDPServerData`) — the client treats `0x830d`
+as the "OK, gameinfo is ready, you may begin UDP traffic"
+signal. Top marker: `ZONING_AREAMC5_COMMANDUNIT` (zone
+transitions trigger this).
+
+When emitted standalone (no `0x8305` companion), it appears to
+serve as a "zoning complete" / "gameinfo refreshed" signal —
+typically following a zone-change or character switch.
+
+The bundle with `0x830c Location` (zoning to plaza) suggests
+the server uses 0x830d as a generic "stage transition complete"
+acknowledgement.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+None — pure constant signal, fully decoded. The two trailing
+zero bytes are likely a reserved-flag field that retail never
+sets non-zero.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+`server.gameserver.packets.server_tcp.Packet830D` — emits the
+verified 4-byte constant body `83 0d 00 00`. Implemented and
+used in production code:
+
+- `GetGamedata.java:47` — bundled after `UDPServerData` in
+  initial world entry.
+- `Zoning1.java:65` — emitted on zoning request.
+- `Zoning2.java:24` — emitted on zoning ack.
+- `Movement.java:95` — emitted from BSP transition path.
+- `AuthB.java:123` — emitted in auth-flow tail.
+- `AdminCommandHandler.java:214` — emitted via `!zoning`
+  admin command.
+
+The opcode constant `ProtocolConstants.TCP_GAMEINFO_READY =
+0x830d` is defined but unused — `Packet830D` class hardcodes
+its bytes directly, bypassing the constant.
+
+Tests:
+- `BytesIdenticalAssertionTest.sliceWireTrimsPacket830DToSevenBytes`
+  — pins the `fe 04 00 83 0d 00 00` wire framing (7 bytes
+  including TCP framing prefix).
+- `Zoning1Test`, `Zoning2Test` — verify `Packet830D` is
+  emitted at the right point in zoning flows.
+
+Naming discrepancy: catalog/protocol-doc refers to this as
+"GameinfoReady" but the class is named `Packet830D`. The
+constant `TCP_GAMEINFO_READY` confirms the intended name.
+Future cleanup task: rename `Packet830D` → `GameinfoReady` for
+clarity (low priority — wire is correct).
 

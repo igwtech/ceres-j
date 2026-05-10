@@ -365,7 +365,7 @@ def _fold_tcp(direction, payload, ts, cap_id, agg, local):
 # code rather than docs because the catalog re-emits the index from raw
 # evidence each run; hand-edits would be lost.
 RELIABLE_NAMES = {
-    0x01: "Resend", 0x07: "Multipart", 0x08: "ZoningEnd",
+    0x01: "Resend", 0x07: "Multipart", 0x08: "ReliableAck",
     0x0d: "TimeSync", 0x1b: "Group1B/PosUpdate", 0x1f: "GamePackets",
     0x22: "CharInfo", 0x23: "InfoResponse", 0x25: "PlayerInfo",
     0x26: "RemoveWorldItem", 0x27: "RequestWorldInfo",
