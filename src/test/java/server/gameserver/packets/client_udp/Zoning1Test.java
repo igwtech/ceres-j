@@ -143,6 +143,33 @@ public class Zoning1Test {
     }
 
     @Test
+    public void coordsAreResetOnZoneCross() {
+        // User-reported bug 2026-05-10: walking Plaza P3 → Pepper P1
+        // produced wrong position in the new zone because the
+        // server retained the old (Plaza P3) X/Y/Z — meaningless in
+        // Pepper P1's BSP coord space. Fix: reset to (0, 0, 0) on
+        // zone-cross; the next Movement packet overwrites with the
+        // correct new-zone position.
+        Player pl = PacketTestFixture.newPlayer();
+        CapturingTCPConnection cap = new CapturingTCPConnection();
+        pl.setTcpConnection(cap);
+
+        // Seed the player with non-zero Plaza P3 coords first.
+        pl.getCharacter().setMisc(PlayerCharacter.MISC_X_COORDINATE, 12345);
+        pl.getCharacter().setMisc(PlayerCharacter.MISC_Y_COORDINATE, 6789);
+        pl.getCharacter().setMisc(PlayerCharacter.MISC_Z_COORDINATE, 4321);
+
+        new Zoning1(buildBody(7, 1)).execute(pl);
+
+        assertEquals("X must be reset to 0 on zone-cross", 0,
+                pl.getCharacter().getMisc(PlayerCharacter.MISC_X_COORDINATE));
+        assertEquals("Y must be reset to 0 on zone-cross", 0,
+                pl.getCharacter().getMisc(PlayerCharacter.MISC_Y_COORDINATE));
+        assertEquals("Z must be reset to 0 on zone-cross", 0,
+                pl.getCharacter().getMisc(PlayerCharacter.MISC_Z_COORDINATE));
+    }
+
+    @Test
     public void noLegacySZoning1UdpPacketEmitted() {
         // Regression: confirm the handler does NOT call back into
         // SZoning1. Easy way is to verify nothing UDP-shaped landed
