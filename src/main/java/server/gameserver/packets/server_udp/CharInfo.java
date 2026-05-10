@@ -128,40 +128,48 @@ public class CharInfo extends PacketBuilderUDP130307 {
 		newSection(7); // unknown — single 0x00 byte (retail confirmed)
 		write(0);
 
-		newSection(8); // Wallet/GR/profile — total 67 bytes (retail size)
-		// Original 39-byte layout below; keep its byte offsets intact for
-		// existing tests, then pad to 67 bytes total. Retail Section 8 is
-		// 67 bytes (decoded from FULL_PCAP_TRACE 2026-04-26 — Krafteo char,
-		// cash=527,652 → HUD displays correctly). Hypothesis: client's
-		// section 8 parser may bail out if Section 8 size != 67, dropping
-		// the cash value silently.
-		write(0x0a);
-		writeInt(pc.getCash());
-		// Retail bytes immediately after cash: 05 00 04 01 00 — replacing
-		// the legacy 00 00 04 04 04 because the client's Section 8 parser
-		// may use these bytes as a struct-validity discriminator. Without
-		// this match, the cash field gets ignored at login (HUD shows 0).
-		write(new byte[] {
-				(byte)0x05, (byte)0x00,    // was 00 00 (number of grs)
-				(byte)0x04, (byte)0x01, (byte)0x00,    // was 04 04 04
-				(byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00});
-		writeShort(pl.getTransactionID());
-		write(new byte[]{
-				0x00, 0x00, 0x00, 0x00
-				, 0x00, 0x00, 0x00
-				, 0x00}); // Epic status
-		write(pc.getMisc(PlayerCharacter.MISC_CLASS)*2); // class*2 + gender stuff... // seems to have no effect
-		write(0);
-		write(pc.getMisc(PlayerCharacter.TEXTURE_HEAD)); // seems to have no effect
-		write(pc.getMisc(PlayerCharacter.TEXTURE_TORSO)); // seems to have no effect
-		write(pc.getMisc(PlayerCharacter.TEXTURE_LEG)); // seems to have no effect
-		write(pc.getRank());//rank
-		writeInt(100002);//App
-		write(new byte[]{0x01, 0x00, 0x00, 0x00, 0x00});
-		// Pad to 67 bytes (test 28 bytes of trailing 0x00 — retail layout
-		// undecoded but its presence may be required for the section 8
-		// parser to commit cash to HUD memory).
-		write(new byte[28]);
+		newSection(8); // Wallet/GR/profile — 39 bytes (retail size)
+		// Verified 2026-05-10 against retail Section 8 from 6 captures
+		// (CREATION, DRSTONE3, DRSTONE4, DRSTONE×2, RETAIL_VEHICLE_DRONE):
+		// all produce a 39-byte body, NOT 67 as previously hypothesized.
+		// The earlier "padding to 67B for HUD CASH activation" theory
+		// was wrong — retail's Section 8 is 39B and the HUD activates.
+		// Bytes 7..9 are CONSTANT `04 04 04` across all 6 captures —
+		// reverting the earlier `05 00 04 01 00` "fix" which matched
+		// NO retail capture (task #138).
+		//
+		// Layout (39 bytes):
+		//   [0]      0x0a               CONSTANT cash marker
+		//   [1..4]   cash LE32
+		//   [5..6]   00 00              CONSTANT
+		//   [7..9]   04 04 04           CONSTANT
+		//   [10..13] 00 00 00 00        CONSTANT
+		//   [14]     state byte          varies (0x13/0x27/0x40/etc.)
+		//   [15]     0x00               CONSTANT
+		//   [16]     0x03               CONSTANT (profile marker)
+		//   [17..23] 7 zeros            CONSTANT
+		//   [24..25] trailer LE16        varies (0x02d0 dom, 0x02bc CREATION)
+		//   [26..29] 4 bytes             rank/skill (07 06 05 05 dom)
+		//   [30..33] 4 bytes             varies (ff ff ff ff dom)
+		//   [34]     0x01               CONSTANT
+		//   [35..38] 4 bytes             trailer (35 03 99 03 dom)
+		write(0x0a);                                        // [0]
+		writeInt(pc.getCash());                              // [1..4]
+		write(new byte[] {0x00, 0x00});                      // [5..6]
+		write(new byte[] {0x04, 0x04, 0x04});                // [7..9]  CONSTANT
+		write(new byte[] {0x00, 0x00, 0x00, 0x00});          // [10..13]
+		write(0x00);                                         // [14] state placeholder
+		write(0x00);                                         // [15]
+		write(0x03);                                         // [16]
+		write(new byte[]{0x00, 0x00, 0x00, 0x00,             // [17..23]
+				0x00, 0x00, 0x00});
+		writeShort(pl.getTransactionID() != 0
+				? pl.getTransactionID() : 0x02d0);           // [24..25] trailer LE16
+		write(new byte[]{0x07, 0x06, 0x05, 0x05});           // [26..29] rank/skill
+		write(new byte[]{(byte)0xff, (byte)0xff,             // [30..33]
+				(byte)0xff, (byte)0xff});
+		write(0x01);                                         // [34]
+		write(new byte[]{0x35, 0x03, (byte)0x99, 0x03});     // [35..38]
 
 		newSection(9); // Section 9 - Faction Sympathies
 		writeShort(21); //21 fractions

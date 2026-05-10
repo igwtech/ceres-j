@@ -170,9 +170,17 @@ public class CharInfoContentTest {
     }
 
     @Test
-    public void testRankReflected() throws Exception {
+    public void testSection8Is39BytesAndMatchesRetailConstants()
+            throws Exception {
+        // Updated 2026-05-10: retail Section 8 is 39 bytes (NOT 67
+        // as previously assumed). Verified against 6 retail captures
+        // (CREATION, DRSTONE3, DRSTONE4, DRSTONE×2, RETAIL_VEHICLE_DRONE).
+        // Layout doesn't include `rank` as a writable field at the
+        // pre-fix offset 29 — bytes 26..29 are CONSTANT `07 06 05 05`
+        // across all retail samples (likely a fixed skill template).
+        // This test pins the new layout's invariant constants.
         PlayerCharacter pc = newCharacter();
-        pc.setRank(17);
+        pc.setRank(17);  // setting rank no longer affects Section 8
 
         Player p = buildPlayer(pc);
         CharInfo ci = new CharInfo(p);
@@ -180,11 +188,26 @@ public class CharInfoContentTest {
 
         byte[] sec8 = sections.get(8);
         assertNotNull(sec8);
-        // Walk section 8 to the rank byte:
-        // 1 (0x0a) + 4 (cash) + 9 (grs/padding) + 2 (tid) + 8 (epic) + 1 (class*2) + 1 (0) + 3 (textures)
-        // = 29 bytes before rank
-        int rankOffset = 1 + 4 + 9 + 2 + 8 + 1 + 1 + 3;
-        assertEquals(17, sec8[rankOffset] & 0xff);
+        assertEquals("Section 8 size = 39B (retail-verified)",
+                39, sec8.length);
+        // Constants verified across 6 retail captures:
+        assertEquals("[0]=0x0a cash marker", 0x0a, sec8[0] & 0xff);
+        assertEquals("[5]=0x00 const",  0x00, sec8[5] & 0xff);
+        assertEquals("[6]=0x00 const",  0x00, sec8[6] & 0xff);
+        assertEquals("[7]=0x04 const",  0x04, sec8[7] & 0xff);
+        assertEquals("[8]=0x04 const",  0x04, sec8[8] & 0xff);
+        assertEquals("[9]=0x04 const",  0x04, sec8[9] & 0xff);
+        assertEquals("[16]=0x03 profile marker",
+                0x03, sec8[16] & 0xff);
+        assertEquals("[26]=0x07 (rank/skill #1, retail const)",
+                0x07, sec8[26] & 0xff);
+        assertEquals("[27]=0x06 (rank/skill #2)",
+                0x06, sec8[27] & 0xff);
+        assertEquals("[28]=0x05 (rank/skill #3)",
+                0x05, sec8[28] & 0xff);
+        assertEquals("[29]=0x05 (rank/skill #4)",
+                0x05, sec8[29] & 0xff);
+        assertEquals("[34]=0x01 const", 0x01, sec8[34] & 0xff);
     }
 
     @Test
@@ -247,9 +270,12 @@ public class CharInfoContentTest {
 
         byte[] sec8 = sections.get(8);
         assertNotNull(sec8);
+        // Updated 2026-05-10: Section 8 is 39 bytes (retail-verified)
+        // and rank no longer occupies a writable slot — bytes 26..29
+        // are CONSTANT `07 06 05 05` (verified across 6 retail
+        // captures). Cash at body[1..4] still reflects pc.getCash().
+        assertEquals(39, sec8.length);
         assertEquals(1001, readIntLE(sec8, 1));    // cash default
-        int rankOffset = 1 + 4 + 9 + 2 + 8 + 1 + 1 + 3;
-        assertEquals(0, sec8[rankOffset] & 0xff);  // rank default
 
         byte[] sec9 = sections.get(9);
         assertNotNull(sec9);
