@@ -50,21 +50,70 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+RequestPositionUpdate — client requests its own state refresh.
+Fixed 16-byte body. Verified 2026-05-09 against 9 cross-pcap
+samples (DRSTONE3, AUGUSTO, NORMAN, CASH, FULL, CREATION,
+DRSTONE, DRSTONE4).
+
+```
+[0]      0x2a                   sub-opcode
+[1..4]   character_uid LE32     player's character UID
+                                 (e.g. 0x00017ebd in AUGUSTO/CASH/
+                                  FULL/NORMAN; 0x00017f1a in
+                                  CREATION/DRSTONE3/DRSTONE4)
+[5..15]  request data (12 B)    varies per request — request token /
+                                 client-side state hash
+```
+
+Sample retail bytes (catalog):
+```
+2a b0 a2 00 00 7f 76 3b 69 f1 20 63 ed 2c 09 00
+2a b0 a2 00 00 1e ef 3b ce ba b3 02 f6 12 0a 00
+```
+
+The character_uid at [1..4] is session-stable (same value across
+all C→S 0x2a emits within a session — confirms it identifies the
+character making the request).
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 16-byte form across all 87 retail observations. NO size
+variation.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Server response varies per session (per task #169):
+- DRSTONE3: full refresh (PositionUpdate + CharInfo multi-megabyte
+  multipart)
+- AUGUSTO/NORMAN/CASH: init-burst refresh only (zoneInfo + TimeSync
+  + ChatList)
+
+The 12-byte request data at body[5..15] presumably encodes the
+discriminator. Specific bytes that differentiate "full refresh"
+vs "init-burst refresh" not yet pinned (see task #169).
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Body[5..15] content semantic: client-side state hash? Request
+  type token? Server uses it to decide which response variant to
+  emit (full refresh vs init-burst refresh).
+- Frequency: ~1 emit per session in most captures, multiple in
+  long-session captures — matches "client requests state refresh
+  on resync triggers" hypothesis.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Decoded via {@link
+server.gameserver.packets.client_udp.RequestPositionUpdate}:
+- {@code skip(1)} past 0x2a
+- Body content currently unparsed ("content is still unknown")
+- {@code execute()} emits {@link
+  server.gameserver.packets.server_udp.PositionUpdate} +
+  {@link server.gameserver.packets.server_udp.CharInfo} +
+  {@link server.gameserver.packets.server_udp.InfoResponse#zoneInfo}
+
+The handler currently emits the FULL refresh unconditionally —
+matches DRSTONE3 retail behavior but mismatches
+AUGUSTO/NORMAN/CASH (which want init-burst-only). See task #169
+for variant-discriminator decode follow-up.
 
