@@ -52,21 +52,90 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+C→S {@code 0x01} has TWO distinct variants discriminated by total
+size — same opcode, different semantics:
+
+### 10-byte handshake variant
+
+Sent by the client during the UDP 3-way handshake. Body bytes
+are CONSTANT across all retail captures:
+
+```
+01 d1 84 21 e2 21 e2 11 a0 00
+```
+
+Wire layout (10 bytes total):
+```
+[0]      0x01                   sub-opcode
+[1..9]   handshake constant     `d1 84 21 e2 21 e2 11 a0 00`
+                                 — appears to be a hardcoded
+                                   client-build identifier or
+                                   protocol-version magic
+```
+
+### 3-byte reliable-ack-request variant
+
+Sent throughout the session to request a reliable retransmit:
+
+```
+[0]      0x01                   sub-opcode
+[1..2]   seq LE2                target seq the client wants
+                                 the server to resend
+```
+
+Server responds via the {@link
+server.networktools.ReliablePacketRing} → S→C {@code 0x02}-wrapped
+retransmit (task #136 / #151).
+
+Observed in retail: 17 ack-requests in 2 rounds within ~1 s
+post-handshake (HANNIBAL).
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+| size  | use                                  |
+|------:|--------------------------------------|
+| 10 B  | UDP handshake — constant body bytes  |
+| 3 B   | reliable-ack-request — variable seq  |
+
+Decoder dispatch is size-based:
+- ≥ 10 B → `HandshakeUDP` (the 3-way handshake responder)
+- < 10 B (i.e. 3 B) → `ReliableAckSubPacket` (retransmit responder)
+
+Verified by `GamePacketReaderUDPRawDispatchTest` (5 tests pinning
+the size-discrimination contract).
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Top markers confirm both use cases — handshake at session start,
+ack-requests throughout. The 10 B handshake is fired ONCE per UDP
+endpoint binding (multiple times if the client zone-handoffs and
+opens a fresh UDP socket).
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Body bytes `d1 84 21 e2 21 e2 11 a0 00` of the handshake variant
+  — these look like a UUID or 9-byte client identifier. Constant
+  across all retail captures regardless of account/character.
+  Likely embedded in the client binary as a hardcoded magic
+  ("client build hash" or "protocol version GUID"). Server doesn't
+  validate (Ceres-J accepts any 10 B 0x01 as handshake).
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Dispatched in {@link
+server.gameserver.packets.GamePacketReaderUDP#decode}:
+
+```
+case 0x01:
+    if (dp.getLength() >= 10) {
+        return new HandshakeUDP(dp);
+    }
+    return new ReliableAckSubPacket(...);
+```
+
+Tests:
+- `GamePacketReaderUDPRawDispatchTest` (5 tests) — pins
+  size-based dispatch + LE16 ack-seq decode.
+- `ReliableAckSubPacketTest` (5 tests) — pins the retransmit
+  responder behavior.
 
