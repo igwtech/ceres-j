@@ -50,21 +50,56 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+GetTimeSync — client time-sync request. Fixed 5-byte body
+(same wire shape as CPing 0x0b).
+
+```
+[0]      0x0c                   sub-opcode (constant)
+[1..4]   client_time LE32        client's local time / counter,
+                                 echoed back in the server's
+                                 S→C 0x03/0x0d TimeSync reply
+```
+
+Sample retail bytes (catalog):
+```
+0c ff c8 02 05    client_time=0x0502c8ff
+0c 32 85 03 05    client_time=0x05038532
+0c f1 22 04 05    client_time=0x050422f1
+```
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 5-byte form across all 140 retail observations. NO size
+variation. Same opcode-and-payload shape as the C→S 0x0b CPing
+keepalive (just different sub-opcode and corresponding S→C
+response: 0x0d TimeSync vs 0x0b SPing).
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Client emits at ~8 s cadence from session state 3/6 onward. The
+modern NCE 2.5 client requires this exchange — after 5 missed
+TimeSync replies, the client aborts with "Synchronisation to
+WorldServer failed" and disconnects.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Why emit BOTH CPing (0x0b, ~1 Hz) AND GetTimeSync (0x0c, ~8 s)
+  for time sync? CPing seems to do the same job. Possibly
+  different state-machine triggers (CPing for keepalive,
+  GetTimeSync for state-3→state-4 transition).
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Decoded via {@link
+server.gameserver.packets.client_udp.GetTimeSync}:
+- {@code skip(1)} past 0x0c
+- {@code clienttime = readInt()} LE32
+- {@code execute()} sends a {@link
+  server.gameserver.packets.server_udp.TimeSync} reply with the
+  echoed client_time + Timer.getIngametime()
+
+Tests:
+- `GetTimeSyncTest` (1 test) — pins TimeSync emit on execute().
+- `TimeSyncByteIdentityTest` (5 tests) — pins the 16-byte 0x03/0x0d
+  reply with the verified `d5 0a 20 00` trailer constant.
 
