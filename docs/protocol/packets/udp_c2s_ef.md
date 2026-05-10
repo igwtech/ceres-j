@@ -25,21 +25,43 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+Same family as `udp_c2s_44` / `_45` / `_c4` — a
+**compact-burst variant** (0x13-less reliable-burst) where
+byte[0] = 0xef is the counter's low-byte. See `udp_c2s_44.md`
+for the full layout.
+
+The 39B size includes a longer prefix before the standard
+sub-packet block:
+
+```
+ef 2e 04 46 62 ad 65 44 89 18 60 44     12B prefix (Movement floats?)
+60 0c 00  03 f2 49 1f 01 00 3d 11 00 00 00 00     [03][seq][1f][body]
+11 00 20 01 00                                    next sub
+```
+
+The 12-byte prefix `[ef 2e 04 46 62 ad 65 44 89 18 60 44]`
+contains 3× LE32 floats (0x4604 2eef = ~8459, 0x4465 ad62 =
+~918, 0x4460 1889 = ~896) — looks like a position vector
+appended before the sub-packet stream.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+1 retail sample only (CREATION_LEVELING_LONG). Likely a
+specific compact-burst variant carrying both a Movement
+position float-triple AND a 0x03/0x1f GamePacket.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+CREATION_LEVELING_LONG only — single sample. See
+`udp_c2s_44.md` for context.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+The 12-byte float prefix's exact layout — possibly an inline
+Movement record with no length prefix.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Same as `udp_c2s_44.md` — falls into `UnknownClientUDPPacket`,
+low-priority parity gap (1 sample only).
 

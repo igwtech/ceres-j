@@ -31,21 +31,43 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+Same as `udp_c2s_44` — a **compact-burst variant** (0x13-less
+reliable-burst) where byte[0] = 0x45 is the counter's
+low-byte. See `udp_c2s_44.md` for the full layout; this is
+the same packet family with a different counter value.
+
+```
+[0]      0x45                 counter low-byte
+[1]      0x40                 counter flag
+[2..3]   len LE16 = 0x000c    first sub-packet length
+[4..]    [03][seq LE2][1f][body]   reliable sub-packet
+```
+
+Verified samples:
+```
+45 40 0c 00 03 71 42 1f 01 00 3d 11 00 00 00     15B
+45 40 0c 00 03 ae 42 1f 01 00 3d 11               12B
+45 40 0c 00                                       4B (header-only?)
+45 40 04                                          3B (truncated?)
+```
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+4 retail samples in 1 capture (CREATION_LEVELING_LONG only).
+The 3-byte and 4-byte forms appear truncated — possibly
+parser-extraction edge cases on partial-burst boundaries.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+CREATION_LEVELING_LONG only. See `udp_c2s_44.md` for the
+shared compact-burst family context.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+See `udp_c2s_44.md` Open questions section.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Same as `udp_c2s_44.md` — falls into `UnknownClientUDPPacket`,
+low-priority parity gap.
 
