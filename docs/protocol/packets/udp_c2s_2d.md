@@ -39,21 +39,54 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+Verified 2026-05-10 against 14 cross-pcap samples from 17/17
+retail captures. Fixed 6-byte body:
+
+```
+[0]      0x2d                   sub-opcode (constant)
+[1]      session_byte            session/character-stable value
+                                 (0x01 / 0x02 / 0x03 — varies per
+                                 capture but constant within session)
+[2..4]   0x00 0x00 0x00          CONSTANT
+[5]      0x3f                   CONSTANT (= '?' ASCII)
+```
+
+Sample retail bytes:
+```
+2d 01 00 00 00 3f    RETAIL captures (most)
+2d 02 00 00 00 3f    CREATION
+2d 03 00 00 00 3f    PLAZA
+```
+
+Within a session byte[1] is stable across all emissions —
+suggests it's a session/character profile flag (class? PvP
+state? faction?), not a per-event variable.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 6-byte form across all 339 retail observations. NO size
+variation. Only byte[1] varies between sessions (3 distinct
+values seen across captures).
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Periodic emission throughout active sessions. The constant `3f`
+trailer byte (`?` ASCII) is suspicious — could be a hardcoded
+"client-state query" marker or fixed enum tag.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Byte[1] semantic: session class? Faction? Player state flag?
+  Stable per session, varies between sessions.
+- The `0x3f` trailer: literal `?` character or coincidental
+  byte value? Constant across all 339 obs.
+- Trigger event: what client-side action emits this? No clear
+  marker correlation.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Not currently decoded by Ceres-J. The packet is fire-and-forget
+(no observed S→C response). If a future use case requires it,
+the handler should read byte[1] as the session profile flag
+and dispatch based on session state.
 
