@@ -172,6 +172,14 @@ public class WorldEntryEvent extends DummyEvent {
         pl.addEvent(new TimeSyncHeartbeatEvent());
         pl.addEvent(new PoolStatusHeartbeat());
         pl.addEvent(new ZoneStateHeartbeat());
+        // ── UDPAlive keepalive (0x04) every ~3 s ──
+        // Retail emits 8 UDPAlives per HANNIBAL session: 4 in the
+        // handshake-reply burst + 4 periodic at ~3 s spacing.
+        // Without the periodic ones the client's UDP-keepalive
+        // expectation drifts and the harness's spare-UDPAlive
+        // skip predicate (PcapReplayTest.isSpareUDPAlive) had to
+        // be added to absorb the gap. See task #158.
+        pl.addEvent(new UDPAliveHeartbeat());
 
         // ── TCP keepalive (0x83 0x8f) every ~10 s ──
         // Retail sends this on the TCP connection for the entire
