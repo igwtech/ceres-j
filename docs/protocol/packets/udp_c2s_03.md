@@ -50,21 +50,68 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+Raw C→S {@code 0x03} — handshake-ack echoing UDPAlive parameters
+back to the server. Verified 2026-05-10 against 51 cross-pcap
+samples from 17/17 retail captures. Fixed 8-byte body:
+
+```
+[0]      0x03                   opcode (constant)
+[1..4]   char_uid LE32           player's character UID (matches
+                                  the value in C→S 0x2a / 0x03/0x22
+                                  Zoning1)
+[5]      interface_byte          0x01 dominant; 0x02 in
+                                  DRSTONE_post-zoning; 0x04 in PLAZA
+                                  — same enum as UDPAlive's
+                                  byte[2] interfaceId
+[6..7]   server_port LE16        echoed from S→C UDPAlive's
+                                  bytes[5..6] (e.g. 0x902b in PLAZA,
+                                  0x8c79 in AUGUSTO, 0x86fc in CASH)
+```
+
+Sample retail bytes:
+```
+03 bd 7e 01 00 01 79 8c     AUGUSTO  port=0x8c79=35961 (echoes UDPAlive)
+03 bd 7e 01 00 01 fc 86     CASH     port=0x86fc=34556
+03 b0 a2 00 00 04 2b 90     PLAZA    interface=0x04, port=0x902b
+```
+
+Within a session bytes 1..7 are byte-stable — same handshake-ack
+content emitted multiple times (presumably one ack per
+handshake-burst UDPAlive received).
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 8-byte form across all 182 retail observations. The
+state byte at [5] varies (0x01/0x02/0x04) matching UDPAlive's
+zone-interface enum.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Emitted post-handshake — client confirms it received the
+server's UDPAlive 4× burst by echoing back the
+{@code (char_uid, interface, port)} tuple. The server uses this
+ack to confirm the client's UDP socket is bound and the session
+is established.
+
+This packet is the COMPLEMENT of S→C UDPAlive (0x04) — both
+share the same `(char_uid LE32, interface_byte, port LE16)`
+payload content (just different opcode and field order).
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Does the server need to validate the echoed values match its
+  emitted UDPAlive? Empirically Ceres-J doesn't validate — the
+  C→S 0x03 raw is recognised but body content unparsed.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Decoded via {@code GamePacketReaderUDP} `case 0x03:` — but the
+8-byte raw form (vs the typical 0x13-wrapped reliable) is
+treated as a no-op recognition. The session validation is
+implicit (any handshake-correct UDP socket is accepted; ack
+content isn't verified).
+
+If a future stricter handshake validation requires it, the
+handler should compare bytes [1..4] against the player's
+char_uid and bytes [6..7] against the server's expected port.
 
