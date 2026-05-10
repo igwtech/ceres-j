@@ -36,21 +36,56 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+TCP S→C 0x873a — `Gamedata`. Server's 2-byte ack to the
+client's `GetGamedata` (0x8737) request. Fixed 2-byte body,
+pure opcode. Verified 2026-05-10 against all 12 retail samples
+from 6/17 captures.
+
+```
+[0..1]   87 3a                  TCP opcode (constant)
+```
+
+Wire framing: `fe 02 00 87 3a` (3-byte prefix + 2-byte body)
+= 5 bytes total on the wire.
+
+All 12 observations are byte-identical: `87 3a`. NO content
+variation.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 2-byte form. Pure constant signal.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Emitted by the server in direct response to `GetGamedata`
+(0x8737). Always paired 1:1 — 12 emissions for 12 client
+requests.
+
+This packet is the FIRST of the world-entry response burst,
+followed by `UDPServerData` (0x8305) + `Packet830D` (0x830d)
++ `Location` (0x830c) in the same TCP segment.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Why is this packet so minimal (just the opcode)? Most server
+  acks carry at least a status byte. Possibly `0x873a` is a
+  pure "I received your GetGamedata, more data follows"
+  signal — relying on the next bundled packet for content.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+`server.gameserver.packets.server_tcp.Gamedata` — emits the
+2-byte constant body. Trivial constructor:
+
+```java
+public Gamedata() {
+    write(0x87);
+    write(0x3a);
+}
+```
+
+Wired from `GetGamedata.GetGamedataAnswer.execute()` as the
+first packet in the world-entry response sequence (after a
+200ms `DummyEvent` delay). See `tcp_c2s_8737.md` for the full
+sequencing constraint.
 
