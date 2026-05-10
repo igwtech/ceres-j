@@ -53,21 +53,74 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+Raw {@code 0x1f} S→C — counterpart to the wrapped {@code 0x03/0x1f}
+GamePackets multiplexer, but the RAW (unreliable) variant. Verified
+2026-05-10 against 30 samples from 5 retail captures.
 
-## Variants
+Common 14-byte form (28/30 samples, tag = 0x30):
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+```
+[0]      0x1f                    sub-opcode
+[1..2]   0x0001 LE16             CONSTANT (matches the 0x03/0x1f
+                                  wrapped variant's prefix)
+[3]      0x00                    CONSTANT
+[4]      tag byte                0x30 dominant (28/30); 0x25 in
+                                  CREATION; 0x08/0x2b in 0x56-form
+[5..6]   LE16 #1                  varies (player stat / NPC count)
+[7..8]   LE16 #2                  varies
+[9..10]  LE16 #3                  varies
+[11..12] LE16 #4                  varies
+[13]     trailer byte             usually 0x01
+```
+
+Sample bodies for tag 0x30:
+- AUGUSTO: `1f 01 00 30  70 00 90 00 40 00 41 01 41 01` (constant
+  per-session — 7+ identical samples)
+- DRSTONE3: `1f 01 00 30  73 00 94 00 42 00 4a 01 4a 01`
+- CREATION: varies (`54 00 64 00 30 00 e8 00 26 01` →
+  `58 00 68 00 34 00 f5 00 26 01` over 5 emits — slowly
+  incrementing)
+
+The values look like cumulative NPC/zone-state counters (4 small
+LE16 values that increment slowly + 1 fixed byte). Possibly a
+zone-population update.
+
+### Variants
+
+Tag distribution across 30 samples:
+
+| tag  | count | size | meaning                                |
+|-----:|------:|-----:|----------------------------------------|
+| 0x30 |    28 | 14 B | zone-state counter (dominant)          |
+| 0x25 |     1 | 25 B | extended counter — 4× LE32 + 1× LE32  |
+|      |       |      | `92 07 00 00` × 4 + `42 03 00 00`     |
+| 0x56 |     2 |  8 B | sub-action 0x08 / 0x2b — `1f [sub] 01 56 00 00 00 00` |
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Top markers per the catalog: catalog evidence section above lists
+captures but no specific 0x1f-related markers — likely fires
+continuously during gameplay as a state-broadcast tick.
+
+The tag 0x30 dominance (~93% of samples) suggests a single
+periodic state-update payload; tag 0x25 / 0x56 are rarer events.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Decode the 4× LE16 fields at body[5..12] for tag 0x30. Slowly-
+  incrementing values across consecutive samples (CREATION) suggest
+  cumulative counters (NPCs spawned / killed / events).
+- Tag 0x25 25-byte form with 4× LE32 = 1938 repeated — could be
+  per-faction-NPC counts or per-class kill counters.
+- Tag 0x56 8-byte form: 1f [sub] 01 56 00 00 00 00 — the literal
+  `01 56` after sub looks like an event ID.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Ceres-J does not currently emit raw {@code 0x1f}. The wrapped
+{@code 0x03/0x1f} GamePackets channel IS handled (cash carrier,
+inventory events, combat tags) — see `udp_c2s_03_1f.md` /
+`udp_s2c_03_1f.md`. The raw variant is presumably for fire-and-
+forget zone-state ticks; the modern client appears to tolerate
+its absence (Ceres-J doesn't emit it, no overlay/AI issues).
 
