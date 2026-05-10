@@ -43,21 +43,64 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+TCP S→C 0xa001 — `SessionReady-S`. Fixed 2-byte body
+`a0 01`. Pure constant. Verified 2026-05-10 against all 34
+retail samples from 11/17 captures.
+
+```
+[0..1]   a0 01                  TCP opcode (constant)
+```
+
+Wire framing: `fe 02 00 a0 01` (3-byte prefix `[fe][len LE16=2]`
++ 2-byte body) = 5 bytes total on the wire.
+
+All 34 observations are byte-identical: `a0 01`. NO content
+variation.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 2-byte form. Pure constant. The `0xa0 NN` family
+encodes session-state transitions as 2-byte signals:
+- `0xa001` — S→C "auth complete, advancing to char-list"
+- `0xa002` — S→C InteractionAck (separate doc)
+- `0xa003` — C→S SessionReady-C ("waiting / state-ready
+  ping"; see `tcp_c2s_a003.md`)
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Emitted between `AuthAck` (0x8381) and `CharList` (0x8385) as
+part of the post-Auth sequence. Top marker `RESUME` correlates
+with the resume-login flow.
+
+Without 0xa001, the modern NCE 2.5.x client REJECTS the
+following CharList silently and stays stuck on "updating data"
+forever, retrying via `0xa003` keepalive pings. So the modern
+client REQUIRES this packet between AuthAck and CharList.
+
+34 emissions / 11 captures means ~3 per session (resume +
+re-login + char re-query).
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+None — fully decoded constant signal. The `0xa0` prefix is
+shared with `0xa002` (InteractionAck) and `0xa003`
+(SessionReady-C), suggesting it's a reserved subsystem byte
+for session/state management.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+`server.gameserver.packets.server_tcp.SessionReady` — emits
+the 2-byte constant body `a0 01`.
+
+Wired from:
+- `server.gameserver.packets.client_tcp.Auth.java:69` —
+  emitted between `AuthAck` and `CharList` in the post-Auth
+  sequence.
+- `server.gameserver.packets.client_tcp.AuthB.java:111` —
+  emitted in the AuthB post-flow between UDP descriptors.
+
+This packet is **critical** for client state advancement.
+Removing it causes the modern NC2 client to hang indefinitely
+on "updating data". See task #151 (overlay-clear identification)
+for related notes.
 

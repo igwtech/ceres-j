@@ -43,21 +43,66 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+TCP C→S 0xa003 — `SessionReady-C`. Fixed 2-byte body
+`a0 03`. Pure constant. Verified 2026-05-10 against all 34
+retail samples from 11/17 captures.
+
+```
+[0..1]   a0 03                  TCP opcode (constant)
+```
+
+Wire framing: `fe 02 00 a0 03` (3-byte prefix `[fe][len LE16=2]`
++ 2-byte body) = 5 bytes total on the wire.
+
+All 34 observations are byte-identical: `a0 03`. NO content
+variation.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 2-byte form. Pure constant.
+
+The `0xa0 NN` family of session-state signals:
+- `0xa001` — S→C SessionReady-S (auth complete; see
+  `tcp_s2c_a001.md`)
+- `0xa002` — S→C InteractionAck (separate doc)
+- `0xa003` — C→S SessionReady-C (this packet) — client's
+  "waiting for char list / state-ready ping"
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Emitted by the client between `AuthAck` (0x8381) reception and
+`CharList` (0x8385) reception, as a "are you still alive?"
+keepalive probe. The retail client retries `0xa003` ~once per
+second until it gets a CharList back.
+
+If the server fails to emit `SessionReady-S` (`0xa001`)
+between AuthAck and CharList, the client stays stuck spamming
+`0xa003` forever (the symptom that diagnosed the missing
+SessionReady issue, source-doc'd in `SessionReady.java`).
+
+Top marker `RESUME` correlates with the resume-login flow. 34
+emissions / 11 captures = ~3 per session (resume + re-login +
+char re-query).
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+None — fully decoded constant probe. Server response is
+implicit: the client stops emitting `0xa003` once it receives
+the CharList.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+**Currently no-op handled** by `GamePacketReaderTCP` — the
+server recognises the 2-byte packet and consumes it without
+explicit response. The implicit response is the natural flow
+of the post-Auth sequence (`AuthAck` → `SessionReady-S` →
+`CharList`).
+
+If the client emits `0xa003` AFTER receiving CharList, that's
+a sign the client believes its session is desynced. Currently
+no remediation logic — server just continues normal flow.
+
+For full retail parity, no specific handler is needed: this
+packet is a passive probe and the server's natural emission
+sequence already satisfies the contract.
 
