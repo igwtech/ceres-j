@@ -50,21 +50,87 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+UpdateModel — character appearance / model state broadcast.
+Verified 2026-05-10 against 39 samples from 17/17 retail captures.
+
+Variable-length body (6-80 B observed). The long form (66-80 B)
+contains the full character info including ASCII name; short
+forms (6-17 B) are partial-update deltas.
+
+```
+[0]      0x2f                   sub-opcode (constant)
+[1]      0x01 / 0x02            major variant (0x01 dominant)
+[2]      0x00                   CONSTANT
+[3]      type/sub-variant        0x01 (full character) /
+                                 0x02 (partial update)
+[4..]    sequence of TLV-like fields with `02 [tag] [val]`
+         pattern, terminated by `03 03 00` + ASCII name + null
+         + `03 03 00` trailer
+```
+
+### Long-form sample (HANNIBAL, 80B):
+
+```
+2f 01 00 01 00 20 02 00 31 00 02 01 48 02 02 3e
+e0 02 03 10 02 04 06 02 05 8a 02 06 12 02 07 0f
+02 08 0a 02 0d 2b 04 03 00 0f f8 02 02 01 01 00
+00 00 00 00 00 5d 03 c1 03 03 01 11
+48 61 6e 6e 69 62 61 6c 20 4c 65 63 74 75 72 65   "Hannibal Lecture"
+00 03 03 00
+```
+
+The TLV-like sequence `02 [tag] [val]` repeats with various
+tags (0x01..0x0e) — each carrying 1-2 bytes of character
+attribute data. The trailer ASCII length-prefix is at byte
+just before the name (`11 0x` = 17 bytes of "Hannibal Lecture\0"
+including null).
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+| size  | use                                               |
+|------:|---------------------------------------------------|
+| 6 B   | minimal partial update                            |
+| 7-17 B | small attribute deltas                           |
+| 66-80 B | full character broadcast (with ASCII name)      |
+
+ASCII names extracted from full-form samples:
+- "Hannibal Lecture" (HANNIBAL)
+- "Oda Daramitz" (ODA)
+- "Dra Moni" (PLAZA)
+- "Drstone" (DRSTONE)
+- "Norman Gates" (ZONING / RETAIL)
+- "Krafteo" (FULL_PCAP_TRACE)
+
+These are PLAYER character names — UpdateModel is the per-player
+appearance broadcast.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Top markers correlate with player-visibility events (other player
+walks into view, model change, equipment swap). Most heavily
+emitted in long-session captures (RETAIL_VEHICLE_DRONE etc.).
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- TLV tag enum (0x01..0x0e): which tags map to which character
+  attributes? Some are clearly same-position fields (HP, PSI,
+  STA, class, faction, model_head, etc.) but the mapping isn't
+  yet pinned per-tag.
+- The leading `02 [tag] [val]` pattern is consistent — TLV
+  format. Decoding the tag→meaning mapping would unlock full
+  byte-pinning.
+- Variant 0x02 (rare — RETAIL has it as 78B): differences from
+  0x01 not yet characterized.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Ceres-J has {@link
+server.gameserver.packets.server_udp.InitUpdateModel02} (0x02
+init-burst variant), but no S→C 0x03/0x2f reliable emitter for
+runtime model changes (equipment swaps, faction-color updates,
+etc.). The S→C 0x03/0x2f path would need a per-event broadcaster
+to match retail's runtime model-update behavior.
+
+The ASCII name decode is straightforward — server can extract
+the player's name from PlayerCharacter.getName() when emitting.
 
