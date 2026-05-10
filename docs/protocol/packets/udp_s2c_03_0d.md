@@ -50,21 +50,67 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+S→C TimeSync — server response to C→S {@code 0x0c}
+GetTimeSync. Fixed 12-byte body (post-0x0d sub-op):
+
+```
+[0..3]   server_time LE32        Timer.getIngametime() — 6-day
+                                  cycle modulo encoding
+[4..7]   client_time echo LE32   echoed from the C→S 0x0c request
+[8..11]  trailer LE32            `d5 0a [LE16 var] 00`
+                                  bytes 8..9 CONST `d5 0a`,
+                                  bytes 10..11 vary per session
+                                  (0x0020 in HANNIBAL/NORMAN/AUGUSTO,
+                                   0x0051 in DRSTONE3, 0x0058 elsewhere)
+```
+
+Sample retail bytes (catalog post-0x0d strip):
+```
+3f 69 2d 00  ff c8 02 05  d5 0a 58 00     server=0x002d693f,
+                                            client=0x0502c8ff
+3c 25 2e 00  32 85 03 05  d5 0a 58 00     trailer=0x0058
+9c c3 2e 00  f1 22 04 05  d5 0a 58 00
+```
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 12-byte form across all 80 retail observations. NO size
+variation. Only the trailer byte at body[10] varies between
+sessions (0x20 dominant, 0x51 in DRSTONE3, 0x58 in older
+captures).
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Server response to C→S 0x0c GetTimeSync (~8s cadence). Modern
+NCE 2.5 client requires this exchange — 5 missed replies → client
+aborts with "Synchronisation to WorldServer failed".
+
+The TimeSyncHeartbeatEvent in Ceres-J emits this at ~750 ms
+interval to keep the client's state machine satisfied (see task
+#155 for fix history).
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Trailer byte[10] semantic (0x20/0x51/0x58 across sessions):
+  zone-tag? World-realm subid? The byte is session-stable but
+  varies between captures.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+`server.gameserver.packets.server_udp.TimeSync` (extends
+PacketBuilderUDP1303). Verified bytes in
+{@code TimeSync.WORLD_ID_TAIL = {0xd5, 0x0a, 0x20, 0x00}} —
+matches 3/4 retail captures (HANNIBAL/NORMAN/AUGUSTO).
+
+Tests:
+- `TimeSyncByteIdentityTest` (5 tests, fixed 2026-05-09 in
+  commit `69ff2d3`) — pins server_time + client_time positions
+  + retail-verified trailer bytes.
+
+Fired from:
+- {@link
+  server.gameserver.packets.client_udp.GetTimeSync#execute}
+- {@link
+  server.gameserver.internalEvents.TimeSyncHeartbeatEvent}
+  (~750 ms periodic)
 
