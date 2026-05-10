@@ -19,6 +19,14 @@ public class GameServerUDPConnection {
 	private short udp13Sessionkey;
 	private int udpSessionCounter;
 	private int interfaceID;
+	/** Per-session ring of recently-emitted reliable {@code 0x03}
+	 *  sub-packets, keyed by their LE16 sequence counter. Used by
+	 *  the {@link server.gameserver.packets.client_udp.ReliableAckSubPacket}
+	 *  handler to satisfy {@code C→S 0x01 [seq LE2]} retransmit
+	 *  requests. Without this the client's "Synchronizing" overlay
+	 *  never clears (task #136 / #151). */
+	private final server.networktools.ReliablePacketRing reliableRing
+			= new server.networktools.ReliablePacketRing();
 
 	public GameServerUDPConnection(InetAddress address, int port, Player pl) {
 		clientaddress = address;
@@ -134,6 +142,14 @@ public class GameServerUDPConnection {
 
 	public int incandgetSessionCounter() {
 		return ++udpSessionCounter;
+	}
+
+	/** Per-session ring of recently-emitted reliable {@code 0x03}
+	 *  sub-packets — see field javadoc. Public for the
+	 *  PacketBuilderUDP1303 emit hook + the ReliableAckSubPacket
+	 *  retransmit responder. */
+	public server.networktools.ReliablePacketRing reliableRing() {
+		return reliableRing;
 	}
 
 	public void close() {
