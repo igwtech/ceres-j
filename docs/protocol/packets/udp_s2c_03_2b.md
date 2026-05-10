@@ -36,21 +36,57 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+S→C side of the CityCom DCB RPC channel. See
+`udp_c2s_03_2b.md` for the full protocol description — both
+directions share the same wire shape.
+
+```
+[0]      0x2b                   sub-opcode
+[1]      variant                 0x1a (method-name response, dominant
+                                  on S→C side), 0x1e (ASCII text reply)
+[2..]    variant-specific
+```
+
+### Variant 0x1a — method-name response (22B common)
+
+Server emits when answering a C→S DCB call:
+```
+2b 1a 0f 00 01 00 00 [ASCII method name]\0
+```
+
+Example from RETAIL: `VehicleListing\0` — server confirms which
+RPC method it's responding to before sending the actual data.
+
+### Variant 0x1e — ASCII text reply
+
+Long-form text reply to the client (e.g. tutorial text, news
+ticker, mission descriptions). Length-prefixed ASCII.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Same variant table as C→S side. S→C is dominated by 0x1a
+method-name responses; C→S is dominated by 0x1f binary RPC
+calls + 0x1e ASCII payloads.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Triggered by client opening CityCom panels (Vehicle, Bank,
+Apartment listings) or requesting tutorial/help text. Server
+emits two-stage response: 0x1a method-name confirm + 0x1e
+ASCII data.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+See `udp_c2s_03_2b.md` open questions — full DCB method
+registry pending.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Not currently emitted by Ceres-J. Implementing DCB RPC
+responses requires:
+1. Method-name → builder mapping
+2. Per-method data-fetch (vehicle list, bank contents, etc.)
+3. ASCII reply builder
+
+Out of scope for current parity work.
 
