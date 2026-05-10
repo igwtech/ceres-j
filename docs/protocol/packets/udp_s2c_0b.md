@@ -53,21 +53,69 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+The server's reply to a {@code C→S 0x0b CPing} client keepalive.
+Fixed 9-byte raw datagram (NO 0x13 outer wrapper — verified via
+SPingByteIdentityTest 2026-05-09).
+
+```
+[0]      0x0b                    sub-opcode (constant)
+[1..4]   server_time LE32         Timer.getIngametime() — 6-day
+                                   cycle modulo encoding (max ~518.4M ms)
+[5..8]   client_time echo LE32   the LE32 sent in the C→S 0x0b CPing
+```
+
+Sample retail bytes (catalog):
+```
+0b cb 6e 69 00  60 0c a7 04        server_time=0x00696ecb,
+                                    client_time=0xa7040c60
+0b b8 69 2d 00  d7 c8 02 05        server_time=0x002d69b8,
+                                    client_time=0x0502c8d7
+0b 10 83 2d 00  2e e2 02 05
+```
+
+The {@code server_time} field is consistently in the
+{@code 0x0..0x1f000000} range — confirms the 6-day-cycle
+{@code Timer.getIngametime()} encoding (518.4M ms = ~6 days).
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 9-byte form across 4,939 observations in 17/17 captures.
+NO size variants observed — fixed wire form.
+
+The earlier hypothesis that SPing was 0x13-wrapped (16 bytes) was
+WRONG and produced an actual client-handling regression — fixed
+2026-05-09 by reverting to raw 9 B (commit `41b661e`).
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Top markers correlate with periodic CPing exchanges throughout
+the session. ~1 SPing emitted per CPing received; cadence is
+client-driven (~1 Hz typical).
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- The {@code client_time echo} field in this S→C 0x0b doesn't
+  always equal the most-recent C→S CPing's {@code client_time}.
+  Possible causes investigated 2026-05-09 (see HANNIBAL replay
+  21-divergence cluster in PcapReplayTest):
+  - Retail emits server-initiated 0x0b pings (not just replies),
+    so byte[5..8] in those is NOT a "client_time echo" but a
+    server-side session token.
+  - The harness masks bytes 1..8 entirely as session-derived to
+    avoid false divergences.
+- No definitive resolution yet — pin layout via SPingByteIdentityTest
+  rather than trusting harness echo equality.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+`server.gameserver.packets.server_udp.SPing` — extends
+{@code PacketBuilderUDP} (NOT UDP13). Emits the verified 9-byte
+raw form. Fired from
+`server.gameserver.packets.client_udp.CPing.execute()` on every
+client keepalive.
+
+Tests:
+- `SPingByteIdentityTest` (5 tests) — pins client_time echo at
+  bytes 5..8 LE32, server_time within {@code Timer.getIngametime()}
+  range, total 9-byte size, opcode constant 0x0b.
 

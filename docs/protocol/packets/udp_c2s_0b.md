@@ -53,21 +53,53 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+Client-side keepalive ping. Fixed 5-byte raw datagram (no
+wrapper).
+
+```
+[0]      0x0b                   sub-opcode (constant)
+[1..4]   client_time LE32        client's local time / counter,
+                                 echoed back unchanged in the
+                                 server's S→C 0x0b SPing reply
+```
+
+Sample retail bytes (catalog):
+```
+0b d7 c8 02 05    client_time=0x0502c8d7
+```
+
+Client emits these at ~1 Hz cadence throughout the session. Each
+CPing triggers exactly one S→C 0x0b SPing reply from the server
+(see `udp_s2c_0b.md`).
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 5-byte form across 4,868 observations in 17/17 captures.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Continuous emission throughout active sessions. Cadence is
+client-driven; the server's only job is to reply with SPing
+within the client's timeout window (typically a few seconds).
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- The {@code client_time} field's exact semantic: wall-clock
+  milliseconds since session start? GetTickCount() output?
+  Across consecutive CPings the value advances monotonically by
+  ~1 s in retail captures, consistent with {@code GetTickCount()}
+  scaled. Server doesn't need to interpret — just echo.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Decoded via {@link
+server.gameserver.packets.client_udp.CPing}:
+- {@code skip(1)} past 0x0b
+- {@code clienttime = readInt()} (LE32)
+- {@code execute()} sends an SPing reply with the echoed
+  client_time + the server's current Timer.getIngametime()
+
+Tests:
+- `CPingTest` — pins the LE32 client_time decode + sends SPing
+  on execute().
 
