@@ -46,21 +46,41 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+InteractionAck — TCP S→C 2-byte signal. Constant body, no
+payload.
+
+```
+[0..1]   a0 02                  TCP opcode (constant)
+```
+
+All 224 observations across 17/17 captures are byte-identical:
+`a0 02` (2 bytes). NO size variation.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 2-byte form. Pure signaling ack — no payload.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Server-to-client TCP signal acknowledging a client interaction.
+Fired in response to specific C→S TCP interactions (door open,
+NPC interact, dialog response). The client treats it as a
+"server received your interaction" confirmation.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Which exact C→S interactions trigger this? Catalog markers
+  don't pinpoint a single trigger — likely fires on multiple
+  interaction-class packets.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+`server.gameserver.packets.server_tcp.InteractionAck` — emits
+the 2-byte constant body. Wired in:
+
+- {@link server.gameserver.packets.client_tcp.UseItem}
+  (task #148 closed this)
+- Other interaction handlers as they're plumbed through
+
+Simple constant emit — no per-call state.
 
