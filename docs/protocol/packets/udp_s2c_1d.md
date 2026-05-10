@@ -25,21 +25,36 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+UDP S→C raw 0x1d — sole 10-byte retail sample:
+`1d 00 20 02 00 7f be 46 cd 45`.
+
+```
+[0]      0x1d                  sub-opcode
+[1]      0x00                  CONSTANT
+[2..3]   20 02                 LE16 = 0x0220 (entity/zone id?)
+[4]      0x00                  reserved
+[5..8]   7f be 46 cd            LE32 float = ~0xcd46be7f
+                                ≈ -2.08e8 (or two LE16 floats)
+[9]      0x45                  trailer
+```
+
+The `7f be 46 cd 45` tail looks like float-encoded coordinates
+or a packed timestamp.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 10-byte retail sample.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+CREATION_LEVELING_LONG only — single emission. Insufficient
+data for trigger semantics.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Without more samples, structure is ambiguous.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Not handled. **Low priority** parity gap (1 retail sample).
 

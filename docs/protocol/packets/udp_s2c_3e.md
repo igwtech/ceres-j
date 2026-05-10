@@ -27,21 +27,28 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+UDP S→C raw 0x3e — single 1-byte sample: bare `3e`. Marker
+correlates with `ZONING_AREAMC5_EXIT` — possibly a "zone-exit
+acknowledged" signal.
+
+```
+[0]   0x3e                   bare sub-opcode signal
+```
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 1-byte form.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+CREATION_LEVELING_LONG only — single emission at zone-exit.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Is this an actual zone-exit signal or a packet-extraction
+  artifact?
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Not handled. **Low priority** parity gap (1 retail sample).
 

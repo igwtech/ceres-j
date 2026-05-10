@@ -27,21 +27,38 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+UDP S→C raw 0x09 — likely a **compact-burst variant** like
+`udp_c2s_44`. Sole 17-byte retail sample:
+`09 00 03 9d 39 1f 01 00 25 23 29 13 00 1b 01 01 00`.
+
+```
+[0]      0x09                  byte[0] (counter low-byte?)
+[1..2]   00 03                 ??? (counter / flag)
+[3..4]   9d 39                 LE16 = 0x399d (seq?)
+[5..]    1f 01 00 25 23 29 13 00 1b 01 01 00   GamePackets payload
+```
+
+Or alternatively this is the ServerReliableAck variant for raw
+0x09 (parallel to 0x03/0x09 ack). Without more samples,
+ambiguous.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 17-byte retail sample.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+CREATION_LEVELING_LONG only. Top marker
+`OUTSIDE_AREAM5_GENREP_OPEN` (genrep teleporter activation).
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Is this a compact-burst variant, or the raw form of
+  `0x03/0x09 ServerReliableAck`?
+- Without more retail samples, the structure is ambiguous.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Not specifically handled. **Low priority** parity gap (1
+retail sample only).
 

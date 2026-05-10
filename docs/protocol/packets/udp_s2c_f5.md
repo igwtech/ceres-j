@@ -25,21 +25,30 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+UDP S→C raw 0xf5 — single 1-byte sample: bare `f5`.
+
+```
+[0]   0xf5                   bare sub-opcode singleton
+```
+
+The high-byte 0xf5 is in the same range as 0xf6 (see
+`udp_s2c_f6.md`) and 0xfe (TCP framing). Probably an
+extraction artifact or a session-end signal.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 1-byte sample.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+CREATION_LEVELING_LONG only — single emission. Insufficient
+data for semantics.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Likely an extraction artifact or sentinel byte.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Not handled. **Low priority** parity gap (1 retail sample).
 

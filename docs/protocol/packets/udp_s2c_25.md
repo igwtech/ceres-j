@@ -25,21 +25,30 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+UDP S→C raw 0x25 — single 1-byte sample: bare `25`.
+
+```
+[0]   0x25                   bare sub-opcode singleton
+```
+
+Likely the LongPlayerInfo (0x03/0x25) sub-tag emitted as a
+bare keepalive or the LOW byte of a longer packet that got
+truncated during extraction.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 1-byte retail sample.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+HANNIBAL capture only — single emission. Insufficient data
+for semantics.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Is this an actual 1-byte signal or an extraction artifact?
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Not handled. **Low priority** parity gap (1 retail sample).
 

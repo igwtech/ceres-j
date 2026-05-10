@@ -29,21 +29,36 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+UDP C→S raw 0x05 — 3-byte rare emission. 2 retail samples,
+both byte-identical: `05 00 1f`.
+
+```
+[0]   0x05                  sub-opcode
+[1]   0x00                  CONSTANT
+[2]   0x1f                  CONSTANT (= GamePackets sub-tag id)
+```
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 3-byte form across 2 retail samples (PARTY_A/B
+captures). Pure constant.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Only 2 emissions in retail, both in party-PvP captures. The
+trailing `0x1f` byte (= GamePackets sub-tag) suggests this is
+some kind of "request for GamePackets channel" or
+session-state-related signal.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Without more samples, the trigger semantics are unclear.
+  The byte-stable pattern across 2 captures rules out
+  session-derived data.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Not currently handled in `GamePacketReaderUDP`. Falls to
+`UnknownClientUDPPacket` catch-all. **Low priority** (2 retail
+samples).
 

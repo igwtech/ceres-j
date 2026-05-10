@@ -25,21 +25,36 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+UDP S→C raw 0xf6 — single 56-byte retail sample. Looks like a
+**compact-burst** carrying chained NPC/movement broadcasts.
+
+```
+[0..3]   f6 0f 01 79              counter+flag header?
+[4..]    3c 4a 01 28 ... [03][seq=0x01ba][2d]   chained subs:
+         - 0x3c entity-action (12B, see udp_s2c_3c.md)
+         - 0x03/0x2d NPCData with position floats
+```
+
+The byte content includes a sub-packet boundary marker `f6 0f
+3a` mid-stream — likely 2-3 sub-packets concatenated in one
+0x13-less burst.
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Single 56-byte retail sample.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+HANNIBAL only — single emission. Likely a one-off batched
+NPC/entity event broadcast.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Same compact-burst family as 0x44/0x45/0xc4/0xef/0x3a etc.
+  byte[0]=0xf6 is just the counter low-byte coincidence.
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Not handled. Falls into `UnknownClientUDPPacket`-like path.
+**Low priority** parity gap (1 retail sample).
 
