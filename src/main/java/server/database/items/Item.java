@@ -341,9 +341,62 @@ public class Item {
 	public void setInventoryPos(int pos){
 		inventorypos = pos;
 	}
-	
+
 	public void setParentContainer(ItemContainer parent){
 		Container = parent;
+	}
+
+	// ─── Persistence accessors ────────────────────────────────
+	// Added 2026-05-10 to support ItemManager.save/load (was
+	// stubbed; items table was empty). See zone_handoff_and_inventory_gaps.
+
+	public long getId() {
+		return id;
+	}
+
+	public int getTypeId() {
+		return type_id;
+	}
+
+	public int getFlags() {
+		return flags;
+	}
+
+	/** Returns the internal tokens array — caller must not mutate. */
+	public short[] getTokens() {
+		return tokens;
+	}
+
+	public ItemContainer getContainer() {
+		return Container;
+	}
+
+	/**
+	 * Pack the 17×short tokens array into 34 bytes (LE). Inverse of
+	 * {@link #deserializeTokens}.
+	 */
+	public byte[] serializeTokens() {
+		byte[] out = new byte[34];
+		for (int i = 0; i < 17; i++) {
+			short v = tokens[i];
+			out[i * 2]     = (byte) (v & 0xff);
+			out[i * 2 + 1] = (byte) ((v >> 8) & 0xff);
+		}
+		return out;
+	}
+
+	/**
+	 * Unpack 34 bytes (LE) into a 17×short tokens array. Returns a
+	 * zero-filled array if input is null or wrong-length.
+	 */
+	public static short[] deserializeTokens(byte[] in) {
+		short[] out = new short[17];
+		if (in == null || in.length != 34) return out;
+		for (int i = 0; i < 17; i++) {
+			out[i] = (short) (((in[i * 2 + 1] & 0xff) << 8)
+			               | (in[i * 2]     & 0xff));
+		}
+		return out;
 	}
 	
 	public int setItemProperty(int flag, int newvalue){ // TODO: insert checks!

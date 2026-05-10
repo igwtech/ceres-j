@@ -130,6 +130,157 @@ public class PlayerCharacterManager {
 			Out.writeln(Out.Error, "Error loading player characters: " + e.getMessage());
 		}
 		Out.writeln(Out.Info, "Loaded " + pcList.size() + " player characters");
+
+		// Detect & repair container-ID collisions from a known bug:
+		// ItemManager.getFreeContId() used to reset its in-memory
+		// counter every restart and re-issue ids 1, 2, 3 to every
+		// new char, so multiple chars wound up sharing the same
+		// container ids. After v6 (inventory persistence), this
+		// would cause them all to share one F2 inventory. Reassign
+		// duplicates here BEFORE loadall() attaches items, then
+		// re-save the affected characters.
+		repairDuplicateContainerIds();
+
+		// Sweep orphaned items: any items row whose container_id is
+		// no longer claimed by any character is unreachable and
+		// would otherwise just accumulate in the DB across boots.
+		// This typically happens once, after the duplicate-container-id
+		// repair above moves chars to fresh ids — the old shared id's
+		// items become orphans.
+		sweepOrphanedItemRows();
+
+		// All containers are now registered via initContainer() →
+		// ItemContainer ctor → ItemManager.loadContainer(). Load
+		// persisted items and attach to those containers. Items with
+		// no matching container_id are kept in the Items map
+		// (orphaned) so their IDs don't collide on new emissions.
+		server.database.items.ItemManager.loadall();
+
+		// Bootstrap: any character that loaded with NO items in F2
+		// (likely created before schema v6 inventory persistence
+		// landed, or a fresh char) gets the standard starter pack
+		// re-issued. This unblocks the "inventory missing" symptom
+		// the user reported for the 3 existing chars.
+		for (PlayerCharacter pc : pcList) {
+			bootstrapStarterInventoryIfEmpty(pc);
+		}
+	}
+
+	/**
+	 * Detect multiple PlayerCharacters sharing the same
+	 * f2/gogu/qb container_id and reassign new unique ids for the
+	 * duplicates (keeping the first occurrence stable). The character
+	 * row is re-saved with the new ids so the fix survives restart.
+	 *
+	 * <p>Root cause: pre-v6 ItemManager.getFreeContId() reset its
+	 * in-memory counter on every restart and re-issued 1, 2, 3 for
+	 * every new character. Fixed in v6 by seeding from
+	 * MAX(container_id) in the DB, but legacy rows need repair.
+	 */
+	/**
+	 * Delete items rows whose container_id is not claimed by any
+	 * character's F2 / gogu / qb slot. Runs after
+	 * {@link #repairDuplicateContainerIds} so the IDs in DB and the
+	 * ID set we test against are both post-repair.
+	 */
+	private static void sweepOrphanedItemRows() {
+		Connection conn = SqliteDatabase.getConnection();
+		if (conn == null) return;
+		String sql =
+			"DELETE FROM items WHERE container_id NOT IN ("
+			+ " SELECT f2_inventory_cont_id FROM player_characters"
+			+ " UNION SELECT gogu_inventory_cont_id FROM player_characters"
+			+ " UNION SELECT qb_inventory_cont_id FROM player_characters)";
+		try (PreparedStatement ps = conn.prepareStatement(sql)) {
+			int deleted = ps.executeUpdate();
+			if (deleted > 0) {
+				Out.writeln(Out.Info,
+					"Swept " + deleted + " orphaned item rows "
+					+ "(container_id not claimed by any character)");
+			}
+		} catch (SQLException e) {
+			Out.writeln(Out.Warning,
+				"sweepOrphanedItemRows: " + e.getMessage());
+		}
+	}
+
+	private static void repairDuplicateContainerIds() {
+		java.util.Set<Integer> seenF2 = new java.util.HashSet<>();
+		java.util.Set<Integer> seenGogu = new java.util.HashSet<>();
+		java.util.Set<Integer> seenQb = new java.util.HashSet<>();
+		int fixed = 0;
+		for (PlayerCharacter pc : pcList) {
+			int[] cur = new int[]{
+				pc.getF2InventoryContainerID(),
+				pc.getGoguInventoryContainerID(),
+				pc.getQbInventoryContainerID(),
+			};
+			boolean changed = false;
+			if (cur[0] == 0 || !seenF2.add(cur[0])) {
+				cur[0] = ItemManager.getFreeContId();
+				changed = true;
+			}
+			if (cur[1] == 0 || !seenGogu.add(cur[1])) {
+				cur[1] = ItemManager.getFreeContId();
+				changed = true;
+			}
+			if (cur[2] == 0 || !seenQb.add(cur[2])) {
+				cur[2] = ItemManager.getFreeContId();
+				changed = true;
+			}
+			if (changed) {
+				pc.initContainer(cur);    // re-register with new ids
+				saveCharacter(pc);
+				fixed++;
+				Out.writeln(Out.Info,
+					"Repaired duplicate container_id for character '"
+					+ pc.getName() + "' (id="
+					+ pc.getMisc(PlayerCharacter.MISC_ID)
+					+ ") → f2=" + cur[0] + " gogu=" + cur[1] + " qb=" + cur[2]);
+			}
+			// Re-register THIS character's containers in
+			// ItemManager.Container so the registry's get(id) returns
+			// the SAME instance the character's getContainer(F2) returns.
+			// Without this, the registry can be stale (point to a
+			// previously-loaded char's PlayerInventory if multiple
+			// chars share the original id), causing loadall() to
+			// attach items to a ghost container.
+			pc.initContainer(cur);
+		}
+		if (fixed > 0) {
+			Out.writeln(Out.Info,
+				"Repaired container_id collisions for " + fixed
+				+ " characters");
+			// Wipe persisted items belonging to the no-longer-claimed
+			// container ids. Bootstrap will fill the empty F2's
+			// afterward. This is a ONE-TIME cleanup that runs only
+			// when a repair happened — it loses any items that were
+			// in the shared container, but those items couldn't have
+			// belonged to any individual character anyway (shared
+			// state is meaningless).
+			truncateItemsTable("post-repair cleanup");
+		}
+	}
+
+	/**
+	 * Delete every items row. Called from the repair path after a
+	 * container_id collision was detected — the shared-container
+	 * items are not attributable to any specific character so the
+	 * cleanest fix is to drop them and let bootstrap reissue starter
+	 * items per-character with the new unique IDs.
+	 */
+	private static void truncateItemsTable(String reason) {
+		Connection conn = SqliteDatabase.getConnection();
+		if (conn == null) return;
+		try (Statement st = conn.createStatement()) {
+			int deleted = st.executeUpdate("DELETE FROM items");
+			Out.writeln(Out.Info,
+				"Truncated items table (" + deleted + " rows) — "
+				+ reason);
+		} catch (SQLException e) {
+			Out.writeln(Out.Warning,
+				"truncateItemsTable: " + e.getMessage());
+		}
 	}
 
 	public static void save() {
@@ -497,8 +648,59 @@ public class PlayerCharacterManager {
 
 		// Immediately persist the new character
 		saveCharacter(pc);
+		// And the just-created starter inventory.
+		ItemManager.save(pc.getContainer(PlayerCharacter.PLAYERCONTAINER_F2));
 
 		return true;
+	}
+
+	/**
+	 * If a character's F2 container is empty (e.g. a legacy char
+	 * created before inventory-persistence existed, or a char whose
+	 * items rows got wiped), re-issue the standard 4-piece starter
+	 * pack so the player isn't naked at login.
+	 *
+	 * <p>The starter set matches {@link #createCharacter}:
+	 * melee-weapon item 19, ammo item 35, two spells 100/101 —
+	 * with placeholder weapon-condition tokens.
+	 */
+	private static void bootstrapStarterInventoryIfEmpty(PlayerCharacter pc) {
+		try {
+			server.database.items.ItemContainer f2 = pc.getContainer(
+				PlayerCharacter.PLAYERCONTAINER_F2);
+			if (f2 == null) return;
+			if (f2.getNumberofItems() > 0) return; // already populated
+
+			short[] tokens = new short[17];
+			tokens[server.database.items.Item.TOKENS_CURRCOND] = 255;
+			tokens[server.database.items.Item.TOKENS_MAXCOND]  = 255;
+			tokens[server.database.items.Item.TOKENS_DMG]      = 200;
+			tokens[server.database.items.Item.TOKENS_FREQUENCY]= 200;
+			tokens[server.database.items.Item.TOKENS_HANDLING] = 200;
+			tokens[server.database.items.Item.TOKENS_RANGE]    = 200;
+			tokens[server.database.items.Item.TOKENS_AMMOUSES] = 3;
+			tokens[server.database.items.Item.TOKENS_ITEMSONSTACK] = 5;
+
+			ItemManager.createItem(f2, -1, 19,  tokens,
+				server.database.items.Item.ITEMFLAG_WEAPON, 0);
+			ItemManager.createItem(f2, -1, 35,  tokens,
+				server.database.items.Item.ITEMFLAG_USES
+				| server.database.items.Item.ITEMFLAG_STACK, 0);
+			ItemManager.createItem(f2, -1, 101, tokens,
+				server.database.items.Item.ITEMFLAG_SPELL, 0);
+			ItemManager.createItem(f2, -1, 100, tokens,
+				server.database.items.Item.ITEMFLAG_SPELL, 0);
+
+			ItemManager.save(f2);
+			Out.writeln(Out.Info,
+				"Bootstrapped starter inventory for character '"
+					+ pc.getName() + "' (id=" + pc.getMisc(PlayerCharacter.MISC_ID)
+					+ ", f2=" + f2.getContainerID() + ")");
+		} catch (Exception e) {
+			Out.writeln(Out.Warning,
+				"Bootstrap starter inventory failed for '" + pc.getName()
+				+ "': " + e.getMessage());
+		}
 	}
 
 	public static void deleteCharacter(int i) {

@@ -34,7 +34,7 @@ public final class SqliteDatabase {
      *           faction_sympathies (JSON) and per-skill xp/rate/max.</li>
      * </ul>
      */         
-    public static final int CURRENT_SCHEMA_VERSION = 5;
+    public static final int CURRENT_SCHEMA_VERSION = 6;
 
     /**
      * CharInfo fidelity columns added in schema v1. Each entry is
@@ -331,13 +331,19 @@ public final class SqliteDatabase {
             stmt.execute(pcSql.toString());
 
             // Items table
+            // flags + tokens columns added in schema v6 (2026-05-10) to
+            // support ItemManager persistence. tokens stores 17 LE16
+            // shorts (= 34 bytes) for weapon/spell state.
+            String tokensType = isPostgres() ? "BYTEA" : "BLOB";
             stmt.execute(
                 "CREATE TABLE IF NOT EXISTS items (" +
                 "  id INTEGER PRIMARY KEY," +
                 "  container_id INTEGER NOT NULL," +
                 "  type_id INTEGER NOT NULL," +
                 "  slot INTEGER DEFAULT 0," +
-                "  quality INTEGER DEFAULT 0" +
+                "  quality INTEGER DEFAULT 0," +
+                "  flags INTEGER DEFAULT 0," +
+                "  tokens " + tokensType +
                 ")"
             );
 
@@ -515,6 +521,29 @@ public final class SqliteDatabase {
             //      SET NOT NULL + ADD CONSTRAINT UNIQUE (PostgreSQL).
             backfillUuidColumn("accounts");
             backfillUuidColumn("player_characters");
+        }
+
+        if (currentVersion < 6) {
+            // v5 → v6: add `flags` and `tokens` columns to the items
+            // table so ItemManager.save() / load() can round-trip
+            // weapon/spell state. Existing rows default to flags=0
+            // and tokens=NULL (treated as zero-filled by Item.deserializeTokens).
+            //
+            // Closes the inventory-persistence gap documented in
+            // zone_handoff_and_inventory_gaps memory — items table
+            // was empty because save() / load() were empty stubs.
+            Set<String> existing = getExistingColumns("items");
+            String tokensType = isPostgres() ? "BYTEA" : "BLOB";
+            try (Statement stmt = connection.createStatement()) {
+                if (!existing.contains("flags")) {
+                    stmt.execute(
+                        "ALTER TABLE items ADD COLUMN flags INTEGER DEFAULT 0");
+                }
+                if (!existing.contains("tokens")) {
+                    stmt.execute(
+                        "ALTER TABLE items ADD COLUMN tokens " + tokensType);
+                }
+            }
         }
 
         writeSchemaVersion(CURRENT_SCHEMA_VERSION);

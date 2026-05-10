@@ -1,8 +1,13 @@
 package server.database.items;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.TreeMap;
 
+import server.database.SqliteDatabase;
 import server.database.items.Item;
 import server.tools.Out;
 
@@ -14,22 +19,161 @@ public class ItemManager {
 	private static LinkedList<Integer> ContainerIds 			= new LinkedList<Integer>();
 	private static LinkedList<Long> ItemIds						= new LinkedList<Long>();
 	// getItemContainerID?
-	
-	public static void load(){
-		// while loading all the items, add the container Ids to the LinkedList
-		// or add a special container ids table
+
+	/**
+	 * Load all persisted items from the {@code items} table and
+	 * attach them to their owning containers (which must already be
+	 * registered via {@link #loadContainer}). This is called once at
+	 * server startup AFTER all player characters and their
+	 * containers have been initialised.
+	 *
+	 * <p>Items are restored into containers via {@code addItem(pos=-1)}
+	 * — exact F2/Gogu/QB grid positions are NOT round-tripped in v6
+	 * of the schema (only flags + tokens are persisted alongside the
+	 * existing id/container_id/type_id). This means the inventory
+	 * layout may differ after a server restart, but items themselves
+	 * survive — which is what the user-visible "inventory missing"
+	 * bug needed.
+	 */
+	public static void loadall(){
+		Connection conn = SqliteDatabase.getConnection();
+		if (conn == null) return;
+
+		int loaded = 0;
+		int orphaned = 0;
+		long maxItemId = 0;
+		try (PreparedStatement ps = conn.prepareStatement(
+				"SELECT id, container_id, type_id, flags, tokens FROM items");
+		     ResultSet rs = ps.executeQuery()) {
+			while (rs.next()) {
+				long id = rs.getLong("id");
+				int contId = rs.getInt("container_id");
+				int typeId = rs.getInt("type_id");
+				int flags = rs.getInt("flags");
+				byte[] tokenBytes = rs.getBytes("tokens");
+				short[] tokens = Item.deserializeTokens(tokenBytes);
+
+				if (id > maxItemId) maxItemId = id;
+
+				ItemContainer cont = Container.get(contId);
+				if (cont == null) {
+					// Orphaned item — container_id doesn't resolve to
+					// any loaded container. Keep in Items map so the
+					// id isn't reissued, but skip attaching.
+					orphaned++;
+					Items.put(id, new Item(typeId, id, null, flags, tokens));
+					if (!ItemIds.contains(id)) ItemIds.add(id);
+					continue;
+				}
+
+				Item it = new Item(typeId, id, cont, flags, tokens);
+				cont.addItem(-1, it, 0);
+				Items.put(id, it);
+				if (!ItemIds.contains(id)) ItemIds.add(id);
+				loaded++;
+			}
+		} catch (SQLException e) {
+			Out.writeln(Out.Error, "ItemManager.loadall: " + e.getMessage());
+			return;
+		}
+
+		Out.writeln(Out.Info, "ItemManager: loaded " + loaded
+				+ " items (" + orphaned + " orphaned)");
 	}
-	
+
 	public static void init(){
-		
+
 	}
-	
+
+	/**
+	 * Persist EVERY item currently in memory. Called from
+	 * auto-save / shutdown paths.
+	 */
 	public static void saveall(){
-		
+		Connection conn = SqliteDatabase.getConnection();
+		if (conn == null) return;
+		int saved = 0;
+		try {
+			for (Item it : Items.values()) {
+				if (it == null) continue;
+				if (saveItem(conn, it)) saved++;
+			}
+		} catch (SQLException e) {
+			Out.writeln(Out.Error, "ItemManager.saveall: " + e.getMessage());
+			return;
+		}
+		Out.writeln(Out.Info, "ItemManager: saved " + saved + " items");
 	}
-	
-	public static void save(ItemContainer Container){
-		
+
+	/**
+	 * Persist all items belonging to one container. Called when the
+	 * owning character is saved.
+	 */
+	public static void save(ItemContainer container){
+		if (container == null) return;
+		Connection conn = SqliteDatabase.getConnection();
+		if (conn == null) return;
+
+		// 1. Delete existing rows for this container — simplest
+		//    correct-on-removal approach. Items the player threw
+		//    away or moved out won't linger as ghost DB rows.
+		// 2. Re-insert every item currently in the container.
+		try (PreparedStatement del = conn.prepareStatement(
+				"DELETE FROM items WHERE container_id = ?")) {
+			del.setInt(1, container.getContainerID());
+			del.executeUpdate();
+		} catch (SQLException e) {
+			Out.writeln(Out.Error, "ItemManager.save: delete failed: "
+					+ e.getMessage());
+			return;
+		}
+
+		LinkedList<Item> items = container.getallItems();
+		if (items == null) return;
+		int written = 0;
+		try {
+			for (Item it : items) {
+				if (it == null) continue;
+				if (saveItem(conn, it)) written++;
+			}
+		} catch (SQLException e) {
+			Out.writeln(Out.Error, "ItemManager.save: insert failed: "
+					+ e.getMessage());
+		}
+		if (written > 0) {
+			Out.writeln(Out.Info, "ItemManager: persisted " + written
+					+ " items for container " + container.getContainerID());
+		}
+	}
+
+	/**
+	 * UPSERT a single item row. Caller manages container-level
+	 * deletes for removed items.
+	 */
+	private static boolean saveItem(Connection conn, Item it) throws SQLException {
+		if (it == null) return false;
+		int contId = it.getContainer() != null
+				? it.getContainer().getContainerID() : 0;
+		boolean pg = SqliteDatabase.isPostgres();
+		String sql = pg
+				? "INSERT INTO items (id, container_id, type_id, flags, tokens)"
+					+ " VALUES (?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET"
+					+ " container_id=EXCLUDED.container_id,"
+					+ " type_id=EXCLUDED.type_id,"
+					+ " flags=EXCLUDED.flags,"
+					+ " tokens=EXCLUDED.tokens"
+				: "INSERT OR REPLACE INTO items"
+					+ " (id, container_id, type_id, flags, tokens)"
+					+ " VALUES (?, ?, ?, ?, ?)";
+		try (PreparedStatement ps = conn.prepareStatement(sql)) {
+			ps.setLong(1, it.getId());
+			ps.setInt(2, contId);
+			ps.setInt(3, it.getTypeId());
+			ps.setInt(4, it.getFlags());
+			ps.setBytes(5, it.serializeTokens());
+			ps.executeUpdate();
+			return true;
+		}
 	}
 	
 	public static boolean loadContainer(ItemContainer cont){
@@ -144,11 +288,18 @@ public class ItemManager {
 	}
 	
 	/**
-	 * 
+	 *
 	 * @return	next free containerID
+	 *
+	 * Issues IDs starting from MAX(used_id) + 1 across both the in-memory
+	 * set AND the persisted player_characters table — without this the
+	 * in-memory counter resets each restart and every new char gets
+	 * container_id = 1, colliding with prior chars.
 	 */
 	public static int getFreeContId(){
-		for(int i = 1; i < (int)2147483647; i++){
+		int dbMax = queryMaxContainerIdFromDb();
+		int seed = Math.max(1, dbMax + 1);
+		for(int i = seed; i < (int)2147483647; i++){
 			if(!ContainerIds.contains(i)){
 				ContainerIds.add(Integer.valueOf(i));
 				return i;
@@ -156,17 +307,63 @@ public class ItemManager {
 		}
 		return 0;
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @return	next freeitemID
 	 */
 	public static long getFreeItemId(){
-		for(long i = 1; i < 9223372036854775807L ; i++){
+		long dbMax = queryMaxItemIdFromDb();
+		long seed = Math.max(1, dbMax + 1);
+		for(long i = seed; i < 9223372036854775807L ; i++){
 			if(!ItemIds.contains(i)){
 				ItemIds.add(Long.valueOf(i));
 				return i;
 			}
+		}
+		return 0;
+	}
+
+	/**
+	 * Query MAX(container_id) across all known container columns in
+	 * player_characters. Returns 0 if the table is empty or the
+	 * query fails (caller then uses seed=1).
+	 */
+	private static int queryMaxContainerIdFromDb() {
+		Connection conn = SqliteDatabase.getConnection();
+		if (conn == null) return 0;
+		String sql = "SELECT GREATEST("
+				+ "COALESCE(MAX(f2_inventory_cont_id), 0),"
+				+ "COALESCE(MAX(gogu_inventory_cont_id), 0),"
+				+ "COALESCE(MAX(qb_inventory_cont_id), 0)"
+				+ ") AS mx FROM player_characters";
+		if (!SqliteDatabase.isPostgres()) {
+			// SQLite has no GREATEST; use MAX over a subquery union
+			sql = "SELECT MAX(c) AS mx FROM ("
+					+ "SELECT MAX(f2_inventory_cont_id) AS c FROM player_characters UNION ALL "
+					+ "SELECT MAX(gogu_inventory_cont_id) FROM player_characters UNION ALL "
+					+ "SELECT MAX(qb_inventory_cont_id) FROM player_characters)";
+		}
+		try (PreparedStatement ps = conn.prepareStatement(sql);
+		     ResultSet rs = ps.executeQuery()) {
+			if (rs.next()) return rs.getInt("mx");
+		} catch (SQLException e) {
+			Out.writeln(Out.Warning,
+				"ItemManager: queryMaxContainerIdFromDb: " + e.getMessage());
+		}
+		return 0;
+	}
+
+	private static long queryMaxItemIdFromDb() {
+		Connection conn = SqliteDatabase.getConnection();
+		if (conn == null) return 0;
+		try (PreparedStatement ps = conn.prepareStatement(
+				"SELECT COALESCE(MAX(id), 0) AS mx FROM items");
+		     ResultSet rs = ps.executeQuery()) {
+			if (rs.next()) return rs.getLong("mx");
+		} catch (SQLException e) {
+			Out.writeln(Out.Warning,
+				"ItemManager: queryMaxItemIdFromDb: " + e.getMessage());
 		}
 		return 0;
 	}

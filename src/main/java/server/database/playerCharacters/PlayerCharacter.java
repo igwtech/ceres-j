@@ -243,6 +243,18 @@ public class PlayerCharacter {
 				return null;
 		}
 	}
+
+	public int getF2InventoryContainerID() {
+		return F2InventoryContID;
+	}
+
+	public int getGoguInventoryContainerID() {
+		return GoguInventoryContID;
+	}
+
+	public int getQbInventoryContainerID() {
+		return QBInventoryContID;
+	}
 	
 	public void initContainer(int[] Contid){
 		F2InventoryContID 	= Contid[0];

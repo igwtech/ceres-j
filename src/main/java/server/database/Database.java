@@ -53,6 +53,7 @@ public final class Database {
 			try {
 				AccountManager.save();
 				PlayerCharacterManager.save();
+				server.database.items.ItemManager.saveall();
 				Out.writeln(Out.Info, "Auto-save completed");
 			} catch (Exception e) {
 				Out.writeln(Out.Error, "Auto-save failed: " + e.getMessage());
