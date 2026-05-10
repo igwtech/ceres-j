@@ -52,21 +52,89 @@ Samples (first 32 bytes inner data):
 
 ## Structure
 
-_TODO: byte-level layout. Use evidence above + matching pcaps to derive. Cite specific captures and offsets._
+S→C "simplified-reliable" channel. Wire shape mirrors the
+{@code 0x03} reliable channel but with sub-op {@code 0x02} —
+client does NOT ACK these (no symmetric retransmit channel).
+
+Wire layout:
+
+```
+[0]      0x02                   sub-opcode (constant)
+[1..2]   seq LE16                independent counter (starts at 1
+                                  per session, separate from the
+                                  0x03 reliable seq counter)
+[3]      inner sub-type          gameplay tag (0x1f, 0x2c, 0x2e,
+                                  0x2f, 0x23, etc.)
+[4..]    payload                  inner-sub-type-specific
+```
+
+Sample retail bodies (catalog):
+```
+0201002f 04000200330002014802023fe002031002040602058f020617020710
+0202001f 0400252333
+0203001f 0400251f0000c842
+```
+
+The `[02][seq LE2]` prefix is identical to the `[03][seq LE2]`
+reliable form. Both share the inner sub-type space (0x1f
+GamePackets, 0x2c PositionUpdate, 0x23 InfoResponse, etc.).
 
 ## Variants
 
-_TODO: enumerate observed variants (e.g. different sub-tags, optional trailers)._
+Two distinct uses of the {@code 0x02} channel:
+
+1. **Init-burst replay** (the dominant use, ~1700 obs). Retail
+   server pushes init-burst data (UpdateModel, Weather,
+   InfoResponse zoneInfo, GamePackets/Soullight) on this channel
+   right after the CharInfo multipart burst. Each emit has its
+   own independent seq starting at 1.
+
+2. **Retransmit responder** (the new use, since task #136). When
+   the client misses a reliable {@code 0x03} sub-packet, it
+   sends a C→S {@code 0x01 [seq LE2]} ack-request and the server
+   re-emits via {@code 0x02} — same body content as the original
+   reliable, but with the simplified wrapper. See
+   `server.gameserver.packets.client_udp.ReliableAckSubPacket`.
 
 ## Observed contexts
 
-_TODO: when does this packet fire? Which scenarios trigger it? See top markers above for hints._
+Heaviest emission concentration is at world-entry post-handshake
+(catalog top markers near the WORLDENTRY phase). The init-burst
+batch contains about 6-8 packets (UpdateModel, Weather,
+InfoResponse, Soullight, etc.) emitted within a ~100ms window.
+
+Per-capture: RETAIL_VEHICLE_DRONE has the highest counts
+(actively-played sessions emit more retransmit responses);
+short captures (DRSTONE3) have fewer.
 
 ## Open questions
 
-_TODO: list what we don't yet understand._
+- Is the init-burst seq numbering guaranteed to start at 1, or
+  can multiple session re-syncs reset it? Catalog only shows
+  monotonic-from-1.
+- Does the client treat init-burst 0x02 differently from
+  retransmit 0x02 by content? Empirically the bytes look
+  identical (just different inner sub-types).
 
 ## Server-side handler
 
-_TODO: pointer to the Ceres-J implementation, or 'not yet implemented' if missing._
+Ceres-J emits {@code 0x02} via two paths:
+
+1. **Init02 builders** (init-burst):
+   - {@link server.gameserver.packets.server_udp.InitInfoResponse02}
+   - {@link server.gameserver.packets.server_udp.InitWeather02}
+   - {@link server.gameserver.packets.server_udp.InitUpdateModel02}
+   - {@link server.gameserver.packets.server_udp.InitSoullight02}
+
+   Wired in {@code WorldEntryEvent.execute()}.
+
+2. **Retransmit responder**: {@link
+   server.gameserver.packets.client_udp.ReliableAckSubPacket} →
+   {@link server.networktools.PacketBuilderUDP1302} (via the
+   {@link server.networktools.ReliablePacketRing}).
+
+Decoded in `GamePacketReaderUDP.decodesub13()` `case 0x02:` —
+which falls through to the same sub-action switch as `case 0x03`
+(both share the inner sub-type space). 4 tests pin this:
+`PacketBuilderUDP1303RingHookTest` + `ReliableAckSubPacketTest`.
 
