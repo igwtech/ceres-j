@@ -372,7 +372,7 @@ RELIABLE_NAMES = {
     0x28: "WorldInfo", 0x2b: "CityCom", 0x2c: "StartPos",
     0x2d: "NPCData", 0x2e: "Weather", 0x2f: "UpdateModel",
     0x30: "ShortPlayerInfo", 0x31: "RequestShortPlayer",
-    0x24: "?", 0x32: "?", 0x33: "?", 0x09: "?",
+    0x24: "?", 0x32: "?", 0x33: "?", 0x09: "ServerReliableAck",
 }
 OUTER_NAMES = {
     0x03: "Reliable", 0x0b: "CPing", 0x0c: "TimeSync",
