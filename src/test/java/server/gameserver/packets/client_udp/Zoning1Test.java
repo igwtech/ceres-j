@@ -143,29 +143,30 @@ public class Zoning1Test {
     }
 
     @Test
-    public void coordsAreResetOnZoneCross() {
-        // User-reported bug 2026-05-10: walking Plaza P3 → Pepper P1
-        // produced wrong position in the new zone because the
-        // server retained the old (Plaza P3) X/Y/Z — meaningless in
-        // Pepper P1's BSP coord space. Fix: reset to (0, 0, 0) on
-        // zone-cross; the next Movement packet overwrites with the
-        // correct new-zone position.
+    public void coordsArePreservedOnZoneCross() {
+        // Regression pin (2026-05-14): the handler must NOT zero
+        // X/Y/Z on Zoning1. We tried that earlier as a "minimal
+        // fix" for cross-zone visual desync, but it hung the live
+        // client after a TCP-timeout-driven reconnect: re-login ran
+        // WorldEntry with the saved (0, 0, 0), which is not a valid
+        // spawn point in most BSPs → client stuck on loading
+        // splash. Coords stay until the next Movement packet
+        // overwrites them.
         Player pl = PacketTestFixture.newPlayer();
         CapturingTCPConnection cap = new CapturingTCPConnection();
         pl.setTcpConnection(cap);
 
-        // Seed the player with non-zero Plaza P3 coords first.
         pl.getCharacter().setMisc(PlayerCharacter.MISC_X_COORDINATE, 12345);
         pl.getCharacter().setMisc(PlayerCharacter.MISC_Y_COORDINATE, 6789);
         pl.getCharacter().setMisc(PlayerCharacter.MISC_Z_COORDINATE, 4321);
 
         new Zoning1(buildBody(7, 1)).execute(pl);
 
-        assertEquals("X must be reset to 0 on zone-cross", 0,
+        assertEquals("X must be preserved on zone-cross", 12345,
                 pl.getCharacter().getMisc(PlayerCharacter.MISC_X_COORDINATE));
-        assertEquals("Y must be reset to 0 on zone-cross", 0,
+        assertEquals("Y must be preserved on zone-cross", 6789,
                 pl.getCharacter().getMisc(PlayerCharacter.MISC_Y_COORDINATE));
-        assertEquals("Z must be reset to 0 on zone-cross", 0,
+        assertEquals("Z must be preserved on zone-cross", 4321,
                 pl.getCharacter().getMisc(PlayerCharacter.MISC_Z_COORDINATE));
     }
 

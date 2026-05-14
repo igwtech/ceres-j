@@ -54,26 +54,21 @@ public class Zoning1 extends GamePacketDecoderUDP {
         readInt(); // legacy session id, unused under the TCP flow
 
         pl.getCharacter().setMisc(PlayerCharacter.MISC_LOCATION, newLocation);
-        // Reset server-side coords to (0, 0, 0) on zone-cross.
-        // Each BSP has its own coord origin — Plaza P3 coords are
-        // meaningless inside Pepper P1's space. Keeping the stale
-        // coords meant other players in the destination zone saw
-        // this player at a nonsense location until the first
-        // Movement arrived in the new zone (~500ms window per
-        // retail pcap at PLAZA_TO_PEPPER t+144.7).
-        //
-        // The client uses BSP-internal portal data to teleport
-        // itself to the matching edge of the destination zone, so
-        // its own visible position stays continuous. The server
-        // accepts the next inbound Movement (0x20) and overwrites
-        // these (0, 0, 0) placeholders with the actual coords the
-        // client reports for the new zone.
-        //
-        // See zone_handoff_and_inventory_gaps memory + the
-        // RETAIL_PLAZA_TO_PEPPER_CROSS_DISTRICT capture analysis.
-        pl.getCharacter().setMisc(PlayerCharacter.MISC_X_COORDINATE, 0);
-        pl.getCharacter().setMisc(PlayerCharacter.MISC_Y_COORDINATE, 0);
-        pl.getCharacter().setMisc(PlayerCharacter.MISC_Z_COORDINATE, 0);
+        // NOTE: do NOT reset X/Y/Z to (0, 0, 0) here.
+        // Earlier (2026-05-10) we zeroed coords on zone-cross hoping
+        // the client's BSP portal data would re-spawn the player at
+        // the correct edge and the next inbound Movement would
+        // overwrite (0, 0, 0) with valid coords. In practice that
+        // approach broke the re-login flow: when the client's TCP
+        // connection times out mid zone-load and reconnects, the
+        // server re-runs WorldEntry with the saved (0, 0, 0) — and
+        // (0, 0, 0) is not a valid spawn point in plaza_p2 (or most
+        // BSPs), leaving the client stuck on the loading splash.
+        // Keep the prior-zone coords until the next Movement packet
+        // overwrites them — at worst other players see this player
+        // at a stale position for ~500 ms, which is the lesser evil
+        // versus a hard hang on reconnect. Tracking: zone-handoff
+        // architectural fix (per-zone UDP ports) is still pending.
         pl.updateZone();
         ((PlayerInventory) pl.getCharacter().getContainer(
                 PlayerCharacter.PLAYERCONTAINER_F2)).doSort();
