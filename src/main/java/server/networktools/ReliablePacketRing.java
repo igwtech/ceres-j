@@ -18,10 +18,20 @@ import java.util.Map;
  * <h3>Design notes</h3>
  *
  * <ul>
- *   <li><b>Size cap</b>: default 128 entries. Retail captures show
- *       the client may request retransmit of seqs from up to ~50
- *       entries back; 128 gives a comfortable margin without
- *       unbounded memory growth.</li>
+ *   <li><b>Size cap</b>: default 8192 entries. Retail captures
+ *       show the client may request retransmit of seqs from up
+ *       to ~50 entries back during normal play, but during
+ *       cross-session reconnect (zone-handoff) the client
+ *       requests retransmit of seqs spanning the entire prior
+ *       session (the Player object is reused and the counter
+ *       persists). With the previous cap of 128, live testing
+ *       on 2026-05-14 surfaced `seq N not in ring (evicted
+ *       or never emitted)` for seqs 1-40 immediately after a
+ *       zone-cross-driven reconnect — the ring had wrapped past
+ *       those seqs during normal play. 8192 gives ~80 KB / player
+ *       at typical 10 B reliables and covers a full play session
+ *       without eviction until the LE16 counter wraps at 65536.
+ *       Memory cost: ~80 KB × N concurrent players.</li>
  *   <li><b>FIFO eviction</b>: when the cap is exceeded, the
  *       oldest entry is dropped. The seq counter is monotonic
  *       within a session, so eviction order matches retail's
@@ -43,7 +53,7 @@ import java.util.Map;
 public final class ReliablePacketRing {
 
     /** Default capacity — see class javadoc. */
-    public static final int DEFAULT_CAPACITY = 128;
+    public static final int DEFAULT_CAPACITY = 8192;
 
     private final int capacity;
     /** {@code LinkedHashMap} preserves insertion order so the

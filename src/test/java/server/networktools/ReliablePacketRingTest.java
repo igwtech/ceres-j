@@ -161,11 +161,11 @@ public class ReliablePacketRingTest {
     }
 
     @Test
-    public void defaultCapacityIs128() {
+    public void defaultCapacityIs8192() {
         ReliablePacketRing ring = new ReliablePacketRing();
         assertEquals(ReliablePacketRing.DEFAULT_CAPACITY,
                 ring.capacity());
-        assertEquals(128, ring.capacity());
+        assertEquals(8192, ring.capacity());
     }
 
     @Test
