@@ -45,17 +45,18 @@ public final class GamePacketReaderUDP {
 					ack.write(ackSeq & 0xFF);
 					ack.write((ackSeq >> 8) & 0xFF);
 					pl.send(ack);
-					// Retail emits BOTH 0x01-form (13 samples / 3 captures
-					// — udp_s2c_01.md) AND 0x03/0x09-form (35 samples /
-					// 11 captures — udp_s2c_03_09.md ServerReliableAck).
-					// Inner = ack_seq LE16 in both. The 0x03/0x09 form
-					// is the more common and modern variant; emitting
-					// both matches the retail wire pattern observed
-					// across 17 capture sessions. See
-					// reliable_ack_08_decoded.md memory for the full
-					// decoded protocol.
-					pl.send(new server.gameserver.packets.server_udp
-							.ServerReliableAck(pl, ackSeq));
+					// HISTORICAL NOTE: we used to also emit
+					// ServerReliableAck (0x03/0x09) here. Retail
+					// captures show 0x03/0x09 ~3×/session — NOT on
+					// every reliable. Because 0x03/0x09 ships via
+					// PacketBuilderUDP1303 (a reliable wrapper), the
+					// client treated each one as a fresh reliable
+					// needing its own ack — creating an ack-of-ack
+					// loop that exhausted the seq counter and the
+					// retransmit ring on world entry, crashing the
+					// client mid-init. Disabled until the precise
+					// trigger is identified from a retail pcap. See
+					// reliable_ack_08_decoded.md.
 				}
 				server.interfaces.GameServerEvent ev = decodesub13(subPacket);
 				if (ev != null) {

@@ -11,29 +11,22 @@ import org.junit.Test;
 
 import server.gameserver.Player;
 import server.gameserver.packets.server_udp.PacketTestFixture;
-import server.gameserver.packets.server_udp.ServerReliableAck;
 import server.interfaces.ServerUDPPacket;
 import server.networktools.PacketBuilderUDP13;
 import server.testtools.CapturingUDPConnection;
 
 /**
- * Functional test for the dual-ack emission path in
+ * Functional test for the reliable-ack emission path in
  * {@link GamePacketReaderUDP#readPacket}: when the server receives
- * a reliable C→S sub-packet, it must emit BOTH retail-observed
- * ack forms:
+ * a reliable C→S sub-packet, it must emit the 0x13/0x01-form ack
+ * (13 retail samples / 3 captures — see {@code udp_s2c_01.md}).
  *
- * <ul>
- *   <li>0x13/0x01 form — 13 retail samples / 3 captures
- *       (see {@code udp_s2c_01.md}).</li>
- *   <li>0x03/0x09 form — 35 retail samples / 11 captures
- *       (see {@code udp_s2c_03_09.md} ServerReliableAck).</li>
- * </ul>
- *
- * <p>Inner body of both forms = {@code [ack_seq LE16]} where
- * ack_seq tracks the seq of the just-received client-reliable.
- *
- * <p>This test pins the wire-correct dual emission so a future
- * refactor doesn't accidentally drop one form.
+ * <p>We used to ALSO emit a 0x03/0x09 ServerReliableAck here, but
+ * that crashed the live client (2026-05-14) — see
+ * {@code reliable_ack_08_decoded.md}. Retail emits 0x03/0x09 only
+ * ~3×/session under an unknown trigger, NOT per-reliable; until
+ * the trigger is identified, the emit is disabled. Test updated
+ * to pin single-ack behaviour.
  */
 public class GamePacketReaderUDPDualAckTest {
 
@@ -70,7 +63,7 @@ public class GamePacketReaderUDPDualAckTest {
     }
 
     @Test
-    public void readPacketEmitsBothAckFormsForReliableSubPacket()
+    public void readPacketEmitsSingleAckForReliableSubPacket()
             throws Exception {
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0x4242);
@@ -86,12 +79,15 @@ public class GamePacketReaderUDPDualAckTest {
 
         GamePacketReaderUDP.readPacket(dp, pl);
 
-        // Both ack forms must have been emitted exactly once.
+        // Exactly ONE ack must be emitted — the 0x13/0x01-form.
+        // The 0x03/0x09 ServerReliableAck path is disabled (it
+        // crashed the live client on 2026-05-14 by triggering an
+        // ack-of-ack reliable storm).
         List<ServerUDPPacket> sent = cap.received();
-        assertEquals("expected 2 acks (0x01 + 0x03/0x09), got "
-                + sent.size(), 2, sent.size());
+        assertEquals("expected 1 ack (0x01 only), got "
+                + sent.size(), 1, sent.size());
 
-        // First emitted: 0x13/0x01 form via PacketBuilderUDP13.
+        // 0x13/0x01 form via PacketBuilderUDP13.
         // Wire: [13][counter LE2][counter+sk LE2][03 00][01][seq_lo][seq_hi]
         // Total = 7 (outer) + 3 (sub) = 10 bytes
         DatagramPacket ack01 = sent.get(0).getDatagramPackets()[0];
@@ -108,22 +104,9 @@ public class GamePacketReaderUDPDualAckTest {
         assertEquals(0x01, wire01[7] & 0xFF);
         assertEquals(0x34, wire01[8] & 0xFF);
         assertEquals(0x12, wire01[9] & 0xFF);
-
-        // Second emitted: 0x03/0x09 ServerReliableAck (13 bytes).
-        ServerUDPPacket second = sent.get(1);
-        assertTrue("second ack must be ServerReliableAck, got "
-                + second.getClass().getSimpleName(),
-                second instanceof ServerReliableAck);
-        DatagramPacket ack09 = second.getDatagramPackets()[0];
-        byte[] wire09 = new byte[ack09.getLength()];
-        System.arraycopy(ack09.getData(), 0, wire09, 0, wire09.length);
-        // 7 (outer) + 6 (inner [03][seq LE2][09][ack LE2]) = 13B
-        assertEquals(13, wire09.length);
-        // sub-tag 0x09 at offset 10
-        assertEquals(0x09, wire09[10] & 0xFF);
-        // ack_seq LE16 at offset 11..12 = 0x1234
-        assertEquals(0x34, wire09[11] & 0xFF);
-        assertEquals(0x12, wire09[12] & 0xFF);
+        // assertTrue retained to silence the unused-import warning
+        // suppressing the assertion-helper imports across edits.
+        assertTrue("single ack form", true);
     }
 
     @Test
