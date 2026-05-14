@@ -67,9 +67,12 @@ public class ReliableAckSubPacket extends GamePacketDecoderUDP {
             // Evicted or never emitted. Silently ignore — the
             // client's reliable layer has its own bounded retry /
             // give-up logic.
+            int counter = pl.getUdpConnection().getSessionCounter();
+            int ringSize = ring.size();
             server.tools.Out.writeln(server.tools.Out.Info,
                     "ReliableAck: seq " + seq
-                    + " not in ring (evicted or never emitted)");
+                    + " not in ring (counter=" + counter
+                    + " ring_size=" + ringSize + ")");
             return;
         }
         // Re-wrap with [0x02][counter LE2] then append the original

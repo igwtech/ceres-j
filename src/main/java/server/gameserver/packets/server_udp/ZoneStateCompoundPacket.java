@@ -1,5 +1,7 @@
 package server.gameserver.packets.server_udp;
 
+import java.net.DatagramPacket;
+
 import server.gameserver.NPC;
 import server.gameserver.Player;
 import server.networktools.PacketBuilderUDP13;
@@ -28,6 +30,32 @@ import server.networktools.PacketBuilderUDP13;
  */
 public class ZoneStateCompoundPacket extends PacketBuilderUDP13 {
 
+    /** Seq of the inline NPCData (sub 2) reliable. Captured so
+     *  {@link #getDatagramPackets()} can record it in the
+     *  retransmit ring — without this the client's
+     *  ReliableAckRequest for these seqs hit "not in ring" and
+     *  triggers the "Synchronizing" overlay during zone-cross
+     *  recovery. */
+    private final int npcDataSeq;
+    /** Buffer offset where NPCData sub-packet body starts (just
+     *  after the inline [0x03][seq LE2] prefix). */
+    private final int npcDataBodyStart;
+    /** Buffer offset where NPCData body ends (exclusive). */
+    private final int npcDataBodyEnd;
+
+    /** Seq of the inline WorldInfo (sub 3) reliable. */
+    private final int worldInfoSeq;
+    /** Buffer offset where WorldInfo body starts. */
+    private final int worldInfoBodyStart;
+    // worldInfoBodyEnd captured at finalize-time in
+    // getDatagramPackets() — the WorldInfo body extends to the
+    // end of the compound packet.
+
+    /** Cached owner so {@link #getDatagramPackets()} can resolve
+     *  the reliable ring without going through the parent
+     *  PacketBuilderUDP13 state. */
+    private final Player owner;
+
     /**
      * Build a compound datagram with one 0x1b broadcast + one 0x2d
      * NPCData + one 0x28 WorldInfo for the given NPC.
@@ -37,6 +65,7 @@ public class ZoneStateCompoundPacket extends PacketBuilderUDP13 {
      */
     public ZoneStateCompoundPacket(Player pl, NPC npc) {
         super(pl);
+        this.owner = pl;
 
         int npcId = npc.getMapID();
 
@@ -68,7 +97,9 @@ public class ZoneStateCompoundPacket extends PacketBuilderUDP13 {
         // ── Sub-packet 2: reliable 0x03→0x2d NPCData (13 bytes) ──
         newSubPacket();
         write(0x03);                                  // reliable wrapper
-        writeShort(pl.getUdpConnection().incandgetSessionCounter());
+        this.npcDataSeq = pl.getUdpConnection().incandgetSessionCounter();
+        writeShort(this.npcDataSeq);
+        this.npcDataBodyStart = count;                // body starts after [0x03][seq]
         write(0x2d);                                  // NPCData sub-type
         writeShort(npcId);                            // NPC world-object id
         write(0x00);                                  // padding
@@ -77,12 +108,15 @@ public class ZoneStateCompoundPacket extends PacketBuilderUDP13 {
         write(0x00);
         write(0x00);
         write(0x00);
+        this.npcDataBodyEnd = count;                  // body ends here (before newSubPacket overwrites size header)
 
         // ── Sub-packet 3: reliable 0x03→0x28 WorldInfo ──
         // Layout confirmed from retail pepper_p3 captures — see WorldNPCInfo.java.
         newSubPacket();
         write(0x03);                                  // reliable wrapper
-        writeShort(pl.getUdpConnection().incandgetSessionCounter());
+        this.worldInfoSeq = pl.getUdpConnection().incandgetSessionCounter();
+        writeShort(this.worldInfoSeq);
+        this.worldInfoBodyStart = count;              // body starts after [0x03][seq]
         write(0x28);                                  // WorldInfo sub-type
         // inner[0-1]
         write(0x00);
@@ -121,5 +155,46 @@ public class ZoneStateCompoundPacket extends PacketBuilderUDP13 {
         byte[] modelBytes = npc.getModelName().getBytes();
         write(modelBytes);
         write(0x00);
+    }
+
+    /**
+     * Finalize the compound datagram via the parent's serializer,
+     * then record the two inline reliable sub-packets (NPCData,
+     * WorldInfo) into the per-session retransmit ring.
+     *
+     * <p>Without this override the inline reliables consumed
+     * {@code incandgetSessionCounter()} slots but never showed
+     * up in the ring; the client's
+     * {@link server.gameserver.packets.client_udp.ReliableAckSubPacket}
+     * retransmit requests for those seqs returned
+     * {@code "not in ring"} and the client's reliable layer
+     * eventually gave up — the live-testing 2026-05-14 hang
+     * during plaza_p1 → plaza_p3 was rooted here. The fix
+     * captures the body byte ranges at write-time (see
+     * constructor) and records them after the wire is built.
+     */
+    @Override
+    public DatagramPacket[] getDatagramPackets() {
+        DatagramPacket[] dps = super.getDatagramPackets();
+
+        // WorldInfo (sub 3) is the last sub-packet — its body
+        // ends at the buffer's high-water mark (count).
+        int worldInfoBodyEnd = count;
+
+        // Record NPCData body.
+        byte[] npcDataBody = new byte[npcDataBodyEnd - npcDataBodyStart];
+        System.arraycopy(buf, npcDataBodyStart, npcDataBody, 0,
+                npcDataBody.length);
+        owner.getUdpConnection().reliableRing()
+                .record(npcDataSeq, npcDataBody);
+
+        // Record WorldInfo body.
+        byte[] worldInfoBody = new byte[worldInfoBodyEnd - worldInfoBodyStart];
+        System.arraycopy(buf, worldInfoBodyStart, worldInfoBody, 0,
+                worldInfoBody.length);
+        owner.getUdpConnection().reliableRing()
+                .record(worldInfoSeq, worldInfoBody);
+
+        return dps;
     }
 }
