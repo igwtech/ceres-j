@@ -142,8 +142,8 @@ Comprehensive reverse-engineered protocol documentation is available in [`docs/P
 | Character CRUD | Working |
 | UDP Obfuscation | Working (reverse-engineered) |
 | UDP Handshake | Working |
-| Zone Loading | Not yet implemented |
-| Movement / Combat | Not yet implemented |
+| Zone Loading | Partially implemented |
+| Movement / Combat | Partially implemented |
 | Chat (Local + Global) | Partially implemented |
 | Inventory | Partially implemented |
 | NPC Interaction | Not yet implemented |
