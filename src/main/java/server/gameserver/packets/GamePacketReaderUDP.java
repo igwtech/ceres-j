@@ -30,34 +30,32 @@ public final class GamePacketReaderUDP {
 				byte[] subPacket = new byte[datasize];
 				pd.read(subPacket);
 				logSubPacketDiagnostic(subPacket, datasize);
-				// ACK every reliable (0x03) sub-packet the client sends.
-				// The client's reliable delivery layer tracks unACKed
-				// reliables and aborts after ~15 s if none are ACKed.
-				// Confirmed by strace: client sends 153 unACKed 0x3d
-				// GamePackets (retail: 27) then 0x08 ABORT exactly
-				// 15 s after last activity. ACK format: a 0x13 datagram
-				// with one [0x01][seq_lo][seq_hi] sub-packet.
-				if (subPacket.length >= 3 && (subPacket[0] & 0xFF) == 0x03) {
-					int ackSeq = (subPacket[1] & 0xFF) | ((subPacket[2] & 0xFF) << 8);
-					server.networktools.PacketBuilderUDP13 ack =
-						new server.networktools.PacketBuilderUDP13(pl);
-					ack.write(0x01);
-					ack.write(ackSeq & 0xFF);
-					ack.write((ackSeq >> 8) & 0xFF);
-					pl.send(ack);
-					// HISTORICAL NOTE: we used to also emit
-					// ServerReliableAck (0x03/0x09) here. Retail
-					// captures show 0x03/0x09 ~3×/session — NOT on
-					// every reliable. Because 0x03/0x09 ships via
-					// PacketBuilderUDP1303 (a reliable wrapper), the
-					// client treated each one as a fresh reliable
-					// needing its own ack — creating an ack-of-ack
-					// loop that exhausted the seq counter and the
-					// retransmit ring on world entry, crashing the
-					// client mid-init. Disabled until the precise
-					// trigger is identified from a retail pcap. See
-					// reliable_ack_08_decoded.md.
-				}
+				// DO NOT ack the client's reliable (0x03) sub-packets.
+				//
+				// Retail ground truth (RETAIL_PLAZA_CROSSZONE,
+				// 2026-05-16 byte-diff vs a localhost Ceres-J
+				// capture): the server emits S→C 0x01 ZERO times
+				// across an entire session. NC2's reliable model is
+				// fire-and-forget — the sender never waits for a
+				// positive per-packet ack. The ONLY recovery channel
+				// is receiver-driven: if a side detects a gap it
+				// sends a 0x01 RETRANSMIT-REQUEST for the missing
+				// seq and the peer resends it via 0x02. Retail:
+				// C→S 0x01 = 11, S→C 0x02 = 12, S→C 0x01 = 0,
+				// C→S 0x02 = 0.
+				//
+				// The old code here sent S→C 0x01[seq] for EVERY
+				// client reliable, believing it an "ack". The client
+				// reads S→C 0x01[seq] as "server is missing seq N,
+				// resend it" and dutifully retransmits that
+				// sub-packet via 0x02. For Zoning1 this meant the
+				// client retransmitted Zoning1 forever (C→S 0x02,
+				// which retail never does) and never advanced to
+				// Zoning2 — the plaza_p1 → plaza_p3 hang. The
+				// earlier "client aborts in 15 s without acks"
+				// diagnosis (task #136) was a misread; the abort had
+				// a different cause. Removing the spurious ack
+				// matches retail exactly.
 				server.interfaces.GameServerEvent ev = decodesub13(subPacket);
 				if (ev != null) {
 					pl.addEvent(ev);
