@@ -94,6 +94,33 @@ public final class ZoneBoundaries {
      *  low side). */
     public static final int IN_HI  = 0xb000 - 32000;            // +13056
 
+    /** TinNS outdoor worldmap grid bounds: worldId =
+     *  {@code mOutdoorBaseWorldId(2001) + mOutdoorWorldIdVIncrement(20)*V + H},
+     *  grid 16(H)×11(V) → ids 2001..2216 inclusive
+     *  (2001 + 20*(11-1) + (16-1)). */
+    public static final int OUTDOOR_WORLDID_MIN = 2001;
+    public static final int OUTDOOR_WORLDID_MAX =
+            2001 + 20 * (11 - 1) + (16 - 1);   // 2216
+
+    /**
+     * True iff {@code worldId} is a WASTELAND OUTDOOR terrain zone
+     * (the TinNS coordinate-limit grid, ids 2001..2216). The
+     * sector-seam mirror ({@link #mirrorEntryPosition}) is
+     * authoritative and validated ONLY for these.
+     *
+     * <p>Every INDEXED city/sector zone — plaza, pepper, industry,
+     * outzone p-sectors, AND Military Base, Techhaven, DoY,
+     * Twilight Guardian/Cliff, etc. — has a worldId &lt; 2001 and
+     * is therefore excluded: those use a different, still-unknown
+     * entry mechanism and applying the mirror there mis-placed the
+     * player (regressed live testing), so it stays off for them
+     * (their spawn follows the unchanged default path).
+     */
+    public static boolean isWastelandOutdoor(int worldId) {
+        return worldId >= OUTDOOR_WORLDID_MIN
+            && worldId <= OUTDOOR_WORLDID_MAX;
+    }
+
     /**
      * Compute the player's entry position in the destination sector
      * for an edge-walk crossing, mirroring across the shared seam

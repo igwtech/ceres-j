@@ -99,4 +99,25 @@ public class ZoneBoundariesTest {
         assertEquals(ZoneBoundaries.IN_HI, e[1]);
         assertEquals(321, e[2]);
     }
+
+    @Test
+    public void wastelandScopeIsOutdoorGridOnly() {
+        // TinNS outdoor grid = worldId 2001..2216 inclusive.
+        assertTrue(ZoneBoundaries.isWastelandOutdoor(2001));
+        assertTrue(ZoneBoundaries.isWastelandOutdoor(2007));  // a_07
+        assertTrue(ZoneBoundaries.isWastelandOutdoor(2027));  // b_07
+        assertTrue(ZoneBoundaries.isWastelandOutdoor(2216));  // grid max
+        // ALL indexed city/sector zones (< 2001) are excluded —
+        // plaza/pepper/industry/outzone + Military Base, Techhaven,
+        // DoY, Twilight Guardian/Cliff. The mirror must NOT touch
+        // them.
+        for (int cityId : new int[]{1, 2, 5, 6, 7, 8, 11, 23,
+                101, 102, 801, 1000, 2000}) {
+            assertFalse("city zone " + cityId
+                    + " must not be wasteland",
+                    ZoneBoundaries.isWastelandOutdoor(cityId));
+        }
+        assertFalse(ZoneBoundaries.isWastelandOutdoor(2217)); // past max
+        assertFalse(ZoneBoundaries.isWastelandOutdoor(0));
+    }
 }

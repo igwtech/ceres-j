@@ -180,20 +180,22 @@ public class Zoning1 extends GamePacketDecoderUDP {
                 pc.setMisc(server.database.playerCharacters
                         .PlayerCharacter.MISC_LOCATION, pending);
 
-                // Sector-seam entry point — DATA-GATHERING ONLY.
-                // The TinNS GetVhcZoningDestination math
-                // (ZoneBoundaries) was derived from NC1 0x4700/
-                // 0xb300 limits, but live instrumentation
-                // (2026-05-16) shows Ceres sector coords span
-                // ≈ MISC ±32000 (e.g. pepper posX const 31898,
-                // posY −31648..+32096), so those constants flip
-                // the WRONG axis and mis-place the player
-                // (plaza_p3→pepper_p1 got stuck). Until the real
-                // per-zone bounds are derived empirically from this
-                // log we do NOT apply the remap — coords are left
-                // as-is (the prior stable behavior). We still
-                // COMPUTE + LOG what the mirror would do so multiple
-                // crossings give us ground truth to fit the bounds.
+                // Sector-seam entry point — APPLIED for WASTELAND
+                // OUTDOOR zones only (destination worldId >= 2001,
+                // the TinNS GetVhcZoningDestination grid). Live
+                // long-route data (2026-05-16, plaza→pepper→
+                // industry→outzone→terrain a_07/b_07/c_07) confirms:
+                // outdoor terrain (>=2001) is crossed BEYOND the
+                // ±OUT limit (posY -30835/-24591…) so the TinNS
+                // mirror snaps the crossed axis to the opposite
+                // IN-limit correctly; indexed CITY zones (<2001:
+                // plaza/pepper/industry/outzone p-sectors) are
+                // crossed WITHIN ±bounds and use a different,
+                // still-unknown mechanism — applying the mirror
+                // there mis-places the player (regressed before),
+                // so it is gated off for them. The worldId>=2001
+                // split is the TinNS-documented outdoor scope
+                // (mOutdoorBaseWorldId), now empirically validated.
                 int cx = pc.getMisc(server.database.playerCharacters
                         .PlayerCharacter.MISC_X_COORDINATE);
                 int cy = pc.getMisc(server.database.playerCharacters
@@ -202,8 +204,16 @@ public class Zoning1 extends GamePacketDecoderUDP {
                         .PlayerCharacter.MISC_Z_COORDINATE);
                 int[] entry = server.gameserver.ZoneBoundaries
                         .mirrorEntryPosition(cx, cy, cz);
-                // NOTE: intentionally NOT calling setMisc on the
-                // coords — see comment above.
+                if (entry != null
+                        && server.gameserver.ZoneBoundaries
+                            .isWastelandOutdoor(pending)) {
+                    pc.setMisc(server.database.playerCharacters
+                        .PlayerCharacter.MISC_X_COORDINATE, entry[0]);
+                    pc.setMisc(server.database.playerCharacters
+                        .PlayerCharacter.MISC_Y_COORDINATE, entry[1]);
+                    pc.setMisc(server.database.playerCharacters
+                        .PlayerCharacter.MISC_Z_COORDINATE, entry[2]);
+                }
 
                 pl.updateZone();
                 pl.setPendingZoneId(0);
