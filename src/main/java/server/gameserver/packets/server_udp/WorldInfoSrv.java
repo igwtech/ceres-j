@@ -94,7 +94,7 @@ public class WorldInfoSrv extends PacketBuilderUDP1303 {
         // passes it to WinSock's connect() via FUN_004cf960. Ceres-J
         // runs on the same host as the TCP gameserver, so Player's
         // reported server IP is the right value.
-        int ipAsInt = serverIpToInt(pl.getServerIP());
+        int ipAsInt = serverIpToInt(safeServerIp(pl));
         writeInt(ipAsInt);
 
         // Worldserver UDP port. The client reads it as int32; only the
@@ -122,6 +122,23 @@ public class WorldInfoSrv extends PacketBuilderUDP1303 {
 
         // Trailing zero / padding to push length above 19.
         write(0x00);
+    }
+
+    /**
+     * The player's server IP, or {@code "127.0.0.1"} if the TCP
+     * connection isn't attached yet. {@link Player#getServerIP()}
+     * dereferences the TCP connection directly and NPEs when it is
+     * null; this packet may legitimately be built slightly before
+     * the connection is wired (and the loopback default is correct
+     * for a same-host deployment anyway).
+     */
+    private static String safeServerIp(Player pl) {
+        try {
+            String ip = pl.getServerIP();
+            return (ip == null || ip.isEmpty()) ? "127.0.0.1" : ip;
+        } catch (RuntimeException e) {
+            return "127.0.0.1";
+        }
     }
 
     /**

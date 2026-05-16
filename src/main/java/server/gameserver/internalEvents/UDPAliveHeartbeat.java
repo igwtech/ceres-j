@@ -34,15 +34,48 @@ public class UDPAliveHeartbeat extends DummyEvent {
      */
     public static final long INTERVAL_MS = 3000;
 
+    /**
+     * Max post-handshake UDPAlives to emit, then STOP rescheduling.
+     *
+     * <p>The modern client treats every {@code 0x04} UDPAlive as
+     * "new UDP session → reset reliable-receive window to seq 1"
+     * (decoded 2026-05-16, memory {@code zone_cross_2phase_handshake}
+     * UPDATE #5). A perpetual 3 s heartbeat therefore makes the
+     * client re-request its <em>entire</em> reliable backlog from
+     * seq 1 every 3 s; the server replays it (no rate limit) while
+     * heartbeats keep growing the backlog → an unbounded retransmit
+     * storm (pcap 2026-05-16: 45 k C→S retransmit-requests / 263
+     * pkt·s⁻¹ → client FPS collapse, "can't move", slow logoff).
+     *
+     * <p>Retail sends ZERO periodic S→C UDPAlive during steady-state
+     * play (verified: 0 in the 205 s PLAZA_TO_PEPPER and 414 s
+     * PLAZA_CROSSZONE captures) — only the handshake-reply burst
+     * plus a handful early. Bounding the heartbeat to a few ticks
+     * then stopping matches retail and kills the storm. A
+     * cross-reconnect starts a fresh WorldEntryEvent → a fresh
+     * bounded heartbeat, so the early-session keepalive the client
+     * expects after each (re)connect is preserved.
+     */
+    public static final int MAX_TICKS = 4;
+
+    private final int tick;
+
     public UDPAliveHeartbeat() {
         // First tick fires INTERVAL_MS after construction so it
         // doesn't collide with the handshake-reply burst (which
         // emits 4 UDPAlives via HandshakeUDPAnswer + Answer2).
         this.eventTime = Timer.getRealtime() + INTERVAL_MS;
+        this.tick = 1;
     }
 
     public UDPAliveHeartbeat(long firstTickAt) {
         this.eventTime = firstTickAt;
+        this.tick = 1;
+    }
+
+    private UDPAliveHeartbeat(long firstTickAt, int tick) {
+        this.eventTime = firstTickAt;
+        this.tick = tick;
     }
 
     @Override
@@ -75,7 +108,14 @@ public class UDPAliveHeartbeat extends DummyEvent {
             // client's UDP-keepalive expectation).
         }
 
-        pl.addEvent(new UDPAliveHeartbeat(
-                Timer.getRealtime() + INTERVAL_MS));
+        // Bounded: emit only the first MAX_TICKS post-handshake
+        // UDPAlives (retail sends ~0 periodic ones in steady state),
+        // then let the heartbeat die. A perpetual heartbeat makes
+        // the client reset its reliable-receive window every tick →
+        // unbounded retransmit storm. See MAX_TICKS javadoc.
+        if (tick < MAX_TICKS) {
+            pl.addEvent(new UDPAliveHeartbeat(
+                    Timer.getRealtime() + INTERVAL_MS, tick + 1));
+        }
     }
 }

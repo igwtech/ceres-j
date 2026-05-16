@@ -54,18 +54,48 @@ public class PacketBuilderUDP1303 extends PacketBuilderUDP13 {
 	@Override
 	public DatagramPacket[] getDatagramPackets() {
 		DatagramPacket[] dps = super.getDatagramPackets();
-		// Extract sub-packet body for ring storage:
-		//   wire layout: [0x13][counter LE2][counter+sk LE2][size LE2]
-		//                [0x03][seq LE2][body...]
-		// = 10-byte prefix; body starts at offset 10.
+		// Record EVERY reliable sub-packet (seq -> inner body) into
+		// the per-session ring, not just the first one.
+		//
+		// Finalized wire layout:
+		//   [0x13][ctr LE2][ctr+sk LE2]
+		//   ( [subLen LE2][sub bytes(subLen)] )+
+		// where each reliable sub = [0x03][seq LE2][body...].
+		//
+		// newSubPacket() calls incandgetSessionCounter() for EACH
+		// sub-packet, so a 3-sub burst consumes seqs N, N+1, N+2 —
+		// but the old code recorded only `recordedSeq` (=N) and
+		// stored the whole concatenated datagram tail as its body.
+		// Result: seqs N+1, N+2 were phantom seqs the client saw on
+		// the wire but the ring could never retransmit, so a C->S
+		// 0x01 retransmit-request for them was answered with
+		// nothing — the client NAK-flooded forever and the
+		// "Synchronizing" overlay never cleared (the reliable
+		// livelock that blocked the plaza_p1 -> plaza_p3 cross:
+		// post-cross init burst = one multi-sub 1303 carrying
+		// charinfo + worldinfo + the dest-zone NPC roster).
 		if (dps != null && dps.length > 0) {
 			byte[] full = dps[0].getData();
 			int len = dps[0].getLength();
-			if (len >= 10) {
-				byte[] body = new byte[len - 10];
-				System.arraycopy(full, 10, body, 0, body.length);
-				pl.getUdpConnection().reliableRing()
-						.record(recordedSeq, body);
+			int i = 5; // past [0x13][ctr LE2][ctr+sk LE2]
+			while (i + 2 <= len) {
+				int subLen = (full[i] & 0xFF)
+						| ((full[i + 1] & 0xFF) << 8);
+				i += 2;
+				if (subLen <= 0 || i + subLen > len) {
+					break;
+				}
+				// Reliable sub-packet: [0x03][seq LE2][body...].
+				if (subLen >= 3 && (full[i] & 0xFF) == 0x03) {
+					int seq = (full[i + 1] & 0xFF)
+							| ((full[i + 2] & 0xFF) << 8);
+					byte[] body = new byte[subLen - 3];
+					System.arraycopy(full, i + 3, body, 0,
+							body.length);
+					pl.getUdpConnection().reliableRing()
+							.record(seq, body);
+				}
+				i += subLen;
 			}
 		}
 		return dps;

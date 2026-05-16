@@ -127,6 +127,51 @@ public class Zoning1Test {
     }
 
     @Test
+    public void sZoning1ConfirmCommitsTheZoneSwitch() throws Exception {
+        // Regression (2026-05-16): the modern client never sends a
+        // UDP Zoning2 — after the confirm + WorldInfoSrv handoff it
+        // reconnects to the destination worldserver. The commit
+        // therefore lives in SZoning1ConfirmEvent, not Zoning2.
+        // Without it the reconnected session re-read the source
+        // MISC_LOCATION and the player loaded the destination BSP
+        // while the server simulated the source zone → "can't move".
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        pl.setTcpConnection(new CapturingTCPConnection());
+        server.testtools.CapturingUDPConnection udp =
+                new server.testtools.CapturingUDPConnection(
+                        java.net.InetAddress.getByName("127.0.0.1"),
+                        5000, pl);
+        pl.setUdpConnection(udp);
+
+        int sourceZone = pl.getCharacter().getMisc(
+                PlayerCharacter.MISC_LOCATION);
+        int target = 0x65; // plaza_p3 in the live capture
+        assertNotEquals(sourceZone, target);
+
+        new Zoning1(buildBody(target, 1)).execute(pl);
+        // Zoning1 alone must NOT have committed.
+        assertEquals(sourceZone, pl.getCharacter().getMisc(
+                PlayerCharacter.MISC_LOCATION));
+        assertEquals(target, pl.getPendingZoneId());
+
+        // Drive the deferred confirm event.
+        java.lang.reflect.Field f =
+                Player.class.getDeclaredField("eventList");
+        f.setAccessible(true);
+        server.tools.PriorityList q =
+                (server.tools.PriorityList) f.get(pl);
+        ((server.interfaces.GameServerEvent) q.getFirst())
+                .execute(pl);
+
+        assertEquals("confirm must commit MISC_LOCATION to target",
+                target, pl.getCharacter().getMisc(
+                        PlayerCharacter.MISC_LOCATION));
+        assertEquals("pending must be cleared after commit",
+                0, pl.getPendingZoneId());
+    }
+
+    @Test
     public void noTcpConnectionDoesNotThrow() {
         // Zoning1 no longer touches the TCP connection at all, but
         // keep the guard test: a fixture with no socket must not

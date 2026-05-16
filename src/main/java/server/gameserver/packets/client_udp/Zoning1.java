@@ -68,16 +68,15 @@ public class Zoning1 extends GamePacketDecoderUDP {
             + " resolved bsp='" + (resolvedZone == null ? "<null>"
                 : resolvedZone.getWorldname()) + "'");
 
-        // Record the destination but do NOT commit the zone switch
-        // yet. Committing here (setMisc(MISC_LOCATION)+updateZone())
-        // moves the player into the destination Zone server-side
-        // immediately, so the heartbeats (ZoneStateHeartbeat etc.)
-        // start streaming plaza_p3 NPC/state to a client that is
-        // still in plaza_p1 and hasn't loaded the new BSP. That
-        // wedges the client's zone-cross state machine — it never
-        // emits Zoning2 and retransmits Zoning1 forever. Retail
-        // keeps serving the source zone until Zoning2. The commit
-        // happens in the Zoning2 handler, which reads this field.
+        // Record the destination; the actual commit happens in
+        // SZoning1ConfirmEvent (~450 ms later, right after the
+        // confirm is sent and just before the client reconnects to
+        // the destination worldserver). Committing in this handler
+        // would move the player server-side before the confirm,
+        // streaming destination NPC/state to a client that hasn't
+        // loaded the new BSP. See SZoning1ConfirmEvent javadoc for
+        // why the commit is no longer in Zoning2 (the client never
+        // sends a UDP Zoning2 — it reconnects instead).
         pl.setPendingZoneId(newLocation);
 
         // Send the SZoning1 confirmation — the server's "request
@@ -113,8 +112,30 @@ public class Zoning1 extends GamePacketDecoderUDP {
 
     /**
      * Fires the SZoning1 confirm ~450 ms after Zoning1, matching
-     * the retail Zoning1→confirm gap. The client emits Zoning2
-     * ~35 ms after receiving it.
+     * the retail Zoning1→confirm gap, THEN commits the zone switch.
+     *
+     * <p><strong>Why the commit moved here from {@link Zoning2}.</strong>
+     * Live pcap + server-log evidence (2026-05-16): the modern
+     * client does <em>not</em> send a UDP {@code 0x22/0x03}
+     * Zoning2. After it receives this confirm and the worldserver
+     * handoff ({@code WorldInfoSrv} 0x19/0x04) it tears down the
+     * session and <em>reconnects</em> (new TCP login + new UDP
+     * socket) to the destination worldserver. {@code Zoning2}
+     * never executes, so the commit that lived there never ran:
+     * the reconnected session re-read the character's
+     * {@code MISC_LOCATION} (still the source zone) and streamed
+     * the wrong zone's world-state, leaving the client loaded into
+     * the destination BSP while the server simulated the source —
+     * the player could not move ("frozen until logout").
+     *
+     * <p>{@code PlayerCharacterManager.getCharacter()} returns the
+     * cached in-memory {@code PlayerCharacter}, shared across the
+     * reconnect, so persisting {@code MISC_LOCATION} here (before
+     * the client reconnects) makes the reconnected
+     * {@code WorldEntryEvent} resolve the destination zone. The
+     * old-session {@code updateZone()} is safe now that the
+     * reliable layer is healthy (the old socket is abandoned a
+     * moment later anyway).
      */
     static class SZoning1ConfirmEvent
             extends server.gameserver.internalEvents.DummyEvent {
@@ -136,6 +157,27 @@ public class Zoning1 extends GamePacketDecoderUDP {
             }
             pl.send(new server.gameserver.packets.server_udp
                     .SZoning1(szoningId, pl, destZone));
+
+            // Commit the zone switch the client only recorded as
+            // pending in Zoning1. Must happen before the client
+            // reconnects to the destination worldserver (it does
+            // so right after this confirm — there is no Zoning2),
+            // so the reconnected session's WorldEntry resolves the
+            // destination zone from the shared in-memory
+            // PlayerCharacter.
+            int pending = pl.getPendingZoneId();
+            if (pending != 0 && pl.getCharacter() != null) {
+                pl.getCharacter().setMisc(
+                    server.database.playerCharacters
+                        .PlayerCharacter.MISC_LOCATION, pending);
+                pl.updateZone();
+                pl.setPendingZoneId(0);
+                Out.writeln(Out.Info,
+                    "SZoning1Confirm: committed zone switch to "
+                    + pending + " for "
+                    + (pl.getCharacter() == null ? "?"
+                            : pl.getCharacter().getName()));
+            }
         }
     }
 }

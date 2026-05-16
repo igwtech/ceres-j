@@ -16,11 +16,13 @@ import server.tools.PriorityList;
  * Functional test for {@link UDPAliveHeartbeat} — the ~3 s
  * S→C UDPAlive keepalive (task #158).
  *
- * <p>Retail emits 8 UDPAlives per HANNIBAL session:
- * 4 in the handshake-reply burst + 4 periodic at ~3 s spacing.
- * Without the periodic ones the client's UDP-keepalive
- * expectation drifts. This event mirrors the
- * {@link TimeSyncHeartbeatEvent} self-rescheduling pattern.
+ * <p>Retail emits a small bounded number of post-handshake
+ * UDPAlives then stops (it sends ~0 periodic S→C UDPAlive in
+ * steady-state play). The modern client resets its
+ * reliable-receive window to seq 1 on every UDPAlive, so a
+ * perpetual heartbeat causes an unbounded retransmit storm — the
+ * heartbeat is therefore bounded to {@link
+ * UDPAliveHeartbeat#MAX_TICKS} ticks then dies.
  */
 public class UDPAliveHeartbeatTest {
 
@@ -42,6 +44,44 @@ public class UDPAliveHeartbeatTest {
         assertEquals("rescheduled event must be UDPAliveHeartbeat",
                 "UDPAliveHeartbeat",
                 next.getClass().getSimpleName());
+    }
+
+    @Test
+    public void heartbeatStopsAfterMaxTicks() throws Exception {
+        // Regression (2026-05-16): a perpetual UDPAlive heartbeat
+        // makes the client reset its reliable-receive window every
+        // 3 s → unbounded retransmit storm (45k reqs, FPS collapse,
+        // "can't move" post zone-cross). The heartbeat must emit
+        // exactly MAX_TICKS UDPAlives then stop rescheduling.
+        Player pl = PacketTestFixture.newPlayer();
+        pl.setloggedin();
+        java.net.InetAddress addr =
+                java.net.InetAddress.getByName("127.0.0.1");
+        server.testtools.CapturingUDPConnection cap =
+                new server.testtools.CapturingUDPConnection(
+                        addr, 5000, pl);
+        pl.setUdpConnection(cap);
+
+        Field elf = Player.class.getDeclaredField("eventList");
+        elf.setAccessible(true);
+        PriorityList queue = (PriorityList) elf.get(pl);
+
+        // Drive the chain: keep executing the rescheduled instance
+        // until it stops enqueuing a successor.
+        GameServerEvent ev = new UDPAliveHeartbeat();
+        int guard = 0;
+        while (ev != null && guard++ < 50) {
+            ev.execute(pl);
+            ev = queue.isEmpty()
+                    ? null
+                    : (GameServerEvent) queue.removeFirst();
+        }
+
+        assertEquals("must emit exactly MAX_TICKS UDPAlives "
+                + "then stop",
+                UDPAliveHeartbeat.MAX_TICKS, cap.received().size());
+        assertTrue("queue must be empty after the bounded chain ends",
+                queue.isEmpty());
     }
 
     @Test

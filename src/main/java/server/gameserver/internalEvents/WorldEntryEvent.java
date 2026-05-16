@@ -102,6 +102,22 @@ public class WorldEntryEvent extends DummyEvent {
         safeSend(pl, () -> new InitUpdateModel02(pl), "0x02 UpdateModel (appearance)");
         safeSend(pl, () -> new InitSoullight02(pl), "0x02 Soullight (soul energy=100.0)");
 
+        // ── Worldserver handoff staging (gamedata 0x19/0x04) ────────
+        // Populates the client's worldserver IP/port. On this initial
+        // entry the client is NOT yet in world-change mode (+0x144==0),
+        // so its 0x19/0x04 handler stages the address into +0x28c… for
+        // the NEXT world-change (a zone cross) to copy into +0x2cc/
+        // +0x2d0 — the fields the "Joining session" connect() uses.
+        // Without this the client reaches Joining-session on a
+        // plaza_p1→plaza_p3 / p2 cross with uninitialised worldserver
+        // fields, logs "@PWORLDHOST Connect to <garbage>, 12000" /
+        // "Connecting to WorldServer failed", times out ~15 s and
+        // reverts to the source zone. WorldInfoSrv was fully
+        // implemented + documented but never wired anywhere — this is
+        // the missing send. See WorldInfoSrv javadoc + task #172.
+        safeSend(pl, () -> new server.gameserver.packets.server_udp
+                .WorldInfoSrv(pl), "WorldInfoSrv (0x19/0x04 handoff)");
+
         // ── Phase 3: InfoResponse + TimeSync (retail pkt #11) ────────
         // InfoResponse zone variant (0x03→0x23): 20 00 10 00 00 00
         // Observed in retail right after CharInfo multipart completes.
