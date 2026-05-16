@@ -66,6 +66,12 @@ public class WorldEntryEvent extends DummyEvent {
         PlayerCharacter pc = pl.getCharacter();
         int mapId = pl.getMapID();
 
+        // A fresh world-entry (login or post-cross reconnect) is a
+        // clean slate: drop any half-finished zone-cross intent so a
+        // never-completed Zoning1 can't leave pendingZoneId stuck
+        // (which would permanently suppress the UDPAlive heartbeat).
+        pl.setPendingZoneId(0);
+
         Out.writeln(Out.Info, "WorldEntryEvent: streaming world state for "
                 + pc.getName() + " mapId=" + mapId);
 
