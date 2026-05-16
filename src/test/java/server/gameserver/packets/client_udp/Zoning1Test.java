@@ -69,15 +69,25 @@ public class Zoning1Test {
     }
 
     @Test
-    public void locationFieldIsUpdatedOnPlayerCharacter() {
+    public void targetZoneIsRecordedAsPendingNotCommitted() {
+        // Zoning1 must NOT commit the zone switch — it only records
+        // the destination as pending. MISC_LOCATION stays at the
+        // source zone until Zoning2 commits. Committing on Zoning1
+        // streams the destination zone's state to a client still in
+        // the source BSP and wedges the cross.
         Player pl = PacketTestFixture.newPlayer();
         CapturingTCPConnection cap = new CapturingTCPConnection();
         pl.setTcpConnection(cap);
 
+        int sourceZone = pl.getCharacter().getMisc(
+                PlayerCharacter.MISC_LOCATION);
+
         new Zoning1(buildBody(0x65, 1)).execute(pl);
 
-        assertEquals("MISC_LOCATION must be set to the target zone",
-                0x65, pl.getCharacter().getMisc(
+        assertEquals("pending zone must be the Zoning1 target",
+                0x65, pl.getPendingZoneId());
+        assertEquals("MISC_LOCATION must NOT change on Zoning1",
+                sourceZone, pl.getCharacter().getMisc(
                         PlayerCharacter.MISC_LOCATION));
     }
 

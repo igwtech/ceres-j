@@ -1,7 +1,6 @@
 package server.gameserver.packets.client_udp;
 
 import server.database.playerCharacters.PlayerCharacter;
-import server.database.playerCharacters.inventory.PlayerInventory;
 import server.gameserver.Player;
 import server.gameserver.packets.GamePacketDecoderUDP;
 import server.tools.Out;
@@ -69,16 +68,17 @@ public class Zoning1 extends GamePacketDecoderUDP {
             + " resolved bsp='" + (resolvedZone == null ? "<null>"
                 : resolvedZone.getWorldname()) + "'");
 
-        // Server-side bookkeeping only. The destination BSP path is
-        // delivered in response to Zoning2 (see class javadoc).
-        pl.getCharacter().setMisc(PlayerCharacter.MISC_LOCATION,
-                newLocation);
-        // Do NOT zero X/Y/Z here — keep prior-zone coords until the
-        // next Movement overwrites them. Zeroing broke the reconnect
-        // spawn (see git history: revert 396829d).
-        pl.updateZone();
-        ((PlayerInventory) pl.getCharacter().getContainer(
-                PlayerCharacter.PLAYERCONTAINER_F2)).doSort();
+        // Record the destination but do NOT commit the zone switch
+        // yet. Committing here (setMisc(MISC_LOCATION)+updateZone())
+        // moves the player into the destination Zone server-side
+        // immediately, so the heartbeats (ZoneStateHeartbeat etc.)
+        // start streaming plaza_p3 NPC/state to a client that is
+        // still in plaza_p1 and hasn't loaded the new BSP. That
+        // wedges the client's zone-cross state machine — it never
+        // emits Zoning2 and retransmits Zoning1 forever. Retail
+        // keeps serving the source zone until Zoning2. The commit
+        // happens in the Zoning2 handler, which reads this field.
+        pl.setPendingZoneId(newLocation);
 
         // No packet emission. Retail sends nothing in reply to
         // Zoning1; the client drives itself to Zoning2 after it has

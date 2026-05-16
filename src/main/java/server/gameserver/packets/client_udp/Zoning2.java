@@ -44,9 +44,31 @@ public class Zoning2 extends GamePacketDecoderUDP {
 
     @Override
     public void execute(Player pl) {
+        // Commit the zone switch that Zoning1 only recorded as
+        // pending. Doing it here (not in Zoning1) keeps the server
+        // serving the source zone until the client is actually
+        // ready to load the destination — see Zoning1 javadoc.
+        int pending = pl.getPendingZoneId();
+        if (pending != 0) {
+            pl.getCharacter().setMisc(
+                server.database.playerCharacters.PlayerCharacter
+                    .MISC_LOCATION, pending);
+            pl.updateZone();
+            ((server.database.playerCharacters.inventory.PlayerInventory)
+                pl.getCharacter().getContainer(
+                    server.database.playerCharacters.PlayerCharacter
+                        .PLAYERCONTAINER_F2)).doSort();
+            pl.setPendingZoneId(0);
+            Out.writeln(Out.Info,
+                "Zoning2: committed zone switch to "
+                + pending + " for "
+                + (pl.getCharacter() == null ? "?"
+                        : pl.getCharacter().getName()));
+        }
+
         // TCP zone-swap pair: GameinfoReady then Location (carries
-        // the destination BSP path resolved from MISC_LOCATION,
-        // which Zoning1 already set).
+        // the destination BSP path resolved from the now-committed
+        // MISC_LOCATION).
         if (pl.getTcpConnection() != null) {
             pl.send(new Packet830D());
             pl.send(new Location(pl));

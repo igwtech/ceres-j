@@ -30,6 +30,23 @@ public class Player extends Thread {
 	private int MapID;
 	private boolean isloggedin;
 	private short Transactionid;
+	/** Destination zone_id captured from a Zoning1 (0x03/0x22/0x0d)
+	 *  notification but NOT yet committed. The actual server-side
+	 *  zone switch (MISC_LOCATION + updateZone()) is deferred to the
+	 *  Zoning2 (0x03/0x22/0x03) handler, matching retail: Zoning1 is
+	 *  a heads-up only; switching the zone server-side on Zoning1
+	 *  starts streaming the destination zone's NPC/state to a client
+	 *  still in the source BSP, which wedges the client's zone-cross
+	 *  state machine (it never emits Zoning2). 0 = none pending. */
+	private int pendingZoneId;
+
+	public int getPendingZoneId() {
+		return pendingZoneId;
+	}
+
+	public void setPendingZoneId(int zoneId) {
+		this.pendingZoneId = zoneId;
+	}
 	// Zone-handoff state: after the server finishes streaming the world-entry
 	// burst, the NC2 client closes its login UDP socket and opens a fresh
 	// socket from a new ephemeral port to the zone server. Source IP stays

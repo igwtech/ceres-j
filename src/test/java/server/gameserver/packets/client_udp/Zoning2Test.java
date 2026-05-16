@@ -117,6 +117,46 @@ public class Zoning2Test {
     }
 
     @Test
+    public void commitsPendingZoneFromZoning1() {
+        // Zoning1 records the destination as pending; Zoning2 is
+        // where it gets committed (MISC_LOCATION updated, pending
+        // cleared).
+        Player pl = PacketTestFixture.newPlayer();
+        CapturingTCPConnection cap = new CapturingTCPConnection();
+        pl.setTcpConnection(cap);
+        pl.setPendingZoneId(0x65);
+
+        new Zoning2(body()).execute(pl);
+
+        assertEquals("MISC_LOCATION must be committed to the "
+                + "pending zone", 0x65,
+                pl.getCharacter().getMisc(
+                    server.database.playerCharacters
+                        .PlayerCharacter.MISC_LOCATION));
+        assertEquals("pending zone must be cleared after commit",
+                0, pl.getPendingZoneId());
+    }
+
+    @Test
+    public void noPendingZoneLeavesLocationUnchanged() {
+        // If there is no pending zone (e.g. a spurious Zoning2),
+        // Zoning2 must not corrupt MISC_LOCATION.
+        Player pl = PacketTestFixture.newPlayer();
+        CapturingTCPConnection cap = new CapturingTCPConnection();
+        pl.setTcpConnection(cap);
+        int before = pl.getCharacter().getMisc(
+            server.database.playerCharacters
+                .PlayerCharacter.MISC_LOCATION);
+
+        new Zoning2(body()).execute(pl);
+
+        assertEquals("MISC_LOCATION unchanged when no pending zone",
+                before, pl.getCharacter().getMisc(
+                    server.database.playerCharacters
+                        .PlayerCharacter.MISC_LOCATION));
+    }
+
+    @Test
     public void noTcpConnectionDoesNotThrow() {
         // Mid-flight TCP loss must not knock the server thread
         // over. Player.send(ServerTCPPacket) silently drops when
