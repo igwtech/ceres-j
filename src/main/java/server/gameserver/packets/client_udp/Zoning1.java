@@ -98,6 +98,6 @@ public class Zoning1 extends GamePacketDecoderUDP {
         // is clean. The zone switch itself still commits in
         // Zoning2 (Location + UDPAlive + UDP-session reset).
         pl.send(new server.gameserver.packets.server_udp
-                .SZoning1(szoningId, pl));
+                .SZoning1(szoningId, pl, resolvedZone));
     }
 }
