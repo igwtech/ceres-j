@@ -62,11 +62,19 @@ public class Zoning1 extends GamePacketDecoderUDP {
             pl.getCharacter().getMisc(PlayerCharacter.MISC_LOCATION);
         server.gameserver.Zone resolvedZone =
             server.gameserver.ZoneManager.getZone(newLocation);
+        PlayerCharacter pcAtCross = pl.getCharacter();
         Out.writeln(Out.Info,
             "Zoning1: target zone_id=" + newLocation
             + " (from=" + oldLocation + ")"
             + " resolved bsp='" + (resolvedZone == null ? "<null>"
-                : resolvedZone.getWorldname()) + "'");
+                : resolvedZone.getWorldname()) + "'"
+            // Instrumentation for the sector-seam entry-point RE:
+            // the player's coords at the moment of crossing tell us
+            // which edge was crossed and validate the TinNS mirror
+            // constants against live plaza data.
+            + " posX=" + pcAtCross.getMisc(PlayerCharacter.MISC_X_COORDINATE)
+            + " posY=" + pcAtCross.getMisc(PlayerCharacter.MISC_Y_COORDINATE)
+            + " posZ=" + pcAtCross.getMisc(PlayerCharacter.MISC_Z_COORDINATE));
 
         // Record the destination; the actual commit happens in
         // SZoning1ConfirmEvent (~450 ms later, right after the
@@ -167,16 +175,45 @@ public class Zoning1 extends GamePacketDecoderUDP {
             // PlayerCharacter.
             int pending = pl.getPendingZoneId();
             if (pending != 0 && pl.getCharacter() != null) {
-                pl.getCharacter().setMisc(
-                    server.database.playerCharacters
+                server.database.playerCharacters.PlayerCharacter pc =
+                        pl.getCharacter();
+                pc.setMisc(server.database.playerCharacters
                         .PlayerCharacter.MISC_LOCATION, pending);
+
+                // Sector-seam entry point — DATA-GATHERING ONLY.
+                // The TinNS GetVhcZoningDestination math
+                // (ZoneBoundaries) was derived from NC1 0x4700/
+                // 0xb300 limits, but live instrumentation
+                // (2026-05-16) shows Ceres sector coords span
+                // ≈ MISC ±32000 (e.g. pepper posX const 31898,
+                // posY −31648..+32096), so those constants flip
+                // the WRONG axis and mis-place the player
+                // (plaza_p3→pepper_p1 got stuck). Until the real
+                // per-zone bounds are derived empirically from this
+                // log we do NOT apply the remap — coords are left
+                // as-is (the prior stable behavior). We still
+                // COMPUTE + LOG what the mirror would do so multiple
+                // crossings give us ground truth to fit the bounds.
+                int cx = pc.getMisc(server.database.playerCharacters
+                        .PlayerCharacter.MISC_X_COORDINATE);
+                int cy = pc.getMisc(server.database.playerCharacters
+                        .PlayerCharacter.MISC_Y_COORDINATE);
+                int cz = pc.getMisc(server.database.playerCharacters
+                        .PlayerCharacter.MISC_Z_COORDINATE);
+                int[] entry = server.gameserver.ZoneBoundaries
+                        .mirrorEntryPosition(cx, cy, cz);
+                // NOTE: intentionally NOT calling setMisc on the
+                // coords — see comment above.
+
                 pl.updateZone();
                 pl.setPendingZoneId(0);
                 Out.writeln(Out.Info,
                     "SZoning1Confirm: committed zone switch to "
-                    + pending + " for "
-                    + (pl.getCharacter() == null ? "?"
-                            : pl.getCharacter().getName()));
+                    + pending + " for " + pc.getName()
+                    + " srcPos=" + cx + "," + cy + "," + cz
+                    + " mirrorWouldBe=" + (entry == null ? "(no-op)"
+                        : entry[0] + "," + entry[1] + "," + entry[2])
+                    + " [remap DISABLED — gathering bounds data]");
             }
         }
     }

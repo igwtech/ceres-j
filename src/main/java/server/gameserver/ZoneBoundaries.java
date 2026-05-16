@@ -50,5 +50,81 @@ public final class ZoneBoundaries {
         }
     }
 
+    // ── Sector-seam entry-point mirror ──────────────────────────
+    //
+    // Decoded from TinNS (NC1 emulator): PWorld::GetVhcZoning
+    // Destination + the static PWorld zone limits. Edge cross =
+    // crossed axis snaps to the opposite sector's IN-limit; other
+    // axis + Z + orientation preserved (mirror across the seam).
+    //
+    // ⚠ SCOPE (2026-05-16, zone_portal_params.md §6): these limits
+    // apply ONLY to OUTDOOR WASTELAND TERRAIN worlds (worldId
+    // >= 2001), NOT the indexed city sectors plaza/pepper p1..pN.
+    // The on-foot city-sector border code path was NOT located in
+    // TinNS (only the vehicle/outdoor one), so there are NO
+    // authoritative constants for plaza inter-sector crossing.
+    // DO NOT apply mirrorEntryPosition() to plaza/pepper p-sector
+    // crossings — that was a guess that regressed live testing
+    // (splash/stuck). The correct plaza inter-sector entry must be
+    // derived from the verbose client log (enabled 2026-05-16:
+    // "Old/New Position", "StartPos", "no worldchange entity
+    // found", "World Has No StartPos") on a real p1<->p3 cross,
+    // not from these terrain constants. Kept here only for the
+    // genuine outdoor-terrain (>=2001) case.
+    //
+    // Raw wire coords are uint16 0..0xFFFF; Ceres MISC_*_COORDINATE
+    // is wire-32000 (see Movement.java: readShort()-32000). Sector
+    // centre = wire 0x7D00 = 32000 → MISC 0, so a sector spans
+    // MISC ≈ [-13824, +13824].
+    //
+    //   wire 0x4800-0x100 = 0x4700 (OutLo)  → MISC -13824
+    //   wire 0x4a00       = 0x4a00 (InLo)   → MISC -13056
+    //   wire 0xb200+0x100 = 0xb300 (OutHi)  → MISC +13824
+    //   wire 0xb000       = 0xb000 (InHi)   → MISC +13056
+
+    /** MISC-space low OUT limit: crossing below this leaves the
+     *  sector on the low side of that axis. */
+    public static final int OUT_LO = (0x4800 - 0x100) - 32000; // -13824
+    /** MISC-space high OUT limit. */
+    public static final int OUT_HI = (0xb200 + 0x100) - 32000; // +13824
+    /** MISC-space low IN limit (appear here when entering from the
+     *  high side). */
+    public static final int IN_LO  = 0x4a00 - 32000;            // -13056
+    /** MISC-space high IN limit (appear here when entering from the
+     *  low side). */
+    public static final int IN_HI  = 0xb000 - 32000;            // +13056
+
+    /**
+     * Compute the player's entry position in the destination sector
+     * for an edge-walk crossing, mirroring across the shared seam
+     * exactly as TinNS's {@code GetVhcZoningDestination} does.
+     *
+     * <p>Only the single axis the player actually exceeded is
+     * remapped (to the opposite sector's IN-limit); the other
+     * horizontal axis and Z are preserved. Returns {@code null}
+     * when the player is NOT beyond an OUT-limit on exactly the
+     * X or Y axis — i.e. this was not an edge-walk (GenRep, subway,
+     * apartment, admin warp, or a coordinate scale we don't model):
+     * callers then leave the stored coordinates untouched.
+     *
+     * @param x source MISC X
+     * @param y source MISC Y
+     * @param z source MISC Z (preserved)
+     * @return {@code {newX,newY,newZ}} or {@code null} if not an
+     *         edge-walk
+     */
+    public static int[] mirrorEntryPosition(int x, int y, int z) {
+        int nx = x, ny = y;
+        boolean crossed = false;
+
+        if (x <= OUT_LO)      { nx = IN_HI; crossed = true; }
+        else if (x >= OUT_HI) { nx = IN_LO; crossed = true; }
+
+        if (y <= OUT_LO)      { ny = IN_HI; crossed = true; }
+        else if (y >= OUT_HI) { ny = IN_LO; crossed = true; }
+
+        return crossed ? new int[] { nx, ny, z } : null;
+    }
+
     private ZoneBoundaries() {} // static-only
 }

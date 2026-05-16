@@ -2,9 +2,11 @@ package server.gameserver.packets.client_udp;
 
 import server.database.playerCharacters.PlayerCharacter;
 import server.gameserver.Player;
+import server.gameserver.PortalResolver;
 import server.gameserver.packets.GamePacketDecoderUDP;
 import server.gameserver.packets.server_tcp.InteractionAck;
 import server.gameserver.packets.server_tcp.Packet838F;
+import server.gameserver.packets.server_udp.ChangeLocation;
 import server.gameserver.packets.server_udp.LocalChatMessage;
 import server.gameserver.packets.server_udp.OpenDoor;
 import server.tools.Out;
@@ -24,6 +26,59 @@ public class UseItem extends GamePacketDecoderUDP {
 		// vendor/trade window open, ...). Body invariant
 		// `83 8f 00 00 00 00`. See Packet838F javadoc.
 		pl.send(new Packet838F());
+
+		// ── Zone-transition portal (furniture / world-change actor) ──
+		// TinNS UdpUseObject.cxx: a static-actor rawItemID with the
+		// low 10 bits clear (rawItemID & 1023 == 0) is a .dat
+		// furniture object; its .dat object index is
+		// rawItemID/1024 - 1. If that object's worldmodel.def entry
+		// has a zone-change functionType (15/18/20/29), resolve the
+		// destination via appplaces.def and emit ChangeLocation.
+		// Doors (rawItemID & 1023 != 0, handled below via OpenDoor)
+		// are NEVER portals (doc §2a). Walking sector borders
+		// (plaza p1↔p2↔p3↔p4) are a separate coordinate-limit
+		// mechanism handled elsewhere — out of scope here.
+		if ((id & 1023) == 0) {
+			int objectId = id / 1024 - 1;
+			server.gameserver.Zone z = pl.getZone();
+			String worldname = (z == null) ? null : z.getWorldname();
+			String worldPath =
+				PortalResolver.worldnameToObjectPath(worldname);
+			PortalResolver.Portal portal =
+				PortalResolver.resolve(worldPath, objectId);
+			if (portal != null) {
+				Out.writeln(Out.Info,
+					"UseItem: zone-change actor objectId=" + objectId
+					+ " in '" + worldname + "' → " + portal);
+
+				// Commit the destination zone server-side. The
+				// client self-positions from the Entity index
+				// against the destination .dat — the server sends
+				// NO coordinates (doc §4). Mirror the existing
+				// zone-commit path (Zoning1.SZoning1ConfirmEvent):
+				// set MISC_LOCATION then updateZone().
+				PlayerCharacter pc = pl.getCharacter();
+				if (pc != null) {
+					pc.setMisc(PlayerCharacter.MISC_LOCATION,
+						portal.exitWorldId);
+					pl.updateZone();
+				}
+
+				// Emit ChangeLocation (0x03/0x1f/<localId>/0x38).
+				pl.send(new ChangeLocation(pl,
+					portal.exitWorldId,
+					portal.exitWorldEntity,
+					portal.entityTypeByte));
+
+				// Retail emits the transaction-ack PAIR after the
+				// state-change packet (same contract as the door
+				// path below). Without it the client's interaction
+				// lock-out never releases.
+				pl.send(new InteractionAck());
+				pl.send(new InteractionAck());
+				return;
+			}
+		}
 
 		String text = new String();
 		text += "UnknownItem ID: " + id + " at pos: y:" +

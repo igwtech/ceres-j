@@ -73,28 +73,26 @@ public class Movement extends GamePacketDecoderUDP {
 		}
 		pl.getZone().sendPlayerMovement(pl);
 
-		// Server-side zone-boundary detection. After each position update,
-		// check whether the player has crossed into a different zone's
-		// territory. If yes, switch their tracked zone and emit the retail-
-		// matched TCP transition (`0x83 0x0d` + `0x83 0x0c`) so the client
-		// loads the new BSP without the "Synchronizing" splash. See
-		// docs/zoning_protocol_2026-05-02.md + ZoneBoundaries.java.
-		int curZone = pc.getMisc(PlayerCharacter.MISC_LOCATION);
-		int newZone = ZoneBoundaries.resolveTransition(curZone,
-			pc.getMisc(PlayerCharacter.MISC_X_COORDINATE),
-			pc.getMisc(PlayerCharacter.MISC_Y_COORDINATE),
-			pc.getMisc(PlayerCharacter.MISC_Z_COORDINATE));
-		if (newZone != ZoneBoundaries.NO_TRANSITION && newZone != curZone) {
-			Out.writeln(Out.Info, "ZoneBoundary: " + pc.getName()
-				+ " crossed zone " + curZone + " -> " + newZone
-				+ " at x=" + pc.getMisc(PlayerCharacter.MISC_X_COORDINATE)
-				+ " y=" + pc.getMisc(PlayerCharacter.MISC_Y_COORDINATE)
-				+ " z=" + pc.getMisc(PlayerCharacter.MISC_Z_COORDINATE));
-			pc.setMisc(PlayerCharacter.MISC_LOCATION, newZone);
-			pl.updateZone();
-			pl.getTcpConnection().send(new Packet830D());
-			pl.getTcpConnection().send(new Location(pl));
-		}
+		// REMOVED 2026-05-16: legacy server-side zone-boundary
+		// detector. It called ZoneBoundaries.resolveTransition()
+		// (hardcoded pepper p1/p2/p3 Y thresholds) on EVERY movement
+		// packet and pushed TCP Packet830D + Location whenever the
+		// player crossed one. Wire evidence (/tmp/ceres_p1p3.pcap
+		// TCP:12000) showed this firing dozens of times/sec as the
+		// player walked in pepper — a Location flood alternating
+		// pepper_p3/p2/p1 that made the client's WorldClient log
+		// "Connecting to worldserver failed" ×3 → AbortSession →
+		// permanent "Synchronizing" stuck.
+		//
+		// The authoritative model (decoded this session) is
+		// CLIENT-DRIVEN: the client detects the boundary from its
+		// own BSP and sends Zoning1 (0x03/0x22/0x0d); the server
+		// reacts ONLY to Zoning1 (SZoning1ConfirmEvent), never by
+		// re-deriving transitions from raw movement against a
+		// hardcoded 3-zone table. This stale dual path actively
+		// broke the cross — removed. ZoneBoundaries.java is kept
+		// (its mirror math is still referenced/tested) but is no
+		// longer invoked from the movement hot path.
 
 		// Previously attempted: echo a reliable 0x03->0x1b PlayerPositionUpdate
 		// back to the moving player every 500 ms. That REGRESSED movement

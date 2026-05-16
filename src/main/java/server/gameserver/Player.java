@@ -47,6 +47,7 @@ public class Player extends Thread {
 	public void setPendingZoneId(int zoneId) {
 		this.pendingZoneId = zoneId;
 	}
+
 	// Zone-handoff state: after the server finishes streaming the world-entry
 	// burst, the NC2 client closes its login UDP socket and opens a fresh
 	// socket from a new ephemeral port to the zone server. Source IP stays

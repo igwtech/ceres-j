@@ -133,8 +133,16 @@ public class WorldEntryEvent extends DummyEvent {
         // InfoResponse session variant (0x03→0x23): 0e 00 ... 01 00
         safeSend(pl, () -> InfoResponse.sessionInfo(pl), "InfoResponse (session info)");
 
-        // Player position / zone entry data.
-        safeSend(pl, () -> new PositionUpdate(pl), "PositionUpdate (start pos)");
+        // Player position / zone entry data. The client REQUIRES an
+        // authoritative StartPos to complete world entry — skipping
+        // it on a cross-reconnect (experiment 2026-05-16) left the
+        // client stuck on the splash forever, so it is always sent.
+        // (The stale-source-coords spawn imprecision is a separate,
+        // still-open problem — see task #172 / the retail seam-map
+        // approach — but a wrong-but-present StartPos still lets the
+        // cross complete, whereas a missing one does not.)
+        safeSend(pl, () -> new PositionUpdate(pl),
+                "PositionUpdate (start pos)");
         safeSend(pl, () -> new WorldWeather(pl), "WorldWeather");
 
         // The player's own long/short info + position.
