@@ -55,14 +55,15 @@ public class Zoning1Test {
     }
 
     @Test
-    public void zoning1EmitsNoTcpButSendsSZoning1Udp()
+    public void zoning1EmitsNoTcpAndDefersSZoning1Confirm()
             throws Exception {
-        // Zoning1's reply is the SZoning1 confirm on the UDP
-        // channel (0x03/0x1f 25 13 + 0x03/0x23) — NOT TCP. The
-        // TCP zone-swap (Location) is emitted later, on Zoning2.
-        // Restored 2026-05-16 after RETAIL_PLAZA_CROSSZONE proved
-        // the client emits Zoning2 ~35 ms after receiving this
-        // confirm; commit 2267ab6 had wrongly removed it.
+        // Zoning1 emits NOTHING synchronously: no TCP, no
+        // immediate UDP. The SZoning1 confirm
+        // (0x03/0x1f 25 13 + roster + 0x03/0x23) is deferred
+        // ~450 ms via SZoning1ConfirmEvent to match the retail
+        // Zoning1→confirm gap (RETAIL_PLAZA_CROSSZONE, all 8
+        // crossings). The TCP zone-swap (Location) is later still,
+        // on Zoning2.
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
         CapturingTCPConnection tcp = new CapturingTCPConnection();
@@ -77,10 +78,27 @@ public class Zoning1Test {
 
         assertEquals("Zoning1 must not emit any TCP packet",
                 0, tcp.received().size());
-        assertEquals("Zoning1 must emit exactly one SZoning1 "
-                + "UDP confirm", 1, udp.received().size());
-        assertTrue("the UDP reply must be SZoning1",
-                udp.received().get(0)
+        assertEquals("Zoning1 must not emit any synchronous UDP",
+                0, udp.received().size());
+
+        // The confirm must be queued as a delayed event.
+        java.lang.reflect.Field f =
+                Player.class.getDeclaredField("eventList");
+        f.setAccessible(true);
+        server.tools.PriorityList q =
+                (server.tools.PriorityList) f.get(pl);
+        assertFalse("Zoning1 must enqueue the deferred confirm",
+                q.isEmpty());
+        assertEquals("SZoning1ConfirmEvent",
+                ((server.interfaces.GameServerEvent) q.getFirst())
+                        .getClass().getSimpleName());
+
+        // Driving the deferred event must emit exactly one
+        // SZoning1 on UDP.
+        ((server.interfaces.GameServerEvent) q.getFirst())
+                .execute(pl);
+        assertEquals(1, udp.received().size());
+        assertTrue(udp.received().get(0)
                 instanceof server.gameserver.packets.server_udp
                         .SZoning1);
     }

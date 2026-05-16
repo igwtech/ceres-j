@@ -97,7 +97,45 @@ public class Zoning1 extends GamePacketDecoderUDP {
         // mid-cross heartbeat flood). Restored now that the wire
         // is clean. The zone switch itself still commits in
         // Zoning2 (Location + UDPAlive + UDP-session reset).
-        pl.send(new server.gameserver.packets.server_udp
-                .SZoning1(szoningId, pl, resolvedZone));
+        //
+        // TIMING: retail sends this confirm ~450 ms after Zoning1
+        // (consistent across all 8 RETAIL_PLAZA_CROSSZONE
+        // crossings), not immediately. Sending it at +4 ms — while
+        // the client is still mid-trigger and has not yet frozen
+        // its simulation for the transition — the client keeps
+        // streaming position and never enters the
+        // preload→Zoning2 state. Defer the confirm by ~450 ms via
+        // a delayed event so it lands when the client is actually
+        // waiting for it.
+        pl.addEvent(new SZoning1ConfirmEvent(szoningId,
+                resolvedZone));
+    }
+
+    /**
+     * Fires the SZoning1 confirm ~450 ms after Zoning1, matching
+     * the retail Zoning1→confirm gap. The client emits Zoning2
+     * ~35 ms after receiving it.
+     */
+    static class SZoning1ConfirmEvent
+            extends server.gameserver.internalEvents.DummyEvent {
+        private final int szoningId;
+        private final server.gameserver.Zone destZone;
+
+        SZoning1ConfirmEvent(int szoningId,
+                             server.gameserver.Zone destZone) {
+            this.szoningId = szoningId;
+            this.destZone = destZone;
+            this.eventTime =
+                    server.tools.Timer.getRealtime() + 450;
+        }
+
+        @Override
+        public void execute(Player pl) {
+            if (pl == null || pl.getUdpConnection() == null) {
+                return;
+            }
+            pl.send(new server.gameserver.packets.server_udp
+                    .SZoning1(szoningId, pl, destZone));
+        }
     }
 }
