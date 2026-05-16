@@ -41,6 +41,24 @@ public class ZoneStateHeartbeat extends DummyEvent {
         Zone zone = pl.getZone();
         if (zone == null) return;
 
+        // Silence NPC zone-state (0x1b broadcast + 0x2d NPCData +
+        // 0x28 WorldInfo) while a zone-cross is in flight
+        // (pendingZoneId set by Zoning1, cleared by Zoning2 /
+        // WorldEntry). localhost-vs-retail byte-diff 2026-05-16:
+        // in the 0.7 s after Zoning1 retail sends ONLY TimeSync
+        // (03/0x1f) + a UDPAlive — ZERO NPC packets. Ceres flooded
+        // 1b/2d/28 mid-cross; that old-zone NPC burst is what the
+        // client never sees in retail and is the remaining
+        // divergence blocking the plaza_p1 → plaza_p3 cross. Keep
+        // rescheduling so NPC refresh resumes once the cross
+        // commits.
+        if (pl.getPendingZoneId() != 0) {
+            ZoneStateHeartbeat resume = new ZoneStateHeartbeat();
+            resume.npcIndex = this.npcIndex;
+            pl.addEvent(resume);
+            return;
+        }
+
         List<NPC> npcs = zone.getAllNPCs();
         if (!npcs.isEmpty()) {
             npcIndex = npcIndex % npcs.size();

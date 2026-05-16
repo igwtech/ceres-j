@@ -54,33 +54,25 @@ public class UDPAliveHeartbeat extends DummyEvent {
             return;
         }
 
-        // Suppress the periodic UDPAlive while a zone-cross is in
-        // flight (Zoning1 seen, Zoning2 not yet). Retail emits
-        // UDPAlive during a cross ONLY as the post-Zoning2
-        // handshake-completion beacon, immediately followed by the
-        // server's reliable-counter reset. A stray periodic
-        // UDPAlive arriving mid-cross makes the client treat it as
-        // that completion beacon: it resets its reliable-receive
-        // expectation to seq 1 while the server (no Zoning2 yet)
-        // keeps streaming high seqs, so the client believes it
-        // missed the whole burst, floods 0x01 retransmit-requests,
-        // and never advances to Zoning2 — the plaza_p1 → plaza_p3
-        // dead-lock (localhost-vs-retail byte-diff 2026-05-16:
-        // stray 0x04 at +0.704 s → client requests seq 1 at
-        // +1.066 s). Keep rescheduling so the keepalive resumes
-        // once Zoning2 commits the cross and clears pendingZoneId.
-        if (pl.getPendingZoneId() == 0) {
-            try {
-                pl.send(new UDPAlive(pl));
-            } catch (Exception e) {
-                Out.writeln(Out.Error,
-                        "UDPAliveHeartbeat: send failed: "
-                        + e.getMessage());
-                // Same defensive pattern as TimeSyncHeartbeatEvent
-                // — a transient socket hiccup must not permanently
-                // stop the heartbeat (which would silently desync
-                // the client's UDP-keepalive expectation).
-            }
+        // NOTE: do NOT suppress UDPAlive during a pending
+        // zone-cross. The localhost-vs-retail byte-diff
+        // (2026-05-16) shows retail emits a UDPAlive ~0.65 s after
+        // Zoning1 (clustered with the post-Zoning2 completion); the
+        // client expects it. An earlier commit suppressed it on the
+        // wrong theory and that made the cross worse. The real
+        // mid-cross divergence is the NPC zone-state flood
+        // (ZoneStateHeartbeat), which retail silences during a
+        // cross — handled there, not here. UDPAlive keeps firing.
+        try {
+            pl.send(new UDPAlive(pl));
+        } catch (Exception e) {
+            Out.writeln(Out.Error,
+                    "UDPAliveHeartbeat: send failed: "
+                    + e.getMessage());
+            // Same defensive pattern as TimeSyncHeartbeatEvent —
+            // a transient socket hiccup must not permanently stop
+            // the heartbeat (which would silently desync the
+            // client's UDP-keepalive expectation).
         }
 
         pl.addEvent(new UDPAliveHeartbeat(

@@ -27,11 +27,19 @@ public class PoolStatusHeartbeat extends DummyEvent {
             return;
         }
 
-        try {
-            pl.send(new PoolStatusBroadcast(pl));
-        } catch (Exception e) {
-            Out.writeln(Out.Error,
-                "PoolStatusHeartbeat: send failed: " + e.getMessage());
+        // Silence PoolStatus while a zone-cross is in flight.
+        // retail's post-Zoning1 window is near-silent (only
+        // TimeSync + UDPAlive); any extra reliable stream mid-cross
+        // is a divergence. Keep rescheduling so it resumes once the
+        // cross commits (pendingZoneId cleared by Zoning2 /
+        // WorldEntry).
+        if (pl.getPendingZoneId() == 0) {
+            try {
+                pl.send(new PoolStatusBroadcast(pl));
+            } catch (Exception e) {
+                Out.writeln(Out.Error,
+                    "PoolStatusHeartbeat: send failed: " + e.getMessage());
+            }
         }
 
         pl.addEvent(new PoolStatusHeartbeat());
