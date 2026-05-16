@@ -55,17 +55,34 @@ public class Zoning1Test {
     }
 
     @Test
-    public void zoning1SendsNothing() {
-        // Retail sends NO reply to Zoning1. The TCP zone-swap
-        // packets are emitted in response to Zoning2.
-        Player pl = PacketTestFixture.newPlayer();
-        CapturingTCPConnection cap = new CapturingTCPConnection();
-        pl.setTcpConnection(cap);
+    public void zoning1EmitsNoTcpButSendsSZoning1Udp()
+            throws Exception {
+        // Zoning1's reply is the SZoning1 confirm on the UDP
+        // channel (0x03/0x1f 25 13 + 0x03/0x23) — NOT TCP. The
+        // TCP zone-swap (Location) is emitted later, on Zoning2.
+        // Restored 2026-05-16 after RETAIL_PLAZA_CROSSZONE proved
+        // the client emits Zoning2 ~35 ms after receiving this
+        // confirm; commit 2267ab6 had wrongly removed it.
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        CapturingTCPConnection tcp = new CapturingTCPConnection();
+        pl.setTcpConnection(tcp);
+        server.testtools.CapturingUDPConnection udp =
+                new server.testtools.CapturingUDPConnection(
+                        java.net.InetAddress.getByName("127.0.0.1"),
+                        5000, pl);
+        pl.setUdpConnection(udp);
 
         new Zoning1(buildBody(7, 1)).execute(pl);
 
         assertEquals("Zoning1 must not emit any TCP packet",
-                0, cap.received().size());
+                0, tcp.received().size());
+        assertEquals("Zoning1 must emit exactly one SZoning1 "
+                + "UDP confirm", 1, udp.received().size());
+        assertTrue("the UDP reply must be SZoning1",
+                udp.received().get(0)
+                instanceof server.gameserver.packets.server_udp
+                        .SZoning1);
     }
 
     @Test

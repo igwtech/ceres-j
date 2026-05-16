@@ -56,7 +56,7 @@ public class Zoning1 extends GamePacketDecoderUDP {
         // offset 14), then [location LE32][legacy session id LE32].
         skip(14);
         int newLocation = readInt();
-        readInt(); // legacy SZoning1 session id, unused
+        int szoningId = readInt(); // 2nd int → SZoning1's 0x23 [i] field
 
         int oldLocation =
             pl.getCharacter().getMisc(PlayerCharacter.MISC_LOCATION);
@@ -80,8 +80,24 @@ public class Zoning1 extends GamePacketDecoderUDP {
         // happens in the Zoning2 handler, which reads this field.
         pl.setPendingZoneId(newLocation);
 
-        // No packet emission. Retail sends nothing in reply to
-        // Zoning1; the client drives itself to Zoning2 after it has
-        // preloaded the destination BSP (~500 ms).
+        // Send the SZoning1 confirmation — the server's "request
+        // validated, proceed" reply. Retail ALWAYS sends this and
+        // the client emits Zoning2 ~35 ms after receiving it; with
+        // it absent the client never advances and reverts to the
+        // source zone. SZoning1 builds the retail-exact pair
+        //   0x03/0x1f [mapID] 25 13 [txn] 0e 02   (confirm marker)
+        //   0x03/0x23 04 …      [i] [txn] 00 00   (zone-info ack)
+        // verified byte-for-byte against RETAIL_PLAZA_CROSSZONE
+        // (crossing D: 1f 05 00 25 13 02 30 0e 02 + 23 04 …
+        // 01000000 0230 0000, i == the 2nd int of the Zoning1
+        // body). Commit 2267ab6 removed this on the mistaken
+        // theory that it caused the "Synchronizing" overlay; the
+        // overlay was actually the reliable-layer bugs since
+        // fixed (0x03/0x09 storm, spurious S→C 0x01, seq gaps,
+        // mid-cross heartbeat flood). Restored now that the wire
+        // is clean. The zone switch itself still commits in
+        // Zoning2 (Location + UDPAlive + UDP-session reset).
+        pl.send(new server.gameserver.packets.server_udp
+                .SZoning1(szoningId, pl));
     }
 }
