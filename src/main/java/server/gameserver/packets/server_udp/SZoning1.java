@@ -62,7 +62,14 @@ public class SZoning1 extends PacketBuilderUDP1303 {
 					if (npc == null) continue;
 					newSubPacket();
 					write(0x2d);
-					writeShort(npc.getMapID());
+					// npcId is a SINGLE byte here, not LE2 — retail
+					// crossing D: `2d 01 01 00 00 06`, `2d 0a 01
+					// 00 00 06`, … (6-byte body). Writing it as a
+					// short added a stray 0x00 per NPC and
+					// misaligned the client's parse of the whole
+					// confirm burst, so it never populated the
+					// destination zone nor sent Zoning2.
+					write(npc.getMapID() & 0xFF);
 					write(new byte[] {0x01, 0x00, 0x00, 0x06});
 				}
 			}
