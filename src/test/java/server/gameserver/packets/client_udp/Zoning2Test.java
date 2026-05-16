@@ -9,7 +9,6 @@ import org.junit.Test;
 
 import server.gameserver.CapturingTCPConnection;
 import server.gameserver.Player;
-import server.gameserver.packets.server_tcp.InteractionAck;
 import server.gameserver.packets.server_tcp.Location;
 import server.gameserver.packets.server_tcp.Packet830D;
 import server.gameserver.packets.server_udp.PacketTestFixture;
@@ -19,11 +18,13 @@ import server.interfaces.ServerTCPPacket;
 import server.tools.PriorityList;
 
 /**
- * Functional tests for {@link Zoning2}. The handler is the second
- * half of the zoning two-step the modern client expects after a
- * BSP transition: it must push a {@code Packet830D} (GameinfoReady,
- * 0x83 0x0d) + {@code Location} pair down the TCP channel and queue
- * a follow-up {@code UDPAlive} a few ms later.
+ * Functional tests for {@link Zoning2} — phase 2 of the retail
+ * zone-cross handshake (decoded 2026-05-14 from
+ * {@code RETAIL_PLAZA_CROSSZONE}). On Zoning2 the server pushes a
+ * {@code Packet830D} (GameinfoReady, 0x83 0x0d) + {@code Location}
+ * (0x83 0x0c) TCP pair, then ~20 ms later resets the UDP session
+ * (counter→0, new session key, cleared ring) and emits a
+ * {@code UDPAlive} carrying the new key.
  */
 public class Zoning2Test {
 
@@ -42,20 +43,17 @@ public class Zoning2Test {
         new Zoning2(body()).execute(pl);
 
         List<ServerTCPPacket> sent = cap.received();
-        assertEquals("expected Packet830D + Location + 2× "
-                + "InteractionAck (retail close-transaction pair)",
-                4, sent.size());
+        // Retail (RETAIL_PLAZA_CROSSZONE) sends exactly the
+        // GameinfoReady + Location TCP pair on Zoning2 — no
+        // InteractionAck in the zone-cross window.
+        assertEquals("expected Packet830D + Location",
+                2, sent.size());
         assertTrue("first must be Packet830D, got "
                 + sent.get(0).getClass().getName(),
                 sent.get(0) instanceof Packet830D);
         assertTrue("second must be Location, got "
                 + sent.get(1).getClass().getName(),
                 sent.get(1) instanceof Location);
-        assertTrue("third must be InteractionAck (post-state)",
-                sent.get(2) instanceof InteractionAck);
-        assertTrue("fourth must be InteractionAck (retail "
-                + "emits the ack PAIR)",
-                sent.get(3) instanceof InteractionAck);
     }
 
     @Test

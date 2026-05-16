@@ -4,37 +4,45 @@ import server.database.playerCharacters.PlayerCharacter;
 import server.database.playerCharacters.inventory.PlayerInventory;
 import server.gameserver.Player;
 import server.gameserver.packets.GamePacketDecoderUDP;
-import server.gameserver.packets.server_tcp.Location;
-import server.gameserver.packets.server_tcp.Packet830D;
 import server.tools.Out;
 
 /**
- * Client zone-edge crossing notification (reliable {@code 0x03/0x22}
- * sub {@code 0x0d}). Modern NCE 2.5.x client fires this when the
- * player walks into a BSP zone-trigger volume; the destination
- * zone_id is in the body.
+ * Client zone-edge crossing <em>notification</em> (reliable
+ * {@code 0x03/0x22} sub {@code 0x0d}). The modern NCE 2.5.x client
+ * fires this when the player walks into a BSP zone-trigger volume;
+ * the destination zone_id is in the body.
  *
- * <h3>Retail response (verified from
- * {@code docs/zoning_protocol_2026-05-02.md})</h3>
- *
- * <p>Modern retail responds via the TCP channel:
+ * <h3>Retail flow (decoded 2026-05-14 from
+ * {@code RETAIL_PLAZA_CROSSZONE} pcap, 6 crossings)</h3>
  *
  * <pre>
- *   S->C  TCP   0x83 0x0d  4B   GameinfoReady — {@code 83 0d 00 00}
- *   S->C  TCP   0x83 0x0c       Location — opcode + zone_id LE32 +
- *                                8 zero bytes + null-terminated
- *                                BSP path
+ *   C-&gt;S  Zoning1  0x03/0x22/0x0d  [target zone_id LE32]
+ *         (server sends NO reply to Zoning1)
+ *   ~500ms  client preloads the destination BSP on its own
+ *   C-&gt;S  Zoning2  0x03/0x22/0x03
+ *   S-&gt;C  TCP 0x83/0x0c Location(dest path)
+ *   C-&gt;S  0x03/0x08 ReliableAck
+ *   S-&gt;C  UDP 0x04 UDPAlive  (+~15ms)
+ *   server UDP wrapper resets: counter-&gt;1, new sessionkey
  * </pre>
  *
- * <p>The client keeps its world state across transitions —
- * coordinates, CharInfo, inventory all retained. Only the BSP swap
- * happens locally. <strong>No UDP ForcedZoning, no Synchronizing
- * splash.</strong>
+ * <p><strong>Zoning1 itself gets no zone-cross response.</strong>
+ * An earlier implementation answered Zoning1 immediately with
+ * {@code Packet830D + Location} (+ an InteractionAck/UDPAlive
+ * burst). That premature Location derailed the client's state
+ * machine: it never emitted Zoning2 and retransmitted Zoning1
+ * every ~2 s until the TCP connection timed out — the
+ * "Synchronizing" overlay → Neocron-splash → hard hang seen in
+ * live testing on plaza_p1 → plaza_p3. The whole zone-swap
+ * response now lives in {@link Zoning2}, which is where retail
+ * sends it.
  *
- * <p>The legacy {@code SZoning1} UDP path (which this handler used
- * to call) triggered the persistent "Synchronizing" overlay seen in
- * live testing on the modern NCE client. Removed in favour of the
- * verified TCP flow.
+ * <p>The reliable {@code 0x03} sub-packet is still ACKed
+ * automatically by {@code GamePacketReaderUDP.readPacket} — no
+ * explicit ack is needed here.
+ *
+ * <p>See {@code zone_cross_2phase_handshake} memory + the
+ * {@code RETAIL_PLAZA_CROSSZONE} capture for byte-level evidence.
  */
 public class Zoning1 extends GamePacketDecoderUDP {
 
@@ -44,47 +52,36 @@ public class Zoning1 extends GamePacketDecoderUDP {
 
     @Override
     public void execute(Player pl) {
-        // Body layout from live capture:
-        //   skip 14 bytes of header, then [location LE32][i LE32]
-        // The trailing "i" was the legacy SZoning1's session id.
-        // Reading it preserves the wire-offset compatibility with
-        // any future fall-back path.
+        // Body layout from live capture: skip 14 bytes of header
+        // (with the 03/seq reliable prefix the zone_id lands at
+        // offset 14), then [location LE32][legacy session id LE32].
         skip(14);
         int newLocation = readInt();
-        readInt(); // legacy session id, unused under the TCP flow
+        readInt(); // legacy SZoning1 session id, unused
 
-        pl.getCharacter().setMisc(PlayerCharacter.MISC_LOCATION, newLocation);
-        // NOTE: do NOT reset X/Y/Z to (0, 0, 0) here.
-        // Earlier (2026-05-10) we zeroed coords on zone-cross hoping
-        // the client's BSP portal data would re-spawn the player at
-        // the correct edge and the next inbound Movement would
-        // overwrite (0, 0, 0) with valid coords. In practice that
-        // approach broke the re-login flow: when the client's TCP
-        // connection times out mid zone-load and reconnects, the
-        // server re-runs WorldEntry with the saved (0, 0, 0) — and
-        // (0, 0, 0) is not a valid spawn point in plaza_p2 (or most
-        // BSPs), leaving the client stuck on the loading splash.
-        // Keep the prior-zone coords until the next Movement packet
-        // overwrites them — at worst other players see this player
-        // at a stale position for ~500 ms, which is the lesser evil
-        // versus a hard hang on reconnect. Tracking: zone-handoff
-        // architectural fix (per-zone UDP ports) is still pending.
+        int oldLocation =
+            pl.getCharacter().getMisc(PlayerCharacter.MISC_LOCATION);
+        server.gameserver.Zone resolvedZone =
+            server.gameserver.ZoneManager.getZone(newLocation);
+        Out.writeln(Out.Info,
+            "Zoning1: target zone_id=" + newLocation
+            + " (from=" + oldLocation + ")"
+            + " resolved bsp='" + (resolvedZone == null ? "<null>"
+                : resolvedZone.getWorldname()) + "'");
+
+        // Server-side bookkeeping only. The destination BSP path is
+        // delivered in response to Zoning2 (see class javadoc).
+        pl.getCharacter().setMisc(PlayerCharacter.MISC_LOCATION,
+                newLocation);
+        // Do NOT zero X/Y/Z here — keep prior-zone coords until the
+        // next Movement overwrites them. Zeroing broke the reconnect
+        // spawn (see git history: revert 396829d).
         pl.updateZone();
         ((PlayerInventory) pl.getCharacter().getContainer(
                 PlayerCharacter.PLAYERCONTAINER_F2)).doSort();
 
-        // Retail TCP zone-swap pair. Order matters: GameinfoReady
-        // first (signals "you're about to load a new BSP"), Location
-        // second (carries the BSP path).
-        if (pl.getTcpConnection() != null) {
-            pl.send(new Packet830D());
-            pl.send(new Location(pl));
-        } else {
-            Out.writeln(Out.Warning,
-                "Zoning1: no TCP connection for player "
-                + (pl.getCharacter() == null ? "?"
-                                              : pl.getCharacter().getName())
-                + " — zone swap dropped");
-        }
+        // No packet emission. Retail sends nothing in reply to
+        // Zoning1; the client drives itself to Zoning2 after it has
+        // preloaded the destination BSP (~500 ms).
     }
 }

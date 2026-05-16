@@ -144,6 +144,33 @@ public class GameServerUDPConnection {
 		return ++udpSessionCounter;
 	}
 
+	/**
+	 * Reset the reliable-channel state for a zone-cross, matching
+	 * the retail wire behaviour decoded 2026-05-14 from
+	 * {@code RETAIL_PLAZA_CROSSZONE}: after the client sends
+	 * Zoning2 and the server replies with Location + UDPAlive, the
+	 * server's next UDP packet uses a freshly-reset 0x13 wrapper
+	 * (counter back to 0, brand-new session key) and the client
+	 * mirrors that on its side. Without this the reliable layer
+	 * desyncs across the cross and the client hangs on the
+	 * "Synchronizing" overlay.
+	 *
+	 * <p>Call order matters: invoke this <em>before</em>
+	 * constructing the {@link
+	 * server.gameserver.packets.server_udp.UDPAlive} that announces
+	 * the cross, so the UDPAlive carries the NEW session key (its
+	 * {@code -sessionkey} field is what the client adopts).
+	 *
+	 * @return the regenerated 16-bit session key (for logging)
+	 */
+	public synchronized short resetSessionForZoneCross() {
+		udpSessionCounter = 0;
+		udp13Sessionkey = (short) new Random().nextInt();
+		reliableRing.clear();
+		handshakingState = false;
+		return udp13Sessionkey;
+	}
+
 	/** Per-session ring of recently-emitted reliable {@code 0x03}
 	 *  sub-packets — see field javadoc. Public for the
 	 *  PacketBuilderUDP1303 emit hook + the ReliableAckSubPacket
