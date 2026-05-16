@@ -127,6 +127,37 @@ public class ReliableAckSubPacketTest {
     }
 
     @Test
+    public void retransmitEchoesRequestedSeq() throws Exception {
+        // The 0x02 retransmit MUST carry the exact seq the client
+        // asked for (wire[8..9] LE16) — retail
+        // (RETAIL_PLAZA_CROSSZONE) always echoes it so the client
+        // can slot the resent body into its receive-window gap. A
+        // free-running counter here (the old bug) left the client
+        // unable to close the gap → 0x01 flood → zone-cross hang.
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        pl.setloggedin();
+        CapturingUDPConnection cap = installCapturing(pl);
+
+        new ChatList(pl).getDatagramPackets();   // seq=1
+        new ChatList(pl).getDatagramPackets();   // seq=2
+        new ChatList(pl).getDatagramPackets();   // seq=3
+
+        // Request retransmit of seq=2.
+        new ReliableAckSubPacket(new byte[]{0x01, 0x02, 0x00})
+                .execute(pl);
+
+        assertEquals(1, cap.received().size());
+        java.net.DatagramPacket dp = cap.received().get(0)
+                .getDatagramPackets()[0];
+        byte[] wire = dp.getData();
+        assertEquals("0x02 wrapper", 0x02, wire[7] & 0xFF);
+        int echoedSeq = (wire[8] & 0xFF) | ((wire[9] & 0xFF) << 8);
+        assertEquals("0x02 retransmit must echo requested seq=2",
+                2, echoedSeq);
+    }
+
+    @Test
     public void retransmitPreservesOriginalBodyBytes() throws Exception {
         // After multiple reliables, retransmit of seq=2 must be
         // byte-for-byte the original ChatList body — not a

@@ -75,11 +75,16 @@ public class ReliableAckSubPacket extends GamePacketDecoderUDP {
                     + " ring_size=" + ringSize + ")");
             return;
         }
-        // Re-wrap with [0x02][counter LE2] then append the original
-        // sub-packet body (sub-op + payload). Same shape as
-        // retail's 0x02 retransmit.
+        // Re-wrap as [0x02][seq LE2][original body]. The seq MUST
+        // be the exact seq the client asked for — retail
+        // (RETAIL_PLAZA_CROSSZONE) always echoes the requested seq
+        // so the client can slot the resent body into the gap in
+        // its reliable receive window. Using a free-running counter
+        // here (the old bug) meant the client could never close the
+        // gap and flooded 0x01 requests forever, blocking the
+        // zone-cross ("Synchronizing" overlay).
         server.networktools.PacketBuilderUDP1302 retransmit =
-                new server.networktools.PacketBuilderUDP1302(pl);
+                new server.networktools.PacketBuilderUDP1302(pl, seq);
         retransmit.write(body);
         pl.send(retransmit);
     }
