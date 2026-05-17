@@ -389,4 +389,20 @@ public class Player extends Thread {
 	public int getUdpPort() {
 		return udpListener != null ? udpListener.getPort() : 5000;
 	}
+
+	/**
+	 * Authoritative server-side no-collision / free-flight flag, toggled
+	 * by the {@code noclip} GM command (task #179). The movement
+	 * validator consults this so out-of-bounds positions are not
+	 * rejected for a noclip GM. Default {@code false}.
+	 */
+	private volatile boolean noclip = false;
+
+	public boolean isNoclip() {
+		return noclip;
+	}
+
+	public void setNoclip(boolean enabled) {
+		this.noclip = enabled;
+	}
 }

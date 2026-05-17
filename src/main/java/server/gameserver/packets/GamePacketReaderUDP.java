@@ -172,6 +172,11 @@ public final class GamePacketReaderUDP {
 			case 0x1f:
 				pd.skip(2);
 				switch (pd.read()) {
+				case 0x06:
+					// Native client built-in GM command (e.g.
+					// /gm_noclip). Structured-parsed + admin-gated
+					// in AdminCommandRequest — see task #179.
+					return new AdminCommandRequest(subPacket);
 				case 0x17:
 					return new UseItem(subPacket);
 				case 0x1b:

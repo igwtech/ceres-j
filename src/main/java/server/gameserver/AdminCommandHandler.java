@@ -57,6 +57,36 @@ public class AdminCommandHandler {
         String cmd = parts[0].toLowerCase();
         String args = parts.length > 1 ? parts[1].trim() : "";
 
+        // ── New CMaNGOS-style registry (task #179) ────────────────────
+        // The registry owns the modern command set with per-command
+        // GM-level gating. If it knows this keyword it fully handles
+        // dispatch (parse + permission + execute + reply); we never
+        // fall through to the legacy switch for a registered name, so
+        // there is no double-handling. Unknown-to-registry keywords
+        // continue to the legacy switch below (no regression).
+        server.gameserver.command.GmCommandRegistry registry =
+                server.gameserver.command.GmCommandRegistry.defaultRegistry();
+        if (registry.isRegistered(cmd)) {
+            server.gameserver.command.CommandResult result =
+                    registry.dispatch(pl, cmdLine,
+                            msg -> reply(pl, msg));
+            switch (result.status()) {
+            case OK:
+                if (result.message() != null
+                        && !result.message().isEmpty()) {
+                    reply(pl, result.message());
+                }
+                break;
+            case BAD_SYNTAX:
+            case DENIED:
+            case ERROR:
+            case NOT_FOUND:
+                reply(pl, result.message());
+                break;
+            }
+            return true;
+        }
+
         switch (cmd) {
         case "pos":
             cmdPos(pl);

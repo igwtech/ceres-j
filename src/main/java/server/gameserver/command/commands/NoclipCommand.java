@@ -1,50 +1,44 @@
 package server.gameserver.command.commands;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.WeakHashMap;
-
 import server.database.accounts.Account;
 import server.gameserver.Player;
 import server.gameserver.command.CommandContext;
 import server.gameserver.command.CommandResult;
 import server.gameserver.command.GmCommand;
+import server.gameserver.packets.server_udp.QuickCommand;
+import server.gameserver.packets.server_udp.SetGamedata;
+import server.gameserver.packets.server_udp.UpdateModel;
 
 /**
  * {@code !noclip} — toggle the no-collision / free-flight flag on the
- * invoking player.
+ * invoking player and push the client-side effect.
  *
- * <p><b>Status: framework-complete, wire-effect stubbed.</b> The
- * server-side toggle and its query API are fully implemented and
- * tested ({@link #isNoclip(Player)}). What is <em>not</em> wired is the
- * client-visible collision bypass: NC2 has no confirmed runtime
- * "disable collision" sub-opcode (movement authority is client-side;
- * see project memory {@code synchronizing_overlay_root_cause} and
- * {@code lstplayer_error_misattribution}). Emitting a speculative
- * packet here risks the SYNCHRONIZING overlay hang. The flag is kept
- * authoritative server-side so the movement validator can stop
- * rejecting out-of-bounds positions for noclip players once that path
- * is reverse-engineered.
+ * <p>This command is reachable two ways, both gated by the same GM
+ * level ({@link Account#GM_GAMEMASTER}):
+ * <ul>
+ *   <li>chat: {@code !noclip} / {@code !fly} (toggles)</li>
+ *   <li>native client built-in: typing {@code /gm_noclip} in the real
+ *       client, which arrives as a UDP sub-packet on the
+ *       {@code 0x03/0x1f/<localId>/0x06} path and is decoded by
+ *       {@code AdminCommandRequest}. That path passes an explicit
+ *       desired value (enabled = byte != 0) via
+ *       {@link #applyTo(Player, Boolean)}.</li>
+ * </ul>
  *
- * <p>TODO(#179): once the retail noclip/fly sub-opcode is captured,
- * emit it from {@link #execute} and have the movement validator honour
- * {@link #isNoclip(Player)}.
+ * <p>The wire effect (verified recipe from a retail GM-build trace):
+ * <ol>
+ *   <li>{@link Player#setNoclip(boolean)} — authoritative server flag
+ *       so the movement validator stops rejecting out-of-bounds
+ *       positions for this session.</li>
+ *   <li>{@link UpdateModel} — re-streams the model so other clients
+ *       render the GM with the Flying state.</li>
+ *   <li>{@link QuickCommand}{@code (pl, 0x11, enabled?1:0)} — toggles
+ *       client-local physics / collision.</li>
+ *   <li>{@link SetGamedata}{@code (pl,"gm_noclip", enabled?1f:0f)} —
+ *       sets the named gamedata var the client's Lua layer reads.</li>
+ * </ol>
  */
 public final class NoclipCommand implements GmCommand {
-
-    /** Per-player noclip state. WeakHashMap so logged-out players GC. */
-    private static final Map<Player, Boolean> STATE =
-            Collections.synchronizedMap(new WeakHashMap<>());
-
-    /** True if noclip is currently enabled for {@code pl}. */
-    public static boolean isNoclip(Player pl) {
-        return pl != null && Boolean.TRUE.equals(STATE.get(pl));
-    }
-
-    /** Test/utility reset. */
-    public static void clear(Player pl) {
-        STATE.remove(pl);
-    }
 
     @Override
     public String name() {
@@ -53,7 +47,7 @@ public final class NoclipCommand implements GmCommand {
 
     @Override
     public String[] aliases() {
-        return new String[]{"fly"};
+        return new String[]{"fly", "gm_noclip"};
     }
 
     @Override
@@ -63,7 +57,7 @@ public final class NoclipCommand implements GmCommand {
 
     @Override
     public String usage() {
-        return "(toggle collision/flight on yourself)";
+        return "[on|off]  (no arg = toggle)";
     }
 
     @Override
@@ -77,12 +71,47 @@ public final class NoclipCommand implements GmCommand {
         if (pl == null) {
             return CommandResult.error("no player attached");
         }
-        boolean now = !isNoclip(pl);
-        STATE.put(pl, now);
-        // Wire effect intentionally not emitted — see class javadoc.
+        Boolean desired = null;
+        if (ctx.argCount() >= 1) {
+            String a = ctx.arg(0).toLowerCase();
+            if (a.equals("on") || a.equals("1") || a.equals("true")) {
+                desired = Boolean.TRUE;
+            } else if (a.equals("off") || a.equals("0")
+                    || a.equals("false")) {
+                desired = Boolean.FALSE;
+            } else {
+                return CommandResult.badSyntax(
+                        "expected on|off or no argument");
+            }
+        }
+        boolean now = applyTo(pl, desired);
         return CommandResult.ok("Noclip "
-                + (now ? "ENABLED" : "disabled")
-                + " (server-side flag; client collision bypass pending"
-                + " protocol RE — TODO #179).");
+                + (now ? "ENABLED" : "disabled") + ".");
+    }
+
+    /**
+     * Apply the noclip toggle and emit the full client wire recipe.
+     * Shared by the chat path and the native {@code 0x1f/0x06} GM
+     * packet path.
+     *
+     * @param pl      target session (must be non-null)
+     * @param desired explicit target state, or {@code null} to flip the
+     *                current state
+     * @return the resulting noclip state
+     */
+    public static boolean applyTo(Player pl, Boolean desired) {
+        boolean enabled = desired != null ? desired : !pl.isNoclip();
+        pl.setNoclip(enabled);
+        // 1. authoritative flag already set above.
+        // 2. re-stream model so peers see the Flying state.
+        if (pl.getCharacter() != null) {
+            pl.send(new UpdateModel(pl));
+        }
+        // 3. toggle client-local physics / collision.
+        pl.send(new QuickCommand(pl, QuickCommand.SUB_LOCAL_PHYSICS,
+                enabled ? 1 : 0));
+        // 4. set the named gamedata var the client's Lua layer reads.
+        pl.send(new SetGamedata(pl, "gm_noclip", enabled ? 1f : 0f));
+        return enabled;
     }
 }
