@@ -56,6 +56,21 @@ public abstract class GamePacketDecoderUDP extends ByteArrayInputStream implemen
 	public int readInt() {
 		return read() | (read() << 8) | (read() << 16) | (read() << 24);
 	}
+
+	/**
+	 * Reads a little-endian IEEE-754 32-bit float.
+	 *
+	 * <p>The NCE 2.5 ("Evolution") client encodes world coordinates
+	 * on the {@code 0x20} movement channel as float32 LE — verified
+	 * against retail pcaps RETAIL_NORMAN / RETAIL_DRSTONE /
+	 * RETAIL_LONG_PARTY_A (C→S and S→C), and matching the StartPos
+	 * {@code 0x03/0x2c} float frame ({@link
+	 * server.gameserver.packets.server_udp.PositionUpdate}). The
+	 * legacy {@code uint16 − 32000} frame is dead in this build.
+	 */
+	public float readFloat() {
+		return Float.intBitsToFloat(readInt());
+	}
 	
 	/* 
 	 * read a String of the length len - 1 starting at the current pos

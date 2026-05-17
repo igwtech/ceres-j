@@ -23,8 +23,10 @@ public class MovementNoclipAcceptanceTest {
     /**
      * Build a Movement sub-packet body. Layout consumed by
      * {@code Movement.execute()}: {@code skip(3)} then a 1-byte
-     * {@code type} mask, then per-set-axis LE16 = {@code value+32000}
-     * in Y,Z,X order (mask bits 0x01,0x02,0x04).
+     * {@code type} mask, then per-set-axis <b>float32 LE</b> in
+     * Y,Z,X order (mask bits 0x01,0x02,0x04). The wire frame is
+     * IEEE-754 float32 LE per the NCE 2.5 client (task #174,
+     * retail-pinned) — NOT the legacy {@code uint16 value+32000}.
      */
     private static byte[] move(int x, int y, int z) {
         int type = 0x01 | 0x02 | 0x04; // Y,Z,X all present
@@ -32,16 +34,19 @@ public class MovementNoclipAcceptanceTest {
                 new java.io.ByteArrayOutputStream();
         b.write(0); b.write(0); b.write(0);          // skip(3)
         b.write(type);
-        writeLE16(b, y + 32000);
-        writeLE16(b, z + 32000);
-        writeLE16(b, x + 32000);
+        writeLEF32(b, y);
+        writeLEF32(b, z);
+        writeLEF32(b, x);
         return b.toByteArray();
     }
 
-    private static void writeLE16(java.io.ByteArrayOutputStream b,
-                                  int v) {
-        b.write(v & 0xFF);
-        b.write((v >> 8) & 0xFF);
+    private static void writeLEF32(java.io.ByteArrayOutputStream b,
+                                   float v) {
+        int bits = Float.floatToIntBits(v);
+        b.write(bits & 0xFF);
+        b.write((bits >> 8) & 0xFF);
+        b.write((bits >> 16) & 0xFF);
+        b.write((bits >> 24) & 0xFF);
     }
 
     private static Player playerAt(int x, int y, int z) {
@@ -67,8 +72,8 @@ public class MovementNoclipAcceptanceTest {
     public void outOfBoundsRejectedWhenNoclipOff() {
         Player pl = playerAt(11, 22, 33);
         assertFalse(pl.isNoclip());
-        // X = 31000 is beyond SANE_COORD (30000) but still inside
-        // the 16-bit biased wire range (31000+32000 = 63000 < 65536).
+        // X = 31000 is beyond SANE_COORD (30000); float32 carries it
+        // exactly, so the gate (not the wire) is what rejects it.
         new Movement(move(31000, 22, 33)).execute(pl);
         PlayerCharacter pc = pl.getCharacter();
         assertEquals("out-of-bounds X must NOT be committed",
@@ -92,7 +97,7 @@ public class MovementNoclipAcceptanceTest {
         // Only one axis is out of bounds; the whole position update
         // is vetoed so the player is never left half-moved.
         Player pl = playerAt(1, 2, 3);
-        // Z = 33000 > SANE_COORD (still encodable: 33000+32000 < 65536).
+        // Z = 33000 > SANE_COORD (float32 carries it exactly).
         new Movement(move(500, 600, 33000)).execute(pl);
         PlayerCharacter pc = pl.getCharacter();
         assertEquals(1, pc.getMisc(PlayerCharacter.MISC_X_COORDINATE));

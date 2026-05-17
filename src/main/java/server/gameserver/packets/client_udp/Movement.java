@@ -59,12 +59,23 @@ public class Movement extends GamePacketDecoderUDP {
 		// Decode candidate axes first so the position-sanity gate can
 		// veto the whole update atomically (committing X but rejecting
 		// Y would leave the player half-moved).
+		//
+		// Coordinates are float32 LE in the NCE 2.5 ("Evolution")
+		// client — verified against retail pcaps RETAIL_NORMAN,
+		// RETAIL_DRSTONE and RETAIL_LONG_PARTY_A (C→S movement and
+		// S→C peer broadcasts), consistent with the StartPos 0x03/0x2c
+		// float frame. The previous `readShort() - 32000` decode
+		// misread 2 of each float's 4 bytes as a uint16 and persisted
+		// garbage MISC coords, so the next login's (correctly
+		// float-encoded) StartPos re-emitted nonsense — task #174
+		// "spawn at map centre". MISC store is integral; round to the
+		// nearest world unit.
 		boolean hasY = (type & 0x01) != 0;
 		boolean hasZ = (type & 0x02) != 0;
 		boolean hasX = (type & 0x04) != 0;
-		int newY = hasY ? readShort() - 32000 : 0;
-		int newZ = hasZ ? readShort() - 32000 : 0;
-		int newX = hasX ? readShort() - 32000 : 0;
+		int newY = hasY ? Math.round(readFloat()) : 0;
+		int newZ = hasZ ? Math.round(readFloat()) : 0;
+		int newX = hasX ? Math.round(readFloat()) : 0;
 
 		// Noclip (GM free-flight) bypasses the gate entirely — that is
 		// the authoritative effect of Player.setNoclip(true): the
