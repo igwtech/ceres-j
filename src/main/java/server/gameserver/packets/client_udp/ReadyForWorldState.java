@@ -133,6 +133,19 @@ public class ReadyForWorldState extends GamePacketDecoderUDP {
             // 7. One more GamePackets TimeSync to bracket the burst, as
             //    retail does.
             trySend(pl, () -> new GamePacketTimeSync(pl), "GamePacketTimeSync(close)");
+
+            // The city-cross self-position suppression flag is single-
+            // shot: consume it at the end of the burst it governed so a
+            // later non-cross world-state populate (genrep/relog) still
+            // gets its authoritative self-position. See WorldEntryEvent
+            // for the symmetric clear and zone_portal_params.md §7.
+            if (pl.isPendingCityCrossSelfPosSuppress()) {
+                pl.clearPendingCityCrossSelfPosSuppress();
+                Out.writeln(Out.Info,
+                    "WorldStatePopulate: city walk-cross self-pos"
+                    + " suppression consumed and cleared for "
+                    + pc.getName());
+            }
         }
     }
 

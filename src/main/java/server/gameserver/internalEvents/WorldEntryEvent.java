@@ -251,6 +251,21 @@ public class WorldEntryEvent extends DummyEvent {
         // disambiguation we have for multi-boxed clients on the same IP.
         pl.markHandoffPending();
 
+        // The city-cross self-position suppression flag is single-shot:
+        // it must only affect the one world-state burst triggered by the
+        // SZoning1Confirm that set it. Clear it now that this burst has
+        // run, so a later non-cross re-entry (genrep / relog / fresh
+        // login that does NOT route through Zoning1) still gets its
+        // authoritative self-position. Outdoor crosses already clear it
+        // implicitly (Zoning1 calls setPendingCityCrossSelfPosSuppress
+        // (false) for worldId >= 2001); this closes the city-cross leak.
+        if (pl.isPendingCityCrossSelfPosSuppress()) {
+            pl.clearPendingCityCrossSelfPosSuppress();
+            Out.writeln(Out.Info,
+                "WorldEntryEvent: city walk-cross self-pos suppression"
+                + " consumed and cleared for " + pc.getName());
+        }
+
         Out.writeln(Out.Info, "WorldEntryEvent: completed for " + pc.getName());
     }
 

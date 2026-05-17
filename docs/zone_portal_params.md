@@ -274,6 +274,66 @@ city zones (plaza/pepper p-sectors). On-foot variant is the same idea
 
 ---
 
+## 7. City↔city walk-cross: retail sends NO server self-position (task #174)
+
+Decoded **2026-05-16** from
+`strace/nc2_strace_RETAIL_PLAZA_TO_PEPPER_CROSS_DISTRICT_20260502_103513.pcap`
+via `tools/pcap-decode.py` (LFSR+CFB UDP decrypt). This pcap contains an
+initial plaza login plus **two** city↔city walk-crosses. World entries
+identified by the TCP world-name string packet:
+
+| event | ts (epoch) | TCP opcode + ASCII | UDP session conn-id |
+|---|---|---|---|
+| login `plaza/plaza_p1` | 1777732736.93 | `fe1c0083 … 706c617a612f706c617a615f7031` | `0xce` |
+| cross → `plaza/plaza_p3` | 1777732793.05 | `fe1d0083 … …706c617a615f7033` | `0x90` |
+| cross → `pepper/pepper_p1` | 1777732832.07 | `fe1f0083 … 7065707065722f7065707065725f7031` | `0xf6` |
+
+**Finding (HIGH confidence — direct wire evidence):**
+
+* The `0x03/0x2c` **StartPos** packet (signature `…00 2c 01 04…`) appears
+  **exactly once** in the whole capture — at ts 1777732748.5, inside the
+  initial `plaza_p1` login session (`0xce`). It is **absent** from both
+  cross sessions (`0x90`, `0xf6`).
+* The verbose self-position form **`0x03/0x1b` `1b 01000000 03 [XYZ
+  floats]`** occurs **9 times, all between ts 749 and 778** — every one
+  inside the initial login session `0xce`. It occurs **ZERO times** in
+  the `plaza_p3` cross session and **ZERO times** in the `pepper_p1`
+  cross session (verified by epoch-windowed grep on the decrypted
+  stream). The `0x1b` packets that *do* appear in the cross bursts are
+  the compact zone-resident broadcasts (`…001b XX 0100001f…`), i.e.
+  *other* objects, not the player's authoritative self-position.
+* No `0x03/0x1f/0x38` **ChangeLocation** actor-portal payload precedes
+  either p-sector cross (consistent with §3/§6: plaza/pepper p-sectors
+  contain no functionType 18/20/29 actor targeting a sibling sector;
+  the inter-crossing is the coordinate-border mechanism, not an
+  appplaces `ExitWorldEntity` portal).
+
+**Conclusion / implementation (task #174):** after a city↔city
+walk-cross retail commits **no server-side self-position** at all — the
+client self-positions from the destination zone's local `.dat` geometry
+across the sector seam. Ceres pushing its stale source-zone coords as a
+self `PlayerPositionUpdate` is exactly the "spawn reset to map centre"
+bug. Fix: `ZoneBoundaries.isIndexedCitySector(worldId)` (exact
+complement of `isWastelandOutdoor`, `0 < worldId < 2001`); on
+SZoning1Confirm for a city destination set a single-shot
+`Player.pendingCityCrossSelfPosSuppress` flag; the world-state burst
+(`WorldEntryEvent` and `ReadyForWorldState`) skips the self
+`PlayerPositionUpdate` when set, then consumes/clears the flag. The
+wasteland/outdoor coordinate mirror (`mirrorEntryPosition`, worldId
+≥ 2001) is left untouched and partitioned by the worldId range. Ceres
+still emits its `0x2c` StartPos on the reconnect path (retail does not,
+but removing it hangs the client on Ceres's reconnect-handoff
+architecture — a separate, out-of-#174 artifact); the *self-position
+override* is the actual #174 lever and is what gets suppressed.
+
+The hypothetical "city entry resolves an appplaces ExitWorldEntity"
+(client self-positions to a named entity) is **disproven for p-sector
+walk-crosses** by this pcap (no ChangeLocation, no actor portal). It
+remains the mechanism for *sewer/startmission* portals (§5), which are
+a different transition out of #174 scope.
+
+---
+
 ## Summary of confidences
 
 * **HIGH:** door params carry no zone data; param2 = paired-door id; zone change

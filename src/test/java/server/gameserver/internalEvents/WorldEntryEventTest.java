@@ -93,6 +93,78 @@ public class WorldEntryEventTest {
                 scheduled.contains("TcpKeepaliveEvent"));
     }
 
+    /**
+     * Task #174 functional test. A city↔city walk-cross commits a
+     * destination worldId &lt; 2001 and (via SZoning1Confirm) sets the
+     * city self-position suppression flag. The world-entry burst must
+     * then send NO self {@code PlayerPositionUpdate} (0x03/0x1b) — this
+     * is exactly what retail does: in
+     * RETAIL_PLAZA_TO_PEPPER_CROSS_DISTRICT the verbose self-position
+     * (0x1b 01000000 03 [XYZ]) appears only in the initial plaza_p1
+     * login session, and ZERO times in the plaza_p3 or pepper_p1 cross
+     * sessions. Pushing the stale source-zone self-position is the
+     * "spawn reset to map centre" bug. After the burst the single-shot
+     * flag must be consumed (cleared) so a later non-cross re-entry
+     * still gets its authoritative self-position.
+     */
+    @Test
+    public void cityCrossBurstSuppressesSelfPositionAndClearsFlag() {
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey(
+                (short) 0);
+        server.testtools.CapturingUDPConnection udp =
+                server.testtools.CapturingUDPConnection.replaceOn(pl);
+
+        // Simulate the SZoning1Confirm commit for a city destination
+        // (plaza_p3 = 101, retail-proven city sector).
+        assertTrue(server.gameserver.ZoneBoundaries
+                .isIndexedCitySector(101));
+        pl.setPendingCityCrossSelfPosSuppress(true);
+
+        new WorldEntryEvent(0).execute(pl);
+
+        long selfPos = udp.received().stream()
+                .filter(p -> p instanceof
+                    server.gameserver.packets.server_udp
+                        .PlayerPositionUpdate)
+                .count();
+        assertTrue("city walk-cross burst must send NO self"
+                + " PlayerPositionUpdate (retail sends none); got "
+                + selfPos, selfPos == 0);
+
+        assertTrue("single-shot suppression flag must be consumed"
+                + " (cleared) after the burst",
+                !pl.isPendingCityCrossSelfPosSuppress());
+    }
+
+    /**
+     * Counterpart to the city case: a normal (non-city-cross) world
+     * entry — fresh login or wasteland/outdoor cross, flag never set —
+     * MUST still send the authoritative self {@code PlayerPositionUpdate}.
+     * This guards against the city fix regressing the known-good
+     * always-send behaviour for everything else.
+     */
+    @Test
+    public void normalEntryStillSendsSelfPosition() {
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey(
+                (short) 0);
+        server.testtools.CapturingUDPConnection udp =
+                server.testtools.CapturingUDPConnection.replaceOn(pl);
+
+        // Flag deliberately NOT set (fresh login / outdoor cross).
+        assertTrue(!pl.isPendingCityCrossSelfPosSuppress());
+
+        new WorldEntryEvent(0).execute(pl);
+
+        long selfPos = udp.received().stream()
+                .filter(p -> p instanceof
+                    server.gameserver.packets.server_udp
+                        .PlayerPositionUpdate)
+                .count();
+        assertTrue("normal world entry must send the self"
+                + " PlayerPositionUpdate (known-good fallback); got "
+                + selfPos, selfPos >= 1);
+    }
+
     @Test
     public void executeToleratesMissingCharacter() {
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
