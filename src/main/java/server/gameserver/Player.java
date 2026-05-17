@@ -423,9 +423,12 @@ public class Player extends Thread {
 
 	/**
 	 * Authoritative server-side no-collision / free-flight flag, toggled
-	 * by the {@code noclip} GM command (task #179). The movement
-	 * validator consults this so out-of-bounds positions are not
-	 * rejected for a noclip GM. Default {@code false}.
+	 * by the {@code noclip} GM command (tasks #179/#182).
+	 * {@code Movement.execute()} consults this: when {@code true} the
+	 * server skips its position-sanity gate and accepts otherwise
+	 * out-of-bounds coordinates for this session (free flight); when
+	 * {@code false} an out-of-bounds position update is dropped.
+	 * Default {@code false}.
 	 */
 	private volatile boolean noclip = false;
 

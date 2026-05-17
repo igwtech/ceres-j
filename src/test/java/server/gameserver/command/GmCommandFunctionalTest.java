@@ -106,6 +106,69 @@ public class GmCommandFunctionalTest {
     }
 
     @Test
+    public void tpBareCoordinatesDoesNotChangeZone() {
+        // Regression for task #182: same-zone tp must NOT route
+        // through the zone-change path (it now relocates in place).
+        Player pl = gmPlayer(Account.GM_GAMEMASTER);
+        PlayerCharacter pc = pl.getCharacter();
+        int zone = pc.getMisc(PlayerCharacter.MISC_LOCATION);
+        assertTrue(run(pl, "tp 7 8 9").isOk());
+        assertEquals("zone unchanged on bare-coord tp",
+                zone, pc.getMisc(PlayerCharacter.MISC_LOCATION));
+        assertEquals(7, pc.getMisc(PlayerCharacter.MISC_X_COORDINATE));
+        assertEquals(8, pc.getMisc(PlayerCharacter.MISC_Y_COORDINATE));
+        assertEquals(9, pc.getMisc(PlayerCharacter.MISC_Z_COORDINATE));
+    }
+
+    @Test
+    public void zoneCommandIsRegisteredAndNumericIdChangesLocation() {
+        Player pl = gmPlayer(Account.GM_GAMEMASTER);
+        PlayerCharacter pc = pl.getCharacter();
+        assertTrue("zone is a registry command now",
+                reg.isRegistered("zone"));
+        assertTrue(run(pl, "zone 314 1 2 3").isOk());
+        assertEquals(314,
+                pc.getMisc(PlayerCharacter.MISC_LOCATION));
+        assertEquals(1, pc.getMisc(PlayerCharacter.MISC_X_COORDINATE));
+        assertEquals(2, pc.getMisc(PlayerCharacter.MISC_Y_COORDINATE));
+        assertEquals(3, pc.getMisc(PlayerCharacter.MISC_Z_COORDINATE));
+    }
+
+    @Test
+    public void zoneCommandUnknownNameErrorsCleanly() {
+        Player pl = gmPlayer(Account.GM_GAMEMASTER);
+        // No world_defs loaded in this test JVM → name cannot
+        // resolve → ERROR, not an exception, and no state change.
+        PlayerCharacter pc = pl.getCharacter();
+        int before = pc.getMisc(PlayerCharacter.MISC_LOCATION);
+        CommandResult r = run(pl, "zone pepper1");
+        assertEquals(CommandResult.Status.ERROR, r.status());
+        assertEquals(before,
+                pc.getMisc(PlayerCharacter.MISC_LOCATION));
+    }
+
+    @Test
+    public void zoneCommandDeniedForModerator() {
+        Player pl = gmPlayer(Account.GM_MODERATOR);
+        CommandResult r = run(pl, "zone 5");
+        assertEquals(CommandResult.Status.DENIED, r.status());
+    }
+
+    @Test
+    public void noclipSendsOnlyTheRetailProvableGamedataSignal() {
+        // The audited recipe is: server flag + SetGamedata(gm_noclip).
+        // This asserts the flag side-effect; the removed unverified
+        // QuickCommand/UpdateModel pieces are covered by the recipe
+        // no longer referencing those classes (compile-time).
+        Player pl = gmPlayer(Account.GM_GAMEMASTER);
+        assertFalse(pl.isNoclip());
+        assertTrue(run(pl, "noclip on").isOk());
+        assertTrue("authoritative server flag set", pl.isNoclip());
+        assertTrue(run(pl, "noclip off").isOk());
+        assertFalse(pl.isNoclip());
+    }
+
+    @Test
     public void changeskillMutatesSubskillLevel() {
         Player pl = gmPlayer(Account.GM_GAMEMASTER);
         PlayerCharacter pc = pl.getCharacter();

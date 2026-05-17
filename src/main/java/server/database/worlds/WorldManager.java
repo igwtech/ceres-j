@@ -119,6 +119,53 @@ public class WorldManager {
 	}
 
 	/**
+	 * Resolve a zone <em>name</em> to its numeric world id.
+	 *
+	 * <p>Accepts either the full normalised path as stored
+	 * ({@code "plaza/plaza_p1"}) or just the final path segment
+	 * ({@code "plaza_p1"} or the short {@code "pepper1"} ↔
+	 * {@code pepper/pepper_p1} form), case-insensitively. The basename
+	 * match also tolerates the {@code _p} sector separator being
+	 * elided (so {@code pepper1} matches {@code pepper/pepper_p1}).
+	 *
+	 * <p>Used by the {@code zone} GM command so admins can warp by a
+	 * human name instead of memorising numeric ids.
+	 *
+	 * @param name zone name (full path or basename), may be null
+	 * @return the world id, or {@code -1} if no zone matches
+	 */
+	public static int resolveByName(String name) {
+		if (name == null) {
+			return -1;
+		}
+		String q = name.trim().toLowerCase();
+		if (q.isEmpty()) {
+			return -1;
+		}
+		String qCompact = q.replace("_p", "").replace("/", "");
+		int basenameHit = -1;
+		for (java.util.Map.Entry<Integer, World> en : weList.entrySet()) {
+			String path = en.getValue().getName();
+			if (path == null) {
+				continue;
+			}
+			String p = path.toLowerCase();
+			if (p.equals(q)) {
+				return en.getKey();          // exact full-path match
+			}
+			int slash = p.lastIndexOf('/');
+			String base = slash >= 0 ? p.substring(slash + 1) : p;
+			if (base.equals(q)
+					|| base.replace("_p", "").equals(qCompact)) {
+				if (basenameHit < 0) {
+					basenameHit = en.getKey(); // first basename match
+				}
+			}
+		}
+		return basenameHit;
+	}
+
+	/**
 	 * Test hook: clear in-memory state so tests can rerun {@link #init()}
 	 * in isolation. Package-private — not part of the runtime API.
 	 */

@@ -20,6 +20,7 @@ public final class CommandPack {
         reg.register(new NoclipCommand());
         reg.register(new ResetposCommand());
         reg.register(new TpCommand());
+        reg.register(new ZoneCommand());
         reg.register(new GiveItemCommand());
         reg.register(new ChangeSkillCommand());
         reg.register(new GiveMoneyCommand());
