@@ -33,8 +33,13 @@ import server.networktools.PacketBuilderTCP;
  * </table>
  *
  * <p>Local proximity chat does NOT use this packet — it travels
- * through {@code UDP 0x03/0x1f tag=0x1b} and is handled by the
- * existing {@code LocalChat}/{@code LocalChatMessage} pair.
+ * through {@code UDP 0x03/0x1f tag=0x1b}. Server-originated
+ * <strong>system / GM-command replies</strong> use this packet with
+ * the {@linkplain #system(String, String) system-broadcast} form
+ * ({@code sender_uid = 0xffffffff}, {@code channel = 0xff}), exactly
+ * as retail emits NCPD bulletins (verified against
+ * {@code RETAIL_RETAIL_VEHICLE_DRONE} —
+ * {@code 83 17 ff ff ff ff 0c ff 00 "Server Admin" + msg}).
  */
 public final class Chat8317 extends PacketBuilderTCP {
 
@@ -43,6 +48,13 @@ public final class Chat8317 extends PacketBuilderTCP {
     public static final byte CHANNEL_CLAN    = 0x02;
     public static final byte CHANNEL_TEAM    = 0x03;
     public static final byte CHANNEL_WHISPER = 0x04;
+    /** Local "say" / proximity speech bubble channel. */
+    public static final byte CHANNEL_LOCAL   = 0x04;
+    /** Server / system broadcast (NCPD bulletin, GM reply). */
+    public static final int  CHANNEL_SYSTEM  = 0xff;
+
+    /** Sentinel sender UID retail uses for system/broadcast lines. */
+    public static final int  SYSTEM_UID      = 0xffffffff;
 
     /**
      * Build a reflection packet.
@@ -83,5 +95,23 @@ public final class Chat8317 extends PacketBuilderTCP {
         // name_len + outer FE-frame length to split)
         write(nameBytes);
         write(msgBytes);
+    }
+
+    /**
+     * Build a server / system broadcast line — the format retail uses
+     * for NCPD bulletins and the channel the client renders for
+     * server-originated text (e.g. GM-command replies).
+     *
+     * <p>Byte-pinned against {@code RETAIL_RETAIL_VEHICLE_DRONE}:
+     * <pre>83 17  ff ff ff ff  [name_len]  ff  00  [name][msg]</pre>
+     * (sample: {@code ff ff ff ff 0c ff 00 "Server Admin" ...}).
+     *
+     * @param senderName display name shown before the message
+     *        (retail uses {@code "Server Admin"}); may be empty
+     * @param message    system message text
+     */
+    public static Chat8317 system(String senderName, String message) {
+        return new Chat8317(SYSTEM_UID, senderName, CHANNEL_SYSTEM,
+                message);
     }
 }

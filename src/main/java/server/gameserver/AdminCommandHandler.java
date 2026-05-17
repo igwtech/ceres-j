@@ -3,8 +3,8 @@ package server.gameserver;
 import server.database.playerCharacters.PlayerCharacter;
 import server.gameserver.packets.server_tcp.Location;
 import server.gameserver.packets.server_tcp.Packet830D;
+import server.gameserver.packets.server_tcp.Chat8317;
 import server.gameserver.packets.server_udp.ForcedZoning;
-import server.gameserver.packets.server_udp.LocalChatMessage;
 import server.gameserver.packets.server_udp.PoolStatusBroadcast;
 import server.gameserver.packets.server_udp.PoolUpdate;
 import server.gameserver.packets.server_udp.SoullightUpdate;
@@ -80,6 +80,10 @@ public class AdminCommandHandler {
             server.gameserver.command.CommandResult result =
                     registry.dispatch(pl, cmdLine,
                             msg -> reply(pl, msg));
+            Out.writeln(Out.Info, "AdminCommand: cmd='" + cmd
+                    + "' gmLevel=" + gmLevelOf(pl)
+                    + " status=" + result.status()
+                    + " (registry)");
             switch (result.status()) {
             case OK:
                 if (result.message() != null
@@ -96,6 +100,9 @@ public class AdminCommandHandler {
             }
             return true;
         }
+
+        Out.writeln(Out.Info, "AdminCommand: cmd='" + cmd
+                + "' gmLevel=" + gmLevelOf(pl) + " (legacy switch)");
 
         switch (cmd) {
         case "pos":
@@ -193,8 +200,24 @@ public class AdminCommandHandler {
         }
     }
 
+    /** Sender name retail puts in front of system/broadcast lines. */
+    private static final String SYSTEM_SENDER = "Server";
+
+    /**
+     * Send a command reply to the caller's chat window.
+     *
+     * <p>Uses the retail-pinned TCP {@code 0x83 0x17} system-broadcast
+     * form ({@code sender_uid = 0xffffffff}, {@code channel = 0xff})
+     * — the same packet retail uses for NCPD bulletins, which the
+     * client reliably renders in the chat window. The legacy
+     * hand-rolled {@code LocalChatMessage} ({@code 0x1f [map] 0x1b}
+     * with no length/terminator) was never rendered by the retail
+     * client, so reply-only commands like {@code .help} silently did
+     * nothing in-game.
+     */
     private static void reply(Player pl, String msg) {
-        pl.send(new LocalChatMessage(pl, "[Server] " + msg, 2));
+        if (pl == null) return;
+        pl.send(Chat8317.system(SYSTEM_SENDER, "[Server] " + msg));
     }
 
     private static void cmdPos(Player pl) {
@@ -621,6 +644,13 @@ public class AdminCommandHandler {
             sb.append(' ');
         }
         reply(pl, sb.toString().trim());
+    }
+
+    /** Caller's account GM level, or 0 if no account attached. */
+    static int gmLevelOf(Player pl) {
+        if (pl == null) return 0;
+        server.database.accounts.Account a = pl.getAccount();
+        return a == null ? 0 : a.getGmLevel();
     }
 
     /** Caller's character UID, or 0 if no character is attached. */
