@@ -38,18 +38,28 @@ public class Movement extends GamePacketDecoderUDP {
 		boolean useEcs = world.isAlive(handle);
 		int e = useEcs ? World.index(handle) : -1;
 
+		// Coordinates are float32 LE in the NCE 2.5 ("Evolution")
+		// client — verified against retail pcaps RETAIL_NORMAN,
+		// RETAIL_DRSTONE and RETAIL_LONG_PARTY_A (both C→S movement
+		// and S→C peer broadcasts), and consistent with the StartPos
+		// 0x03/0x2c float frame (PositionUpdate). The previous
+		// `readShort() - 32000` decode misread 2 bytes of each float
+		// as a uint16 and persisted garbage MISC coords, so the next
+		// login's (correctly float-encoded) StartPos re-emitted
+		// nonsense — the task #174 "spawn at map centre". The MISC
+		// store is integral; round to nearest world unit.
 		if ((type & 0x01) != 0) {
-			int v = readShort() - 32000;
+			int v = Math.round(readFloat());
 			if (useEcs) c.posY.set(e, v);
 			pc.setMisc(PlayerCharacter.MISC_Y_COORDINATE, v);
 		}
 		if ((type & 0x02) != 0) {
-			int v = readShort() - 32000;
+			int v = Math.round(readFloat());
 			if (useEcs) c.posZ.set(e, v);
 			pc.setMisc(PlayerCharacter.MISC_Z_COORDINATE, v);
 		}
 		if ((type & 0x04) != 0) {
-			int v = readShort() - 32000;
+			int v = Math.round(readFloat());
 			if (useEcs) c.posX.set(e, v);
 			pc.setMisc(PlayerCharacter.MISC_X_COORDINATE, v);
 		}
