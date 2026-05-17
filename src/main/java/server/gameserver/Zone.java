@@ -322,5 +322,51 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 		}
 	}
 	
+	/**
+	 * Broadcast a chair-sit posture ({@code 0x03/0x1f/<localId>/0x21})
+	 * for {@code pl} to every client in the zone, including
+	 * {@code pl} itself. Retail sends the seated posture to all
+	 * observers AND the seated player (the captured player saw their
+	 * own {@code localId} in the {@code 0x21} broadcast), so unlike
+	 * {@link #sendPlayerMovement} the subject is NOT skipped.
+	 *
+	 * @param pl          the player who sat down.
+	 * @param rawObjectId the chair's rawObjectId (echoed unchanged
+	 *                    from the client's {@code 0x17} use packet).
+	 * @param seatId      seat index (0 = real chair).
+	 */
+	public void sendPlayerSit(Player pl, int rawObjectId, int seatId){
+		int mapId = pl.getMapID();
+		synchronized(playerList){
+			for (Player reciever : playerList.values()) {
+				if (reciever == null
+						|| reciever.getUdpConnection() == null) continue;
+				reciever.send(new SitOnChair(reciever, mapId,
+						rawObjectId, seatId));
+			}
+		}
+	}
+
+	/**
+	 * Broadcast a chair stand-up ({@code 0x03/0x1f/<localId>/0x22})
+	 * for {@code pl} to every client in the zone, including
+	 * {@code pl} itself (same all-observers rule as
+	 * {@link #sendPlayerSit}).
+	 *
+	 * @param pl the player who stood up.
+	 */
+	public void sendPlayerExitSeat(Player pl){
+		int mapId = pl.getMapID();
+		PlayerCharacter pc = pl.getCharacter();
+		if (pc == null) return;
+		synchronized(playerList){
+			for (Player reciever : playerList.values()) {
+				if (reciever == null
+						|| reciever.getUdpConnection() == null) continue;
+				reciever.send(new ExitSeat(reciever, mapId, pc));
+			}
+		}
+	}
+
 	// TODO: all the position update stuff
 }

@@ -179,6 +179,11 @@ public final class GamePacketReaderUDP {
 					return new AdminCommandRequest(subPacket);
 				case 0x17:
 					return new UseItem(subPacket);
+				case 0x22:
+					// Explicit exit-seat (stand up without moving).
+					// 1f 03 00 22, no body. Byte-pinned from
+					// RETAIL_LIVE_p1p3_sit_npc_20260517.pcap t=44.177s.
+					return new ExitSeatRequest(subPacket);
 				case 0x1b:
 					return new LocalChat(subPacket);
 				case 0x1e:

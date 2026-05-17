@@ -46,6 +46,22 @@ public class Movement extends GamePacketDecoderUDP {
 	public void execute(Player pl) {
 		PlayerCharacter pc = pl.getCharacter();
 
+		// ── Stand up if seated ──────────────────────────────────────
+		// A seated player (UseItem on a chair set seatedChairRawId)
+		// stands the moment they send a real movement packet. Clear
+		// the transient sit-state and broadcast the exit-seat posture
+		// (0x03/0x1f/<localId>/0x22) to the zone so peers stop
+		// rendering them seated. The position itself is committed by
+		// the normal movement path below (which also drives the peer
+		// SMovement broadcast). See SitOnChair / ExitSeat.
+		if (pl.isSeated()) {
+			pl.setSeatedChairRawId(0);
+			server.gameserver.Zone sz = pl.getZone();
+			if (sz != null) {
+				sz.sendPlayerExitSeat(pl);
+			}
+		}
+
 		skip(3);
 
 		int type = read();
