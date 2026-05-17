@@ -68,7 +68,8 @@ public final class GmCommandRegistry {
     }
 
     /**
-     * Split a chat line (already stripped of the {@code !} prefix) into
+     * Split a chat line (already stripped of the {@code .}/{@code !}
+     * command prefix) into
      * the command keyword (index 0) and the whitespace-separated
      * argument tokens (rest). Returns an empty array for a blank line.
      */
