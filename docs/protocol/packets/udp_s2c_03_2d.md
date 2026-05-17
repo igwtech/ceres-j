@@ -58,6 +58,45 @@ within a single sub-tag. Verified 2026-05-09 against 52 samples
 drawn from 6 retail captures (AUGUSTO, CASH_VENDOR, CREATION,
 DRSTONE, DRSTONE3, DRSTONE4).
 
+**Byte-pinned common NPC-tick form — verified 2026-05-16**
+(task #167; 6 retail captures, the 5 highest-count category-0x0003
+sub-actions f4/bd/db/ee/63, ≥19 samples each, ALL exactly 55 B):
+
+```
+[0]      0x2d                          sub-opcode
+[1]      sub-action                    f4 / bd / db / ee / 63 …
+[2..3]   03 00                         category LE16 = 0x0003
+[4]      00                            flag/pad
+[5..10]  71 20 vv vv 9b 45             entity descriptor (6 B;
+                                        bytes 7..8 vary per NPC,
+                                        71 20 / 9b 45 recur)
+[11..14] ff ff ff ff                   sentinel (-1)
+[15..18] float                         value/pos #1
+[19..22] float                         pos #2 (Y)
+[23..26] float                         pos #3
+[27..30] float                         pos #4 (orientation)
+[31..34] float                         == [19..22] (pos #2 echoed)
+[35..46] 43 00 00 80 06 00 00 00 01 00 00 00   INVARIANT block
+                                        (byte-identical across ALL
+                                        five sub-actions)
+[47..54] 81 ca 09 00 + 4 B             sub-action-specific tail
+```
+
+**Actionable gap:** retail `0x03/0x2d` NPC ticks are a FIXED
+55-byte record. Ceres `NpcDataBroadcast` emits a 9-byte stub
+(`2d <mapId LE2> 00 08 00 00 00 00`) — matches no retail
+sub-action. This is why the client logs
+`LSTPLAYER : Update Message corrupted` and
+`@WWORLDMGR : Unable to Spawn WA` (its world-actor parser
+expects the 55-byte layout). Fixing NpcDataBroadcast to emit
+the verified 55-byte form (entity descriptor + 5 floats +
+invariant block + tail) is the concrete next step to make NPCs
+render. The 0x2d sub-action 0x11 (the LSTPLAYER virtual_24
+case-17 culprit per memory lstplayer_error_misattribution) does
+NOT appear in any of the 8 retail strace captures — it is a
+rare/player-specific variant; the common-tick fix above is the
+higher-leverage target.
+
 **Common 55-byte form** (40+ of 52 samples, post {@code 0x2d} sub-op):
 
 ```
