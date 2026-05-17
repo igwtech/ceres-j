@@ -25,6 +25,24 @@ public class Movement extends GamePacketDecoderUDP {
 		super(subPacket);
 	}
 
+	/**
+	 * Conservative world-coordinate sanity bound. The 16-bit movement
+	 * field has a usable range of {@code -32000..+33535} after the
+	 * {@code -32000} bias; legitimate NC2 zone coordinates sit well
+	 * inside {@code ±SANE_COORD}. A value outside this is either a
+	 * corrupt/replayed packet or a teleport-hack and is dropped for a
+	 * non-noclip session. This is NOT a retail-derived anti-cheat
+	 * (retail's exact validator is unknown / uncaptured) — it is the
+	 * minimal honest gate the {@code noclip} flag can meaningfully
+	 * switch off, so {@link Player#isNoclip()} genuinely changes
+	 * movement acceptance instead of being a no-op.
+	 */
+	static final int SANE_COORD = 30000;
+
+	private static boolean outOfBounds(int v) {
+		return v < -SANE_COORD || v > SANE_COORD;
+	}
+
 	public void execute(Player pl) {
 		PlayerCharacter pc = pl.getCharacter();
 
@@ -38,20 +56,49 @@ public class Movement extends GamePacketDecoderUDP {
 		boolean useEcs = world.isAlive(handle);
 		int e = useEcs ? World.index(handle) : -1;
 
-		if ((type & 0x01) != 0) {
-			int v = readShort() - 32000;
-			if (useEcs) c.posY.set(e, v);
-			pc.setMisc(PlayerCharacter.MISC_Y_COORDINATE, v);
+		// Decode candidate axes first so the position-sanity gate can
+		// veto the whole update atomically (committing X but rejecting
+		// Y would leave the player half-moved).
+		boolean hasY = (type & 0x01) != 0;
+		boolean hasZ = (type & 0x02) != 0;
+		boolean hasX = (type & 0x04) != 0;
+		int newY = hasY ? readShort() - 32000 : 0;
+		int newZ = hasZ ? readShort() - 32000 : 0;
+		int newX = hasX ? readShort() - 32000 : 0;
+
+		// Noclip (GM free-flight) bypasses the gate entirely — that is
+		// the authoritative effect of Player.setNoclip(true): the
+		// server stops rejecting otherwise-anomalous positions for
+		// this session. A normal session with an out-of-bounds axis
+		// has its position update dropped (coords not committed, no
+		// movement broadcast) but the rest of the packet still
+		// processes so orientation/status stay in sync.
+		boolean acceptPosition = pl.isNoclip()
+				|| !((hasY && outOfBounds(newY))
+				   || (hasZ && outOfBounds(newZ))
+				   || (hasX && outOfBounds(newX)));
+
+		if (!acceptPosition) {
+			Out.writeln(Out.Warning,
+				"Movement: rejected out-of-bounds position for "
+				+ (pc != null ? pc.getName() : "?")
+				+ " (X=" + (hasX ? newX : "-")
+				+ " Y=" + (hasY ? newY : "-")
+				+ " Z=" + (hasZ ? newZ : "-")
+				+ "); enable !noclip to fly there");
 		}
-		if ((type & 0x02) != 0) {
-			int v = readShort() - 32000;
-			if (useEcs) c.posZ.set(e, v);
-			pc.setMisc(PlayerCharacter.MISC_Z_COORDINATE, v);
+
+		if (acceptPosition && hasY) {
+			if (useEcs) c.posY.set(e, newY);
+			pc.setMisc(PlayerCharacter.MISC_Y_COORDINATE, newY);
 		}
-		if ((type & 0x04) != 0) {
-			int v = readShort() - 32000;
-			if (useEcs) c.posX.set(e, v);
-			pc.setMisc(PlayerCharacter.MISC_X_COORDINATE, v);
+		if (acceptPosition && hasZ) {
+			if (useEcs) c.posZ.set(e, newZ);
+			pc.setMisc(PlayerCharacter.MISC_Z_COORDINATE, newZ);
+		}
+		if (acceptPosition && hasX) {
+			if (useEcs) c.posX.set(e, newX);
+			pc.setMisc(PlayerCharacter.MISC_X_COORDINATE, newX);
 		}
 		if ((type & 0x08) != 0) {
 			int v = read();//info_byte("up-mid-down(d6-80-2a)");
@@ -71,7 +118,12 @@ public class Movement extends GamePacketDecoderUDP {
 		if ((type & 0x40) != 0) {
 			// ?? :(
 		}
-		pl.getZone().sendPlayerMovement(pl);
+		// Only broadcast the movement to the zone if the position was
+		// accepted; broadcasting a rejected (stale) position would
+		// rubber-band peers' view of this player.
+		if (acceptPosition) {
+			pl.getZone().sendPlayerMovement(pl);
+		}
 
 		// REMOVED 2026-05-16: legacy server-side zone-boundary
 		// detector. It called ZoneBoundaries.resolveTransition()

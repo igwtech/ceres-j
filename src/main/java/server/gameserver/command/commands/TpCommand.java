@@ -71,11 +71,18 @@ public final class TpCommand implements GmCommand {
             }
             PlayerCharacter tpc = target.getCharacter();
             int zone = tpc.getMisc(PlayerCharacter.MISC_LOCATION);
+            int curZone = pc.getMisc(PlayerCharacter.MISC_LOCATION);
             moveTo(pc, zone,
                     tpc.getMisc(PlayerCharacter.MISC_X_COORDINATE),
                     tpc.getMisc(PlayerCharacter.MISC_Y_COORDINATE),
                     tpc.getMisc(PlayerCharacter.MISC_Z_COORDINATE));
-            pl.send(new ForcedZoning(pl, zone));
+            if (zone == curZone) {
+                // Same zone: no BSP reload — emit the retail-validated
+                // self-position pair so the client actually moves.
+                SelfRelocate.inZone(pl);
+            } else {
+                pl.send(new ForcedZoning(pl, zone));
+            }
             return CommandResult.ok("Teleported to "
                     + tpc.getName() + " (zone " + zone + ").");
         }
@@ -94,13 +101,17 @@ public final class TpCommand implements GmCommand {
                     + " (" + x + "," + y + "," + z + ").");
         }
 
-        // bare coordinates within the current zone
+        // bare coordinates within the current zone — no zone change,
+        // so do NOT ForcedZoning (that triggers a full splash + BSP
+        // reload and the pre-fix code never moved the player at all
+        // because setMisc alone sends nothing to the client). Emit the
+        // retail-validated self-position pair instead.
         int x = ctx.intArg(0);
         int y = ctx.intArg(1);
         int z = ctx.intArg(2);
         int zone = pc.getMisc(PlayerCharacter.MISC_LOCATION);
         moveTo(pc, zone, x, y, z);
-        pl.send(new ForcedZoning(pl, zone));
+        SelfRelocate.inZone(pl);
         return CommandResult.ok("Teleported to (" + x + ","
                 + y + "," + z + ") in zone " + zone + ".");
     }

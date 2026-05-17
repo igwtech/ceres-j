@@ -6,7 +6,6 @@ import server.gameserver.Player;
 import server.gameserver.command.CommandContext;
 import server.gameserver.command.CommandResult;
 import server.gameserver.command.GmCommand;
-import server.gameserver.packets.server_udp.ForcedZoning;
 
 /**
  * {@code !resetpos} — move the caller to the current zone's safe start
@@ -16,8 +15,13 @@ import server.gameserver.packets.server_udp.ForcedZoning;
  * Ceres-J world model yet, so "safe position" is defined as the zone
  * origin {@code (0,0,0)} (the documented fallback already used by
  * {@code Location.java} when a character has no stored coords). The
- * caller is then force-zoned into the same zone so the client reloads
- * the BSP at the reset position rather than rubber-banding.
+ * caller stays in the same zone, so we emit the retail-validated
+ * self-position pair (see {@link SelfRelocate}) rather than a
+ * {@code ForcedZoning} splash: the previous code force-zoned the same
+ * zone, which both flashed the loading splash <em>and</em> never
+ * actually committed the (0,0,0) coordinates to the client (the
+ * ForcedZoning payload carries no XYZ — only a zone id), so the
+ * player rubber-banded straight back to where they were stuck.
  *
  * <p>TODO(#179): replace origin with the real per-zone spawn marker
  * once world.dat start points are imported.
@@ -59,10 +63,12 @@ public final class ResetposCommand implements GmCommand {
         pc.setMisc(PlayerCharacter.MISC_X_COORDINATE, 0);
         pc.setMisc(PlayerCharacter.MISC_Y_COORDINATE, 0);
         pc.setMisc(PlayerCharacter.MISC_Z_COORDINATE, 0);
-        // Force the client to reload the zone at the reset coordinates.
-        pl.send(new ForcedZoning(pl, pl.getMapID()));
+        // Same zone — relocate in place with the retail-validated
+        // StartPos + 0x1b self-position pair (no splash, coords
+        // actually committed to the client).
+        SelfRelocate.inZone(pl);
         return CommandResult.ok(
                 "Position reset to zone " + pl.getMapID()
-                        + " start (0,0,0). Re-zoning.");
+                        + " start (0,0,0).");
     }
 }

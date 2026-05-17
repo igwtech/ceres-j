@@ -108,8 +108,14 @@ public class AdminCommandHandler {
         case "pos":
             cmdPos(pl);
             return true;
+        // 'zone' was re-homed into the registry as ZoneCommand
+        // (task #182): name-or-id resolution + the correct relocation
+        // path. The registry isRegistered() short-circuit above means
+        // a 'zone' keyword never reaches this switch, so the old
+        // 'case "zone"' alias is removed (it was numeric-only and
+        // rejected zone names). 'warp'/'warpforce' are a different
+        // boundary-only smooth-TCP mechanism and are kept untouched.
         case "warp":
-        case "zone":
             cmdWarp(pl, args);
             return true;
         case "warpforce":
