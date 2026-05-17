@@ -225,9 +225,14 @@ public class AccountManager {
 		return new AuthResult(AuthOutcome.OK, ua);
 	}
 
-	/** Case-insensitive in-memory lookup — visible for tests. */
-	static Account findByUsername(String username) {
-		if (username == null) return null;
+	/**
+	 * Case-insensitive in-memory account lookup. Used by the auth path,
+	 * tests, and the web admin API (ban/unban/set_admin can target
+	 * accounts that are not currently online). Null-safe before the
+	 * account store has been loaded.
+	 */
+	public static Account findByUsername(String username) {
+		if (username == null || accountList == null) return null;
 		synchronized (accountList) {
 			for (Iterator<Account> i = accountList.iterator(); i.hasNext(); ) {
 				Account tua = i.next();

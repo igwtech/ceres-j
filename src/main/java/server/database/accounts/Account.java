@@ -97,6 +97,33 @@ public class Account {
 		return "";
 	}
 
+	/**
+	 * Numeric account status: {@code 0} = normal, {@link #STATUS_BANNED},
+	 * {@link #STATUS_ADMIN}. Mirrors what {@link #getStatus()} stringifies.
+	 */
+	public int getStatusCode() {
+		return status;
+	}
+
+	/**
+	 * Set the numeric account status directly. Used by the web admin API
+	 * (set_admin / ban / unban) where the caller already has the numeric
+	 * constant rather than a label.
+	 */
+	public void setStatusCode(int code) {
+		this.status = code;
+	}
+
+	/** @return {@code true} if this account has admin (GM) status. */
+	public boolean isAdmin() {
+		return status == STATUS_ADMIN;
+	}
+
+	/** @return {@code true} if this account is banned. */
+	public boolean isBanned() {
+		return status == STATUS_BANNED;
+	}
+
 	public String getUsername() {
 		return username;
 	}
