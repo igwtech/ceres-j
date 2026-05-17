@@ -24,6 +24,12 @@ public final class Config {
 	private static Properties properties = null;
 	private static String localIp;
 	private static String wanIp;
+	/** Lower-cased usernames force-promoted to GM_ADMIN at account
+	 *  load (config key {@code AdminAccounts}, comma-separated).
+	 *  Survives the autosave upsert because it is reasserted into
+	 *  the in-memory Account every boot. */
+	private static final java.util.Set<String> adminAccounts =
+			new java.util.HashSet<>();
 	public static boolean debugUnknownPackets = false;
 	public static boolean debugSendingPackets = false;
 	public static boolean debugEvents = false;
@@ -48,6 +54,18 @@ public final class Config {
 
 		// reading debugging orders
 		applyDebugTokens(getProperty("Debug"));
+
+		// AdminAccounts: comma-separated usernames force-promoted to
+		// GM_ADMIN at account load (see AccountManager.load). Empty /
+		// absent = no forced admins.
+		adminAccounts.clear();
+		String adm = getProperty("AdminAccounts");
+		if (adm != null) {
+			for (String name : adm.split(",")) {
+				String n = name.trim().toLowerCase();
+				if (!n.isEmpty()) adminAccounts.add(n);
+			}
+		}
 		
 		
 		// checking local IP
@@ -167,6 +185,28 @@ public final class Config {
 		} else {
 			Out.writeln(Out.Info, "WAN IP is " + wanIp + " , internet access enabled.");
 		}
+	}
+
+	/** Test seam: replace the AdminAccounts set (values are
+	 *  lower-cased). Mirrors {@code
+	 *  SqliteDatabase.setIsPostgresForTesting}. */
+	public static void setAdminAccountsForTesting(
+			java.util.Collection<String> names) {
+		adminAccounts.clear();
+		if (names != null) {
+			for (String n : names) {
+				if (n != null && !n.trim().isEmpty()) {
+					adminAccounts.add(n.trim().toLowerCase());
+				}
+			}
+		}
+	}
+
+	/** True if {@code username} (any case) is listed in the
+	 *  {@code AdminAccounts} config key. */
+	public static boolean isAdminAccount(String username) {
+		return username != null
+				&& adminAccounts.contains(username.toLowerCase());
 	}
 
 	public static String getProperty(String key) {
