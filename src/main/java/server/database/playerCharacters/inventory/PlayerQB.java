@@ -39,10 +39,29 @@ public class PlayerQB implements ItemContainer{
 		return false;
 	}
 	
+	/**
+	 * Exact-position restore for the quickbelt. QB stores a plain slot
+	 * index 0..46 as the inventory position, so this is just a
+	 * collision-checked direct placement (identical layout after a
+	 * restart instead of re-flowed slots).
+	 */
+	@Override
+	public boolean restoreItemAtPos(int packedPos, Item it){
+		if(packedPos < 0 || packedPos > 46)
+			return false;
+		if(map[packedPos] != null)
+			return false;
+		map[packedPos] = it;
+		it.setInventoryPos(packedPos);
+		it.setParentContainer(this);
+		count++;
+		return true;
+	}
+
 	public int getContainerID(){
 		return Contid;
 	}
-	
+
 	public int getContainerType(){
 		return ItemContainer.CONTAINERTYPE_PLQB;
 	}

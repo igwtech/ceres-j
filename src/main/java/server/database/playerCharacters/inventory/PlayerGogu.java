@@ -68,10 +68,33 @@ public class PlayerGogu implements ItemContainer{
 		return false;
 	}
 	
+	/**
+	 * Exact-position restore for the Gogu deposit box. {@code packedPos}
+	 * is the persisted {@code posX + posY*256 + slot*65536}; we honour
+	 * the slot index ({@code map[]} index) and the X/Y origin so the
+	 * layout is identical after a restart.
+	 */
+	@Override
+	public boolean restoreItemAtPos(int packedPos, Item it){
+		int slot = packedPos / 65536;
+		if(slot < 0 || slot > 254)
+			return false;
+		if(map[slot] != null)
+			return false;
+		if(Items.containsKey(packedPos))
+			return false;
+		map[slot] = it;
+		Items.put(packedPos, it);
+		it.setInventoryPos(packedPos);
+		it.setParentContainer(this);
+		count++;
+		return true;
+	}
+
 	public int getContainerID(){
 		return Contid;
 	}
-	
+
 	public int getContainerType(){
 		return ItemContainer.CONTAINERTYPE_PLINVENTORY;
 	}

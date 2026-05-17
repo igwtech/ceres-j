@@ -34,7 +34,7 @@ public final class SqliteDatabase {
      *           faction_sympathies (JSON) and per-skill xp/rate/max.</li>
      * </ul>
      */         
-    public static final int CURRENT_SCHEMA_VERSION = 6;
+    public static final int CURRENT_SCHEMA_VERSION = 7;
 
     /**
      * CharInfo fidelity columns added in schema v1. Each entry is
@@ -542,6 +542,23 @@ public final class SqliteDatabase {
                 if (!existing.contains("tokens")) {
                     stmt.execute(
                         "ALTER TABLE items ADD COLUMN tokens " + tokensType);
+                }
+            }
+        }
+
+        if (currentVersion < 7) {
+            // v6 → v7: ensure the `slot` column exists on the items
+            // table so ItemManager can round-trip the EXACT grid
+            // position (packed F2-slot/X/Y, or QB slot index). Fresh
+            // DBs get `slot` from createTables(); this guards legacy
+            // DBs whose items table predates the column. Existing rows
+            // default to slot=0 (treated as "unknown" by loadall, which
+            // then re-flows them via auto-placement).
+            Set<String> existing = getExistingColumns("items");
+            try (Statement stmt = connection.createStatement()) {
+                if (!existing.contains("slot")) {
+                    stmt.execute(
+                        "ALTER TABLE items ADD COLUMN slot INTEGER DEFAULT 0");
                 }
             }
         }
