@@ -1,6 +1,7 @@
 package server.webserver;
 
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -10,6 +11,7 @@ import server.exceptions.StartupException;
 import server.tools.Config;
 import server.tools.Out;
 import server.webserver.api.AccountsServlet;
+import server.webserver.api.AdminServlet;
 import server.webserver.api.PlayersServlet;
 import server.webserver.api.StatusServlet;
 
@@ -32,7 +34,17 @@ public final class JettyWebServer {
         int port = Integer.parseInt(Config.getProperty("WebServerPort"));
         startTime = System.currentTimeMillis();
 
-        server = new Server(port);
+        // Bind to a configurable interface; default loopback so the
+        // admin API is NOT network-exposed out of the box.
+        String bindAddr = Config.getProperty("WebServerBindAddress");
+        if (bindAddr == null || bindAddr.isBlank()) {
+            bindAddr = "127.0.0.1";
+        }
+        server = new Server();
+        ServerConnector connector = new ServerConnector(server);
+        connector.setHost(bindAddr.trim());
+        connector.setPort(port);
+        server.addConnector(connector);
 
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath("/");
@@ -41,6 +53,7 @@ public final class JettyWebServer {
         context.addServlet(new ServletHolder("status", new StatusServlet()), "/api/status");
         context.addServlet(new ServletHolder("players", new PlayersServlet()), "/api/players");
         context.addServlet(new ServletHolder("accounts", new AccountsServlet()), "/api/accounts");
+        context.addServlet(new ServletHolder("admin", new AdminServlet()), "/api/admin");
 
         // Static files from classpath (webapp/)
         Resource baseResource = Resource.newClassPathResource("/webapp");
@@ -58,7 +71,8 @@ public final class JettyWebServer {
 
         try {
             server.start();
-            Out.writeln(Out.Info, "Jetty HTTP Server started on port " + port);
+            Out.writeln(Out.Info, "Jetty HTTP Server started on "
+                    + bindAddr + ":" + port);
         } catch (Exception e) {
             server = null;
             throw new StartupException("Failed to start Jetty HTTP Server: " + e.getMessage());

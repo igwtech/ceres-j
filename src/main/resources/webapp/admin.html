@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ceres-J Admin</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#11151c; color:#dfe6ee;
+         margin:0; padding:2rem; }
+  h1 { font-size:1.3rem; } h2 { font-size:1rem; margin-top:2rem;
+        border-bottom:1px solid #2a3340; padding-bottom:.3rem; }
+  .card { background:#19202a; border:1px solid #2a3340; border-radius:8px;
+          padding:1rem 1.2rem; max-width:640px; margin-bottom:1rem; }
+  label { display:block; font-size:.8rem; color:#90a0b3; margin:.5rem 0 .15rem; }
+  input, select { width:100%; padding:.45rem .5rem; background:#0f141b;
+          border:1px solid #2a3340; border-radius:5px; color:#dfe6ee;
+          box-sizing:border-box; }
+  button { margin-top:.8rem; padding:.5rem 1rem; background:#2d6cdf;
+          color:#fff; border:0; border-radius:5px; cursor:pointer; }
+  button:hover { background:#3b7af0; }
+  .row { display:flex; gap:.6rem; } .row > div { flex:1; }
+  #log { background:#0b0e13; border:1px solid #2a3340; border-radius:6px;
+          padding:.7rem; font-family:monospace; font-size:.8rem;
+          white-space:pre-wrap; max-height:240px; overflow:auto;
+          max-width:640px; }
+  .ok { color:#5fd38d; } .err { color:#e76f7a; }
+</style>
+</head>
+<body>
+<h1>Ceres-J Admin Console</h1>
+<p style="color:#90a0b3;font-size:.85rem">
+  Every action requires the admin token (the <code>WebAdminToken</code> from
+  <code>ceres.cfg</code>). It is sent as the <code>X-Admin-Token</code> header
+  and never stored server-side beyond config.</p>
+
+<div class="card">
+  <label>Admin token</label>
+  <input id="token" type="password" placeholder="X-Admin-Token">
+</div>
+
+<h2>Player editor</h2>
+<div class="card">
+  <label>Character name</label>
+  <input id="player" placeholder="Runner">
+  <div class="row">
+    <div><label>Command</label>
+      <select id="pcmd">
+        <option value="teleport">teleport (zone)</option>
+        <option value="set_hp">set_hp (hp)</option>
+        <option value="set_cash">set_cash (amount)</option>
+        <option value="set_rank">set_rank (rank)</option>
+        <option value="set_faction">set_faction (faction)</option>
+        <option value="kill">kill</option>
+        <option value="resurrect">resurrect</option>
+        <option value="kick">kick</option>
+      </select></div>
+    <div><label>Numeric value</label><input id="pval" type="number"></div>
+  </div>
+  <button onclick="runPlayer()">Apply</button>
+</div>
+
+<h2>Stat editor</h2>
+<div class="card">
+  <div class="row">
+    <div><label>Character</label><input id="splayer"></div>
+    <div><label>Stat</label>
+      <select id="stat">
+        <option>STR</option><option>DEX</option><option>CON</option>
+        <option>INT</option><option>PSI</option>
+      </select></div>
+    <div><label>Value</label><input id="sval" type="number"></div>
+  </div>
+  <button onclick="send('set_stat',{player:v('splayer'),stat:v('stat'),value:+v('sval')})">Set stat</button>
+</div>
+
+<h2>Account</h2>
+<div class="card">
+  <label>Account name</label><input id="acct">
+  <div class="row">
+    <button onclick="send('ban',{account:v('acct')})">Ban</button>
+    <button onclick="send('unban',{account:v('acct')})">Unban</button>
+    <button onclick="send('set_admin',{account:v('acct'),admin:true})">Grant admin</button>
+    <button onclick="send('set_admin',{account:v('acct'),admin:false})">Revoke admin</button>
+  </div>
+</div>
+
+<h2>Server</h2>
+<div class="card">
+  <label>Broadcast message</label><input id="msg">
+  <button onclick="send('broadcast',{message:v('msg')})">Broadcast</button>
+  <div class="row">
+    <div><label>Weather</label><input id="weather"></div>
+    <div><label>Time</label><input id="time"></div>
+  </div>
+  <div class="row">
+    <button onclick="send('set_weather',{weather:v('weather')})">Set weather</button>
+    <button onclick="send('set_time',{time:v('time')})">Set time</button>
+    <button onclick="send('save_db',{})">Save DB</button>
+  </div>
+</div>
+
+<h2>Log</h2>
+<div id="log"></div>
+
+<script>
+function v(id){ return document.getElementById(id).value; }
+function logLine(ok,txt){
+  const el=document.getElementById('log');
+  el.innerHTML += '<div class="'+(ok?'ok':'err')+'">'+
+    new Date().toLocaleTimeString()+'  '+txt+'</div>';
+  el.scrollTop=el.scrollHeight;
+}
+async function send(command, params){
+  const token=v('token');
+  if(!token){ logLine(false,'no admin token entered'); return; }
+  try {
+    const r=await fetch('/api/admin',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Admin-Token':token},
+      body:JSON.stringify({command,params})
+    });
+    const j=await r.json();
+    logLine(j.ok, command+' -> '+r.status+' '+j.message);
+  } catch(e){ logLine(false, command+' -> '+e); }
+}
+function runPlayer(){
+  const cmd=v('pcmd'), p={player:v('player')};
+  if(cmd==='teleport') p.zone=+v('pval');
+  else if(cmd==='set_hp') p.hp=+v('pval');
+  else if(cmd==='set_cash') p.amount=+v('pval');
+  else if(cmd==='set_rank') p.rank=+v('pval');
+  else if(cmd==='set_faction') p.faction=+v('pval');
+  send(cmd,p);
+}
+</script>
+</body>
+</html>
