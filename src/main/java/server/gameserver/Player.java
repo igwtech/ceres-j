@@ -67,6 +67,17 @@ public class Player extends Thread {
 	// packets until the first gamedata (0x13) arrives. Retail never has
 	// zone-handoff so processing these packets causes state resets.
 	private volatile boolean zoneHandoffActive = false;
+	// City-sector walk-cross marker. Set by SZoning1ConfirmEvent when the
+	// committed destination is an INDEXED CITY zone (worldId < 2001 — the
+	// exact complement of ZoneBoundaries.isWastelandOutdoor). Retail's
+	// RETAIL_PLAZA_TO_PEPPER_CROSS_DISTRICT pcap proves the server sends
+	// NO self-position (no 0x03/0x2c StartPos, no 0x03/0x1b self-pos) for
+	// a city walk-cross — the client self-positions from local .dat
+	// geometry across the sector seam. Non-consuming so every self-pos
+	// emitter in the reconnect burst sees it; cleared explicitly once the
+	// burst that honoured it has run, so a later genuine fresh login
+	// still gets its StartPos. See zone_portal_params.md §7, task #174.
+	private volatile boolean pendingCityCrossSelfPosSuppress = false;
 	// Last time we echoed an authoritative PlayerPositionUpdate back to this
 	// player in response to a client Movement packet. The modern NCE 2.5
 	// client runs local dead-reckoning and expects periodic server-side
@@ -372,6 +383,26 @@ public class Player extends Thread {
 
 	public boolean isZoneHandoffActive() { return zoneHandoffActive; }
 	public void setZoneHandoffActive(boolean v) { this.zoneHandoffActive = v; }
+
+	/** Mark that the next world-state burst is a city walk-cross and
+	 *  must NOT push a server self-position (the client self-positions,
+	 *  as retail does). Set by SZoning1ConfirmEvent for a city dest. */
+	public void setPendingCityCrossSelfPosSuppress(boolean v) {
+		this.pendingCityCrossSelfPosSuppress = v;
+	}
+
+	/** Whether the current world-state burst must suppress the server
+	 *  self-position (city walk-cross). Non-consuming; cleared via
+	 *  {@link #clearPendingCityCrossSelfPosSuppress}. */
+	public boolean isPendingCityCrossSelfPosSuppress() {
+		return this.pendingCityCrossSelfPosSuppress;
+	}
+
+	/** Clear the city-cross self-position suppression flag (called at
+	 *  the end of the world-state burst that honoured it). */
+	public void clearPendingCityCrossSelfPosSuppress() {
+		this.pendingCityCrossSelfPosSuppress = false;
+	}
 
 	public PlayerUdpListener getUdpListener() {
 		return udpListener;

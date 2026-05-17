@@ -120,4 +120,56 @@ public class ZoneBoundariesTest {
         assertFalse(ZoneBoundaries.isWastelandOutdoor(2217)); // past max
         assertFalse(ZoneBoundaries.isWastelandOutdoor(0));
     }
+
+    /**
+     * {@link ZoneBoundaries#isIndexedCitySector} must be the exact
+     * complement of {@link ZoneBoundaries#isWastelandOutdoor} over the
+     * valid positive zone-id space. The retail city↔city walk-cross
+     * pairs proven from RETAIL_PLAZA_TO_PEPPER_CROSS_DISTRICT
+     * (plaza_p1=1, plaza_p3=101, pepper_p1=5) must classify as city.
+     */
+    @Test
+    public void indexedCitySectorMatchesRetailCrossPairs() {
+        // Retail-proven city↔city cross worldIds (zone_portal_params.md
+        // §7): plaza_p1=1, plaza_p2=2, plaza_p3=101, plaza_p4=102,
+        // pepper_p1=5, pepper_p2=6, pepper_p3=7.
+        for (int cityId : new int[]{1, 2, 5, 6, 7, 101, 102,
+                8, 11, 23, 801, 1000, 2000}) {
+            assertTrue("worldId " + cityId
+                    + " must be an indexed city sector",
+                    ZoneBoundaries.isIndexedCitySector(cityId));
+            assertFalse("worldId " + cityId
+                    + " must NOT be wasteland",
+                    ZoneBoundaries.isWastelandOutdoor(cityId));
+        }
+        // Outdoor grid (>=2001) is NOT a city sector.
+        for (int outId : new int[]{2001, 2007, 2027, 2216}) {
+            assertFalse("worldId " + outId
+                    + " must NOT be a city sector",
+                    ZoneBoundaries.isIndexedCitySector(outId));
+            assertTrue(ZoneBoundaries.isWastelandOutdoor(outId));
+        }
+        // Exact complement at the grid boundary, and 0/negative guard.
+        assertTrue(ZoneBoundaries.isIndexedCitySector(
+                ZoneBoundaries.OUTDOOR_WORLDID_MIN - 1)); // 2000
+        assertFalse(ZoneBoundaries.isIndexedCitySector(
+                ZoneBoundaries.OUTDOOR_WORLDID_MIN));      // 2001
+        assertFalse(ZoneBoundaries.isIndexedCitySector(0));
+        assertFalse(ZoneBoundaries.isIndexedCitySector(-1));
+    }
+
+    @Test
+    public void cityAndWastelandPartitionIsDisjointAndTotal() {
+        // For every valid positive worldId in the relevant range,
+        // exactly one of {city, wasteland} holds (the code partitions
+        // city vs outdoor exactly on the worldId range — task #174).
+        for (int id = 1; id <= 2300; id++) {
+            boolean city = ZoneBoundaries.isIndexedCitySector(id);
+            boolean waste = ZoneBoundaries.isWastelandOutdoor(id);
+            if (id <= ZoneBoundaries.OUTDOOR_WORLDID_MAX) {
+                assertTrue("id " + id + " must be city xor wasteland",
+                        city ^ waste);
+            }
+        }
+    }
 }
