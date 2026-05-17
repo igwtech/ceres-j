@@ -104,15 +104,21 @@ public class ZoneStateCompoundPacket extends PacketBuilderUDP13 {
 
         int angle = npc.getAngle() & 0xFF;
         write(angle == 0 ? 0x40 : angle);             // [12] orient
-        // [13..14] entity_class_id LE16. RETAIL: per-NPC class id —
-        // the model/skeleton selector the client uses to render the
-        // NPC (verified 30/30 raw-0x1b samples HANNIBAL/NORMAN/AUGUSTO,
-        // docs/protocol/packets/udp_s2c_1b.md; e.g. NORMAN 0x010e
-        // emits b9 88, AUGUSTO 0x0123 emits 76 71). Emitting 0x0000
-        // = "class 0" = no model, compounding the no-render bug.
-        int cls = npc.getType() & 0xFFFF;
-        write(cls & 0xFF);                            // [13] class lo
-        write((cls >> 8) & 0xFF);                     // [14] class hi
+        // [13..14] entity_class_id LE16. RETAIL DISCREPANCY (NOT
+        // fixable with current data): docs/protocol/packets/udp_s2c_1b.md
+        // (verified 30/30 samples) shows this field is per-NPC and
+        // NEVER 0x0000 (e.g. NORMAN 0x010e -> 0x88b9, AUGUSTO 0x0123 ->
+        // 0x7176). It is a SEPARATE id space from the 0x03/0x28
+        // class_id (entity 0x0149 emits class 0x003b in 0x28 but
+        // entity_class_id 0x010f in 0x1b — see udp_s2c_03_28.md "Open
+        // questions"). We have no retail-derived getType()->
+        // entity_class_id mapping, so any non-zero value here would be
+        // an unbacked guess. Per the #178 rule (no speculative bytes),
+        // left 0x0000 and documented rather than fabricated. Closing
+        // this needs a retail capture mapping a known Ceres NPC type
+        // to its 0x1b entity_class_id.
+        write(0x00);                                  // [13]
+        write(0x00);                                  // [14]
         write(0x00);                                  // [15] CONSTANT
         write(0x00);                                  // [16] CONSTANT
         write(0x11);                                  // [17] state hash lo
@@ -162,12 +168,13 @@ public class ZoneStateCompoundPacket extends PacketBuilderUDP13 {
         // Datagram 3: reliable 0x03→0x28 WorldInfo. Body is built by
         // WorldNPCInfo.writeBody so the two 0x03/0x28 emitters share
         // one retail-evidenced layout and cannot drift apart again
-        // (byte-diffed 2026-05-16 vs 331 retail packets — see
-        // docs/protocol/packets/udp_s2c_03_28.md). The previous
-        // hand-rolled block hard-coded the per-NPC [6..9] instance
-        // handle to the constant 8958887 (0/331 retail packets) so
-        // every NPC collided onto one client world-object reference
-        // and none rendered.
+        // (byte-diffed 2026-05-16 vs the verified retail decode in
+        // docs/protocol/packets/udp_s2c_03_28.md + the preserved raw
+        // samples in docs/protocol/_data/packets.json). The previous
+        // hand-rolled block hard-coded the per-NPC [7..10] instance
+        // handle to the constant 8958887 (absent from all retail
+        // evidence) so every NPC collided onto one client world-object
+        // reference, and mislocated the trailing strings by 1 byte.
         PacketBuilderUDP1303 world = new PacketBuilderUDP1303(owner);
         world.write(0x28);
         WorldNPCInfo.writeBody(world, npc);
