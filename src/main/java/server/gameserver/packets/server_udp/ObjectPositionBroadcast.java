@@ -78,8 +78,19 @@ public class ObjectPositionBroadcast extends PacketBuilderUDP13 {
         int angle = npc.getAngle() & 0xFF;
         write(angle == 0 ? 0x40 : angle);             // [12] orient
 
-        write(0x00);                                  // [13] status lo
-        write(0x00);                                  // [14] status hi
+        // [13..14] entity_class_id LE16. Retail (AUGUSTO/NORMAN/
+        // DRSTONE4, decoded 2026-05-17 via tools/pcap-decode.py): this
+        // field is 100% stable per entity and NEVER 0x0000 for a
+        // mobile NPC, and the raw 0x1b arrives BEFORE the reliable
+        // 0x28 WorldInfo — so the client creates the world actor from
+        // THIS id on first sight. Emitting 0x0000 here (the pre-fix
+        // behaviour) meant the actor was never instantiated and the
+        // NPC never rendered. The retail values are server runtime
+        // handles absent from every client def, so we emit the NPC's
+        // real npc.def type id (stable, non-zero, genuine client
+        // data); NPC.getEntityClassId() guarantees non-zero.
+        int ecid = npc.getEntityClassId() & 0xFFFF;
+        writeShort(ecid);                             // [13-14] class id
         write(0x00);                                  // [15]
         write(0x00);                                  // [16]
         write(0x11);                                  // [17] trailer

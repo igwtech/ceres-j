@@ -104,21 +104,26 @@ public class ZoneStateCompoundPacket extends PacketBuilderUDP13 {
 
         int angle = npc.getAngle() & 0xFF;
         write(angle == 0 ? 0x40 : angle);             // [12] orient
-        // [13..14] entity_class_id LE16. RETAIL DISCREPANCY (NOT
-        // fixable with current data): docs/protocol/packets/udp_s2c_1b.md
-        // (verified 30/30 samples) shows this field is per-NPC and
-        // NEVER 0x0000 (e.g. NORMAN 0x010e -> 0x88b9, AUGUSTO 0x0123 ->
-        // 0x7176). It is a SEPARATE id space from the 0x03/0x28
-        // class_id (entity 0x0149 emits class 0x003b in 0x28 but
-        // entity_class_id 0x010f in 0x1b — see udp_s2c_03_28.md "Open
-        // questions"). We have no retail-derived getType()->
-        // entity_class_id mapping, so any non-zero value here would be
-        // an unbacked guess. Per the #178 rule (no speculative bytes),
-        // left 0x0000 and documented rather than fabricated. Closing
-        // this needs a retail capture mapping a known Ceres NPC type
-        // to its 0x1b entity_class_id.
-        write(0x00);                                  // [13]
-        write(0x00);                                  // [14]
+        // [13..14] entity_class_id LE16. RESOLVED 2026-05-17 (task
+        // #178). The retail captures DO exist (ceres-j/strace/*.pcap)
+        // and were decoded with tools/pcap-decode.py: this field is
+        // 100% stable per entity (AUGUSTO ent 0x0124 = 1739 ×103, the
+        // NCPD-guard group 0x0125–0x012f all = 29002) and NEVER
+        // 0x0000 for a mobile NPC. Crucially the raw 0x1b for an
+        // entity arrives BEFORE its reliable 0x28 WorldInfo (AUGUSTO
+        // 0x0124: 0x1b @277.953 s, 0x28 @278.433 s), so the client
+        // creates the world actor from THIS id on first sight —
+        // emitting 0x0000 (the old behaviour) is exactly why NPCs
+        // never rendered. The retail values (29002/29046/1739/…) are
+        // server runtime spawn handles absent from EVERY client def
+        // (npc.def maxes at 20008; 29002/29046 appear in no pak_*.def)
+        // so there is no static type→id table to look up — same
+        // category as the 0x28[7..10] instance handle. We emit the
+        // NPC's real npc.def type id (genuine client data, stable,
+        // non-zero); NPC.getEntityClassId() guarantees non-zero.
+        int ecid = npc.getEntityClassId() & 0xFFFF;
+        write(ecid & 0xFF);                           // [13] class lo
+        write((ecid >> 8) & 0xFF);                    // [14] class hi
         write(0x00);                                  // [15] CONSTANT
         write(0x00);                                  // [16] CONSTANT
         write(0x11);                                  // [17] state hash lo

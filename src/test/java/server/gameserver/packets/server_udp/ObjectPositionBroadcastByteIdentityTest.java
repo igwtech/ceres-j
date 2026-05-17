@@ -55,8 +55,10 @@ public class ObjectPositionBroadcastByteIdentityTest {
     @Test
     public void bodyLayoutForKnownNpc() {
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
-        // mapID=0xABCD, pos (1000, 2000, 3000), angle=0
-        NPC npc = new NPC(1000, 2000, 3000, 100, 0, 1, 0xABCD);
+        // id=0xABCD, zone=1, type=0x014f (PMAN-class npc.def id),
+        // pos (1000, 2000, 3000), angle=0
+        NPC npc = new NPC(0xABCD, 1, 0x014f, "PMAN",
+                1000, 2000, 3000, 0, 100, 0);
 
         byte[] body = extractInnerBody(
                 datagramBytes(new ObjectPositionBroadcast(pl, npc)));
@@ -82,14 +84,66 @@ public class ObjectPositionBroadcastByteIdentityTest {
         assertEquals(0x80, body[11] & 0xFF);
         // [12] angle defaults to 0x40 when input is 0
         assertEquals(0x40, body[12] & 0xFF);
-        // [13..16] status + padding zeros
-        for (int i = 13; i <= 16; i++) {
-            assertEquals("zero byte at offset " + i,
-                    0x00, body[i] & 0xFF);
-        }
+        // [13..14] entity_class_id LE16 = npc.def type 0x014f.
+        // Retail proves this is NEVER 0x0000 for a mobile NPC and is
+        // read by the client to create the world actor (0x1b arrives
+        // before 0x28). Must be the non-zero npc.def type id.
+        assertEquals(0x4f, body[13] & 0xFF);
+        assertEquals(0x01, body[14] & 0xFF);
+        // [15..16] padding zeros
+        assertEquals("zero byte at offset 15", 0x00, body[15] & 0xFF);
+        assertEquals("zero byte at offset 16", 0x00, body[16] & 0xFF);
         // [17..18] trailer 11 11
         assertEquals(0x11, body[17] & 0xFF);
         assertEquals(0x11, body[18] & 0xFF);
+    }
+
+    @Test
+    public void entityClassIdIsNeverZeroAndStablePerEntity() {
+        // Retail invariant (AUGUSTO/NORMAN/DRSTONE4, 2026-05-17):
+        // 0x1b[13..14] is non-zero and constant across every packet
+        // for a given entity. The client creates the world actor from
+        // it on first sight, so 0x0000 means the NPC never renders.
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
+
+        // Curated NPC with a real npc.def type.
+        NPC typed = new NPC(0x0124, 7, 0x014f, "PMAN",
+                0, 0, 0, 0, 100, 0);
+        byte[] a = extractInnerBody(
+                datagramBytes(new ObjectPositionBroadcast(pl, typed)));
+        byte[] b = extractInnerBody(
+                datagramBytes(new ObjectPositionBroadcast(pl, typed)));
+        int ecidA = (a[13] & 0xFF) | ((a[14] & 0xFF) << 8);
+        int ecidB = (b[13] & 0xFF) | ((b[14] & 0xFF) << 8);
+        assertEquals("0x1b class id must equal npc.def type 0x014f",
+                0x014f, ecidA);
+        assertEquals("0x1b class id stable across packets",
+                ecidA, ecidB);
+
+        // Bulk world_npcs row whose npc_type_id is 0 must STILL emit a
+        // non-zero, stable, per-entity id (deterministic fallback).
+        NPC zeroType = new NPC(0x0150, 11, 0, "WCOP",
+                0, 0, 0, 0, 100, 0);
+        byte[] z1 = extractInnerBody(
+                datagramBytes(new ObjectPositionBroadcast(pl, zeroType)));
+        byte[] z2 = extractInnerBody(
+                datagramBytes(new ObjectPositionBroadcast(pl, zeroType)));
+        int z1id = (z1[13] & 0xFF) | ((z1[14] & 0xFF) << 8);
+        int z2id = (z2[13] & 0xFF) | ((z2[14] & 0xFF) << 8);
+        assertNotEquals("zero-type NPC must not emit 0x0000 class id",
+                0, z1id);
+        assertEquals("fallback class id stable across packets",
+                z1id, z2id);
+
+        // Distinct zero-type NPCs must get distinct ids (no actor
+        // collision — the same property the 0x28 handle enforces).
+        NPC zeroType2 = new NPC(0x0151, 11, 0, "WCOP",
+                0, 0, 0, 0, 100, 0);
+        byte[] z3 = extractInnerBody(
+                datagramBytes(new ObjectPositionBroadcast(pl, zeroType2)));
+        int z3id = (z3[13] & 0xFF) | ((z3[14] & 0xFF) << 8);
+        assertNotEquals("distinct zero-type NPCs get distinct ids",
+                z1id, z3id);
     }
 
     @Test

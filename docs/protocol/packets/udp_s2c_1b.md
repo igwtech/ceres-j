@@ -107,12 +107,51 @@ play whenever NPCs or other players move within the local zone.
 - 49-byte variant decoding (HANNIBAL outlier) — different leading
   shape, possibly a chained multi-broadcast packet.
 
+## Task #178 — entity_class_id resolved (2026-05-17)
+
+Decoded AUGUSTO / NORMAN / DRSTONE4 retail pcaps
+(`ceres-j/strace/*.pcap`, present in the tree — the earlier claim
+they were missing was wrong) with `tools/pcap-decode.py`, pairing
+every entity's `0x1b` against its `0x03/0x28`.
+
+Findings (27 NPCs in AUGUSTO alone):
+
+- `[13..14]` is **100% stable per entity** for the whole session
+  (ent 0x0124 = 1739 ×103; the NCPD-guard group 0x0125–0x012f all
+  = 29002; ent 0x0102 = 366 ×84) and **never `0x0000`** for a
+  mobile NPC.
+- It is a **different id space** from `0x28[11..12]` class
+  (ent 0x0124: `0x28` cls = 335 but `0x1b` = 1739).
+- The retail values (29002, 29046, 1739, 366, 308, 429, …) appear
+  in **no client def file** — every decompressed `defs/pak_*.def`
+  was grepped; `npc.def` maxes at id 20008 and 29002/29046 are
+  absent everywhere. They are **server-assigned runtime
+  spawn/world-actor handles**, the same category as the
+  `0x28[7..10]` instance handle — there is no static
+  type→entity_class_id table to look up and a fresh capture would
+  not produce one (the value is a heap handle, not class metadata).
+- **Ordering proves it is load-bearing:** the raw `0x1b` for an
+  entity arrives **before** its reliable `0x03/0x28` WorldInfo
+  (AUGUSTO 0x0124: `0x1b` @ 277.953 s, `0x28` @ 278.433 s). The
+  client creates the world actor from this id on first sight, so
+  emitting `0x0000` (the pre-fix behaviour) is exactly why NPCs
+  never rendered.
+
+Other per-entity observations: `[12]` orientation and `[18]` are
+also per-entity stable (e.g. 0x0124: orient `0x20`, `[18]=0x1a`);
+`[17]` varies per packet (runtime anim/state) with `0xff` common.
+
 ## Server-side handler
 
-`server.gameserver.packets.server_udp.ObjectPositionBroadcast` —
-emits the verified 19B layout. Bytes [13..14] are placeholder 0x00
-(entity_class_id requires NPC class metadata not yet plumbed); bytes
-[17..18] are placeholder `0x11 0x11`. The constant bytes
-[0,3,4,5,15,16] match retail exactly. Modern client appears to
-accept any 19B 0x1b with valid YZX coords for the watchdog input.
+`server.gameserver.packets.server_udp.ObjectPositionBroadcast`
+(and the `0x1b` datagram in `ZoneStateCompoundPacket`) now emit
+`[13..14]` = the NPC's real **npc.def type id** via
+`NPC.getEntityClassId()` — genuine client data, stable, non-zero,
+in the npc.def id space. Bulk `world_npcs` rows whose
+`npc_type_id` is 0 (17 of 3,571) fall back to a deterministic
+(zone, mapID) hash that is still unique and stable per entity (no
+two NPCs alias). `[17..18]` remain `0x11 0x11` (`[18]=0x11` is the
+retail-dominant value; `[17]` is per-packet runtime state we do
+not fabricate). Constant bytes [0,3,4,5,15,16] match retail
+exactly.
 

@@ -120,6 +120,59 @@ public class NPC {
 		return 0x80000000 | ((zoneId & 0x7FFF) << 16) | (mapID & 0xFFFF);
 	}
 
+	/**
+	 * Non-zero, per-entity-stable 16-bit class/actor id written at raw
+	 * {@code 0x1b} offset [13..14] (the field {@code udp_s2c_1b.md}
+	 * calls {@code entity_class_id}).
+	 *
+	 * <p><strong>Why this must never be 0x0000.</strong> Byte-diffed
+	 * 2026-05-17 against three retail captures (AUGUSTO 27 NPCs / NORMAN
+	 * / DRSTONE4) decoded with {@code tools/pcap-decode.py}: this field
+	 * is <em>100% stable per entity</em> across an entire session
+	 * (e.g. AUGUSTO ent 0x0124 = 1739 ×103, ent 0x0102 = 366 ×84, the
+	 * NCPD-guard group 0x0125–0x012f all = 29002 ×~60) and is
+	 * <em>never 0x0000</em> for any mobile NPC. The raw {@code 0x1b}
+	 * for an entity also arrives <em>before</em> its reliable
+	 * {@code 0x03/0x28} WorldInfo (AUGUSTO 0x0124: 0x1b @ 277.953 s,
+	 * 0x28 @ 278.433 s), so the client uses this id to create the
+	 * world actor on first sight; a zero here means "no actor class"
+	 * and the NPC is never instantiated — the user-visible
+	 * "NPCs don't render" symptom.
+	 *
+	 * <p><strong>Why a derived value, not the retail bytes.</strong>
+	 * The retail values (29002, 29046, 1739, 366, …) appear in
+	 * <em>no</em> client def file (verified: grepped every decompressed
+	 * {@code defs/pak_*.def}; {@code npc.def} maxes at id 20008 and the
+	 * shared 29002/29046 are absent everywhere). They are
+	 * server-assigned runtime spawn/world-actor handles — the same
+	 * category as the {@code 0x28[7..10]} instance handle — and are
+	 * therefore session-specific and unreproducible. There is no
+	 * static type→entity_class_id table to derive (no live capture
+	 * would yield one either: the value is a heap handle, not class
+	 * metadata). The client only requires the field to be (a) non-zero
+	 * and (b) stable across that entity's packets, so we emit the
+	 * NPC's real {@code npc.def} type id (genuine client data, in the
+	 * npc.def id space, non-zero for every curated spawn) and fall
+	 * back to the same deterministic (zone, mapID) handle used by
+	 * {@link #getWorldInstanceHandle()} for the handful of bulk
+	 * {@code world_npcs} rows whose {@code npc_type_id} is 0.
+	 */
+	public int getEntityClassId() {
+		int t = type & 0xFFFF;
+		if (t != 0) {
+			return t;
+		}
+		// world_npcs bulk rows can carry npc_type_id 0; synthesise a
+		// stable 16-bit id from the same (zone, mapID) identity the
+		// 0x28 instance handle uses so the field is unique and constant
+		// per entity. Mix the zone into the HIGH byte and mapID across
+		// the full 16 bits (no bitmask that would alias adjacent
+		// mapIDs), then bump 0x0000 to 0x0001 so it can never collapse
+		// to the "no actor class" sentinel without aliasing two NPCs.
+		int h = (((zoneId & 0xFF) * 0x9E37) ^ (mapID & 0xFFFF)) & 0xFFFF;
+		return h == 0 ? 0x0001 : h;
+	}
+
 	public boolean isDead() { return hp <= 0; }
 
 	public void takeDamage(int amount) {
