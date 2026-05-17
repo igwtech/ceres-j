@@ -145,65 +145,125 @@ fa 2f 01 2e
 
 ## Variants
 
-**Update 2026-05-10**: re-extracted across 8 captures with no
-per-pcap cap → 6,740 total samples. Two distinct sub-action
-families emerge based on body[2..3] category:
+**Update 2026-05-17 — task #167. The body layout is NOT
+per-sub-action.** Full sweep of all 17 retail captures
+(69,755 observations; tooling `tools/extract_2d_layouts.py`,
+`tools/analyze_2d_cat1.py`, `tools/verify_2d_record71.py`)
+disproves the long-standing "440 distinct per-sub-action layouts"
+hypothesis. Grouping by `(category[2..3], sub-action[1])` yields
+440 groups, but **~all of the long tail is a single capture
+(`RETAIL_VEHICLE_DRONE`, 72% of obs) varying one entity-keyed
+byte** — not 440 wire formats. The real structure:
 
-### Category `0x0003` — high-frequency NPC tick updates
+- **Length** selects the gross form: 6 / 10 / 55 bytes.
+- For the 55-byte form, **`body[5]` (the record-discriminator
+  byte) selects the field grid** — `0x71` or `0x75`. These are
+  the same bytes `MobState.COMBAT` (0x71) / `MobState.IDLE`
+  (0x75) use; the record discriminator *is* the mob state.
+- **`body[1]` (sub-action) is an event tag** (which mob event
+  fired) and **`body[2..3]` (category LE16) is a routing class**
+  (0x0001 lifecycle / 0x0003 high-frequency tick / 0x0002).
+  Neither changes the grid past `body[5]`.
 
-All 5 most-common sub-actions are in this family (~5,500
-combined samples):
+Decoder: `server.gameserver.npc.Npc2dRecordDecoder`
+(retail-pinned, evidence-cited). Legacy fixed-grid
+`MobDataDecoder` retained for back-compat.
 
-| sub-action | count | likely meaning                                |
-|-----------:|------:|-----------------------------------------------|
-| 0xdb       | 1912  | NPC anim / position tick (broadcast)          |
-| 0xaa       | 1291  | NPC AI state tick                             |
-| 0xe7       | 1210  | NPC despawn / combat-state                    |
-| 0xee       | 1208  | NPC misc tick                                 |
-| 0xf4       | 1119  | NPC update                                    |
+### Form 1 — 6-byte PING  `2d [sub] [cat LE16] 00 06`
 
-Layout (post {@code 0x2d [sub-action] 0x03 0x00 0x00} = 5B
-header):
+Minimal event ping, no body. Seen for many distinct sub-actions
+under `cat=0x0001` across **9 captures** (e.g. sub 0x01 ×36,
+0x02 ×38, 0x03 ×33, 0x04 ×39, 0x05 ×33, 0x07 ×31, 0x22 ×35).
+The trailing `0x06` is a constant block-length marker. Proven —
+`Npc2dRecordDecoderTest.decodesPingForm_*`.
+
+### Form 2 — 10-byte SHORT  `2d [sub] 03 00 00 0a 00 [tok LE32]`
+
+Short event with one trailing token. `cat=0x0003`. Exactly two
+tokens observed corpus-wide:
+
+| body                       | token (LE32) | count | captures |
+|----------------------------|--------------|------:|---------:|
+| `2d fb 03 00 00 0a 00 00 00 00` | `0x00000000` | 147 | many |
+| `2d d1 03 00 00 0a 00 60 1f 45` | `0x451f6000` |  91 | many |
+
+(`fa/fc/f5/f7/f8/ca` sub-actions also appear with the same two
+tokens.) The `0a 00` after the 5-byte header is a fixed
+sub-block marker. Proven — `decodesShortForm_*`.
+
+### Form 3 — 55-byte RECORD
+
 ```
-[5..8]   entity_ref LE32         e.g. `75 d0 07 00` = 0x0007d075
-[9..12]  4 bytes — varies        position/anim component?
-[13..16] 4 bytes
-[17..20] 4 bytes — varies (LE32 entity hash often visible:
-                            `e0 f7 2f 01` recurs)
-[21..end] sub-action-specific tail (~32B)
+[0]      0x2d
+[1]      sub-action            event tag (NOT a layout selector)
+[2..3]   category LE16         routing class: 0x0001 / 0x0002 / 0x0003
+[4]      0x00
+[5]      record discriminator  0x71 or 0x75  (== MobState byte)
+[6]      route / sub-class     0x20 = position-bearing (0x71)
 ```
 
-### Category `0x0001` — low-frequency lifecycle events
+#### 3a. `body[5]=0x71` — ENTITY world-state record
 
-The 0x0001 family carries lifecycle events (NPC spawn, state
-transitions, HP/stat updates, removal) — was originally
-documented from a 52-sample subset. Sub-action distribution (top
-15 from that subset):
+**26,755 retail observations**, multiple captures. Byte-pinned
+(`verify_2d_record71.py`, 16,757-sample clean subset =
+sentinel+echo):
 
-| sub-action | count | likely meaning (inferred from markers)        |
-|-----------:|------:|-----------------------------------------------|
-| 0x02       |     8 | NPC spawn / character data sync               |
-| 0xe7       |     6 | NPC despawn / death                           |
-| 0x0f       |     4 | NPC state change                              |
-| 0x26       |     4 | NPC removal / despawn-2                       |
-| 0x2b       |     4 | NPC interact / dialog state                   |
-| 0x63       |     4 | NPC HP/status update                          |
-| 0xbd       |     3 | NPC AI state                                  |
-| 0xdb       |     3 | NPC anim state                                |
-| 0xfc       |     2 | NPC misc tag                                  |
-| 0xf1       |     2 | (untyped)                                     |
-| 0xf6       |     2 | (untyped)                                     |
-| 0x10       |     2 | (untyped)                                     |
-| 0x28       |     2 | (untyped)                                     |
-| 0x00       |     1 | short 9B state-flag notification              |
-| 0x24       |     1 | (untyped)                                     |
+```
+[7..10]  float posX            (route 0x20; e.g. 56 cc c2 45 = 6233.542)
+[11..14] 0xFFFFFFFF             "no-target" sentinel — 97.7% of all obs
+[15..18] float f1
+[19..22] float f2
+[23..26] float f3
+[27..30] float f4
+[31..34] float f5  ==  f2       posY echo — STRUCTURAL PROOF
+                                (100% of clean subset, 62.7% overall)
+[35]     float-block high byte  0x45 / 0xc5
+[36..47] INVARIANT 12 B = 43 00 00 80 06 00 00 00 01 00 00 00
+                                byte-identical across every capture
+[48..51] tail marker = 81 ca 09 00   fixed offset (16,681 obs)
+[52..54] 3-byte per-record tail
+```
 
-**Open: full sub-action enumeration.** The catalog's 69,755 obs
-spread across many sub-actions; the 52 sample subset captures
-~15-18 distinct values but the long tail probably has 30+ more.
+The doc's earlier byte-pin (offsets [35..46] block / [47..54]
+tail) was off by one slot; the figures above are the corrected,
+re-verified offsets. Sub-actions `0xee`, `0xa0`, `0x54`, `0xdb`,
+`0xe7`, `0xf4`, `0xbd`, `0x63`, … all share this identical grid —
+they differ only in the [1] event tag and the float values.
+Proven — `decodesEntityRecord_ee/a0/54_fromRetail`.
 
-The `0x11` sub-action specifically is investigated separately
-(task #154 — client expects 36-byte format, retail emits less).
+#### 3b. `body[5]=0x75` — LOCAL / relative-state record
+
+**36,977 retail observations**, multiple captures. Tail signature
+`f8 f8 2f 01 89 01 1e 00` @~[44..51] and marker `2e ce 2c 00`
+@~[32]. Body [7..54] is a **chain of LE32 entity handles** (each
+ends `2f 01` / `…0c`), NOT world floats. The per-slot meanings
+are **insufficient evidence** to pin — surfaced verbatim as
+`Decoded.localBody` so producers can replay them. Proven (shape +
+discriminator) — `decodesLocalRecord_fc/0a_cat1_fromRetail`.
+
+### Category semantics (pinned)
+
+`cat=0x0001` carries the lifecycle family — sub-actions form a
+clean contiguous enum `0x01..0x14`, each present in 6–11 captures
+(genuine event classes). `cat=0x0003` is the high-frequency
+position/AI tick (dominated by `RETAIL_VEHICLE_DRONE`).
+`cat=0x0002` is a smaller variant of the 0x75 record. The
+0x0001-vs-0x0003 split is **routing class, not combat-vs-idle**:
+both categories appear with both `body[5]` discriminators.
+
+### Insufficient evidence (not guessed)
+
+- Per-slot meaning of the 0x75 LOCAL-record handle chain
+  (handles identifiable, semantics not).
+- `body[6]` route values other than `0x20` for 0x71 records (the
+  non-position-bearing 0x71 variants — float fields do not parse
+  as world coords; held opaque).
+- Sub-action `0x11` client-side 36-byte expectation (task #154 —
+  out of #167 scope; the wire form here is the standard 55B
+  record).
+- Whether `body[1]` event tags map to named events
+  (spawn/despawn/HP) — markers correlate loosely but no
+  byte-level proof, left undocumented rather than guessed.
 
 ## Observed contexts
 
