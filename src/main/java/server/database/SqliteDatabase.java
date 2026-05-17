@@ -34,7 +34,7 @@ public final class SqliteDatabase {
      *           faction_sympathies (JSON) and per-skill xp/rate/max.</li>
      * </ul>
      */         
-    public static final int CURRENT_SCHEMA_VERSION = 7;
+    public static final int CURRENT_SCHEMA_VERSION = 8;
 
     /**
      * CharInfo fidelity columns added in schema v1. Each entry is
@@ -283,7 +283,8 @@ public final class SqliteDatabase {
                 "  char2 INTEGER DEFAULT 0," +
                 "  char3 INTEGER DEFAULT 0," +
                 "  char4 INTEGER DEFAULT 0," +
-                "  status TEXT DEFAULT ''" +
+                "  status TEXT DEFAULT ''," +
+                "  gm_level INTEGER DEFAULT 0" +
                 ")"
             );
 
@@ -559,6 +560,22 @@ public final class SqliteDatabase {
                 if (!existing.contains("slot")) {
                     stmt.execute(
                         "ALTER TABLE items ADD COLUMN slot INTEGER DEFAULT 0");
+                }
+            }
+        }
+
+        if (currentVersion < 8) {
+            // v7 → v8: add `gm_level` INTEGER to the accounts table for
+            // the CMaNGOS-style GM command framework (task #179). Levels:
+            // 0 player, 1 moderator, 2 gamemaster, 3 admin. Existing rows
+            // default to 0; legacy accounts whose `status` column is
+            // 'admin' are mapped to level 3 at load time by
+            // Account.setStatus(), so no data backfill is required here.
+            Set<String> existing = getExistingColumns("accounts");
+            try (Statement stmt = connection.createStatement()) {
+                if (!existing.contains("gm_level")) {
+                    stmt.execute(
+                        "ALTER TABLE accounts ADD COLUMN gm_level INTEGER DEFAULT 0");
                 }
             }
         }

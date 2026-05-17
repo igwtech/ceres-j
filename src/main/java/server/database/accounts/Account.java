@@ -25,10 +25,28 @@ public class Account {
 	private String password;
 	int character[] = new int[4];
 	int status;
+	/**
+	 * CMaNGOS-style numeric GM authority level. 0 = ordinary player;
+	 * higher numbers unlock more powerful in-game commands. Persisted in
+	 * the {@code accounts.gm_level} column (schema v8). The legacy
+	 * {@code status="admin"} flag is mapped to {@link #GM_ADMIN} on load
+	 * so existing admin accounts keep working without a DB edit.
+	 */
+	private int gmLevel;
 	private GameServerTCPConnection currentTCP;
 
 	public static final int STATUS_BANNED = 1;
 	public static final int STATUS_ADMIN = 2;
+
+	// ── CMaNGOS-style GM authority tiers ──────────────────────────────
+	/** Ordinary player — no privileged commands. */
+	public static final int GM_PLAYER     = 0;
+	/** Trusted helper — read-only / self-only diagnostic commands. */
+	public static final int GM_MODERATOR  = 1;
+	/** Game Master — world-affecting commands on self. */
+	public static final int GM_GAMEMASTER = 2;
+	/** Administrator — commands that affect other players / accounts. */
+	public static final int GM_ADMIN      = 3;
 
 
 	public Account(int id) {
@@ -57,7 +75,30 @@ public class Account {
 
 		if (status.equalsIgnoreCase("admin")) {
 			this.status = STATUS_ADMIN;
+			// Legacy admin accounts get full GM authority unless an
+			// explicit gm_level was already loaded from the DB.
+			if (this.gmLevel < GM_ADMIN) {
+				this.gmLevel = GM_ADMIN;
+			}
 		}
+	}
+
+	/**
+	 * Returns this account's CMaNGOS-style GM authority level
+	 * ({@link #GM_PLAYER} … {@link #GM_ADMIN}).
+	 */
+	public int getGmLevel() {
+		return gmLevel;
+	}
+
+	/** Sets the GM authority level (clamped to {@code >= 0}). */
+	public void setGmLevel(int level) {
+		this.gmLevel = Math.max(0, level);
+	}
+
+	/** True when this account meets or exceeds the required GM level. */
+	public boolean hasGmLevel(int required) {
+		return gmLevel >= required;
 	}
 
 	public int getChar(int slot) {

@@ -43,7 +43,7 @@ public class AccountManager {
 		}
 
 		try (Statement stmt = conn.createStatement();
-			 ResultSet rs = stmt.executeQuery("SELECT id, uuid, username, password, char1, char2, char3, char4, status FROM accounts")) {
+			 ResultSet rs = stmt.executeQuery("SELECT id, uuid, username, password, char1, char2, char3, char4, status, gm_level FROM accounts")) {
 
 			while (rs.next()) {
 				Account ua = new Account(rs.getInt("id"));
@@ -55,6 +55,14 @@ public class AccountManager {
 				ua.setChar(2, rs.getInt("char3"));
 				ua.setChar(3, rs.getInt("char4"));
 				ua.setStatus(rs.getString("status"));
+				// An explicit gm_level column wins over the legacy
+				// status='admin' → GM_ADMIN default applied by
+				// setStatus(). A stored 0 keeps the status-derived
+				// value so legacy admin accounts stay privileged.
+				int storedGm = rs.getInt("gm_level");
+				if (storedGm > 0) {
+					ua.setGmLevel(storedGm);
+				}
 				accountList.add(ua);
 			}
 		} catch (SQLException e) {
@@ -89,6 +97,7 @@ public class AccountManager {
 						ps.setInt(7, ua.getChar(2));
 						ps.setInt(8, ua.getChar(3));
 						ps.setString(9, ua.getStatus());
+						ps.setInt(10, ua.getGmLevel());
 						ps.addBatch();
 					}
 				}
@@ -148,8 +157,8 @@ public class AccountManager {
 	static String upsertSql() {
 		if (SqliteDatabase.isPostgres()) {
 			return "INSERT INTO accounts ("
-				+ "id, uuid, username, password, char1, char2, char3, char4, status) "
-				+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+				+ "id, uuid, username, password, char1, char2, char3, char4, status, gm_level) "
+				+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
 				+ "ON CONFLICT (id) DO UPDATE SET "
 				+ "uuid = EXCLUDED.uuid, "
 				+ "username = EXCLUDED.username, "
@@ -158,11 +167,12 @@ public class AccountManager {
 				+ "char2 = EXCLUDED.char2, "
 				+ "char3 = EXCLUDED.char3, "
 				+ "char4 = EXCLUDED.char4, "
-				+ "status = EXCLUDED.status";
+				+ "status = EXCLUDED.status, "
+				+ "gm_level = EXCLUDED.gm_level";
 		}
 		return "INSERT OR REPLACE INTO accounts ("
-			+ "id, uuid, username, password, char1, char2, char3, char4, status) "
-			+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+			+ "id, uuid, username, password, char1, char2, char3, char4, status, gm_level) "
+			+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 	}
 
 	private static void findaccountCounter() {

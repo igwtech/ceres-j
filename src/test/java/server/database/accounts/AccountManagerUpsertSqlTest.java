@@ -36,8 +36,9 @@ public class AccountManagerUpsertSqlTest {
         assertTrue(sql, sql.startsWith("INSERT OR REPLACE INTO accounts"));
         assertFalse("SQLite path must not have ON CONFLICT",
                 sql.contains("ON CONFLICT"));
-        // id, uuid, username, password, char1..4, status = 9 placeholders
-        assertEquals(9, sql.chars().filter(c -> c == '?').count());
+        // id, uuid, username, password, char1..4, status, gm_level
+        // = 10 placeholders (gm_level added in schema v8, task #179)
+        assertEquals(10, sql.chars().filter(c -> c == '?').count());
         assertTrue("SQLite SQL must list uuid column: " + sql, sql.contains("uuid"));
     }
 
@@ -51,11 +52,11 @@ public class AccountManagerUpsertSqlTest {
         assertTrue("PostgreSQL path needs ON CONFLICT",
                 sql.contains("ON CONFLICT (id) DO UPDATE SET"));
         for (String col : new String[]{"uuid", "username", "password", "char1",
-                "char2", "char3", "char4", "status"}) {
+                "char2", "char3", "char4", "status", "gm_level"}) {
             assertTrue(col + " update missing: " + sql,
                     sql.contains(col + " = EXCLUDED." + col));
         }
-        assertEquals(9, sql.chars().filter(c -> c == '?').count());
+        assertEquals(10, sql.chars().filter(c -> c == '?').count());
     }
 
     @Test
