@@ -101,8 +101,11 @@ public class PacketTestFixtureTest {
             byte[] datagram = pkt.getDatagramPackets()[0]
                     .getData();
             int len = pkt.getDatagramPackets()[0].getLength();
-            assertTrue("datagram size ≥ 47B (header + names)",
-                    len >= 11 + 35 + 4 + 8);
+            // retail-correct 0x03/0x28 body: 11B UDP1303 header +
+            // 1B 0x28 sub-op + 33B fixed region (doc [1..33]) + the
+            // two NUL-terminated trailing ASCII strings (>=2B).
+            assertTrue("datagram size >= header + fixed body + strings",
+                    len >= 11 + 1 + 33 + 2);
             // Verify mapID embedded at body offset 2..3 matches.
             int mapId = (datagram[11 + 2] & 0xFF)
                     | ((datagram[11 + 3] & 0xFF) << 8);

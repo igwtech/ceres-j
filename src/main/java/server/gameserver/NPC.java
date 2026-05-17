@@ -95,6 +95,31 @@ public class NPC {
 		this.xpos = x; this.ypos = y; this.zpos = z;
 	}
 
+	/**
+	 * Stable, per-NPC unique 32-bit world-instance handle written at
+	 * {@code 0x03/0x28} offset [6..9] and required to be (a) unique
+	 * across all NPCs in a zone and (b) constant across every packet
+	 * for this NPC.
+	 *
+	 * <p>Retail evidence (verified decode in
+	 * {@code docs/protocol/packets/udp_s2c_03_28.md} + the three raw
+	 * samples in {@code docs/protocol/_data/packets.json}, byte-diffed
+	 * 2026-05-16): this field is per-NPC — every sample carries a
+	 * distinct value ({@code 0x379a516a}, {@code 0x78edef93},
+	 * {@code 0x78edeb27}, {@code 0x78ee1d76}) and the previously
+	 * hard-coded constant {@code 8958887} (0x0088B3A7) appears in
+	 * none of the available evidence. Retail's exact bytes are
+	 * heap-pointer derived and therefore session-specific and
+	 * unreproducible; the client only needs a per-NPC handle that is
+	 * unique within the zone and stable across that NPC's packets, so
+	 * we synthesise a deterministic handle from the (zone, mapID)
+	 * pair. The high bit is set so the handle can never collide with
+	 * a low-range player/world object id or the all-zero sentinel.
+	 */
+	public int getWorldInstanceHandle() {
+		return 0x80000000 | ((zoneId & 0x7FFF) << 16) | (mapID & 0xFFFF);
+	}
+
 	public boolean isDead() { return hp <= 0; }
 
 	public void takeDamage(int amount) {
