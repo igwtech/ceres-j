@@ -91,9 +91,25 @@ public class ReadyForWorldState extends GamePacketDecoderUDP {
             trySend(pl, () -> new LongPlayerInfo(pl, pc, mapId), "LongPlayerInfo(self)");
 
             // 5. Self PlayerPositionUpdate (0x03→0x1b). Retail sends
-            //    this one plus many more for each zone-resident object.
-            trySend(pl, () -> new PlayerPositionUpdate(pl, pc, mapId),
-                    "PlayerPositionUpdate(self)");
+            //    this for a FRESH login, but NOT for a city-sector
+            //    walk-cross: RETAIL_PLAZA_TO_PEPPER_CROSS_DISTRICT shows
+            //    zero server self-position after any of 3 city crosses —
+            //    the client self-positions from the destination zone's
+            //    local .dat geometry across the sector seam. Pushing the
+            //    stale source-zone coords here is exactly the task #174
+            //    "spawn reset to map centre" bug. Suppress it for a city
+            //    cross (flag set by SZoning1ConfirmEvent for a worldId
+            //    < 2001 destination). Fresh logins / wasteland-outdoor
+            //    are unaffected. See zone_portal_params.md §7.
+            if (pl.isPendingCityCrossSelfPosSuppress()) {
+                Out.writeln(Out.Info,
+                    "WorldStatePopulate: city walk-cross — suppressing"
+                    + " self PlayerPositionUpdate (client self-positions,"
+                    + " retail-faithful) for " + pc.getName());
+            } else {
+                trySend(pl, () -> new PlayerPositionUpdate(pl, pc, mapId),
+                        "PlayerPositionUpdate(self)");
+            }
 
             // 6. Zone population — NPCs then other players. These end up
             //    as a stream of 0x03→0x2d NPCData and 0x03→0x1b position
@@ -117,6 +133,19 @@ public class ReadyForWorldState extends GamePacketDecoderUDP {
             // 7. One more GamePackets TimeSync to bracket the burst, as
             //    retail does.
             trySend(pl, () -> new GamePacketTimeSync(pl), "GamePacketTimeSync(close)");
+
+            // The city-cross self-position suppression flag is single-
+            // shot: consume it at the end of the burst it governed so a
+            // later non-cross world-state populate (genrep/relog) still
+            // gets its authoritative self-position. See WorldEntryEvent
+            // for the symmetric clear and zone_portal_params.md §7.
+            if (pl.isPendingCityCrossSelfPosSuppress()) {
+                pl.clearPendingCityCrossSelfPosSuppress();
+                Out.writeln(Out.Info,
+                    "WorldStatePopulate: city walk-cross self-pos"
+                    + " suppression consumed and cleared for "
+                    + pc.getName());
+            }
         }
     }
 

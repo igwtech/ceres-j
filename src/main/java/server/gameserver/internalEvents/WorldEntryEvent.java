@@ -136,18 +136,34 @@ public class WorldEntryEvent extends DummyEvent {
         // Player position / zone entry data. The client REQUIRES an
         // authoritative StartPos to complete world entry — skipping
         // it on a cross-reconnect (experiment 2026-05-16) left the
-        // client stuck on the splash forever, so it is always sent.
-        // (The stale-source-coords spawn imprecision is a separate,
-        // still-open problem — see task #172 / the retail seam-map
-        // approach — but a wrong-but-present StartPos still lets the
-        // cross complete, whereas a missing one does not.)
+        // client stuck on the splash forever, so the 0x2c StartPos is
+        // ALWAYS sent (even for a city cross — removing it regresses to
+        // the splash hang, and the retail-faithful "no StartPos" only
+        // holds on the lightweight zone-handoff path that never runs
+        // WorldEntryEvent anyway).
         safeSend(pl, () -> new PositionUpdate(pl),
                 "PositionUpdate (start pos)");
         safeSend(pl, () -> new WorldWeather(pl), "WorldWeather");
 
         // The player's own long/short info + position.
         safeSend(pl, () -> new LongPlayerInfo(pl, pc, mapId), "LongPlayerInfo (self)");
-        safeSend(pl, () -> new PlayerPositionUpdate(pl, pc, mapId), "PlayerPositionUpdate (self)");
+        // The 0x03/0x1b self-position is what OVERRIDES the client's own
+        // seam self-positioning. RETAIL_PLAZA_TO_PEPPER_CROSS_DISTRICT
+        // shows retail sends NO self-position after a city walk-cross
+        // (zone_portal_params.md §7); Ceres pushing the stale source-zone
+        // coords here is the task #174 "spawn reset to map centre". For a
+        // city cross, suppress the self-position and let the client
+        // self-position from local .dat geometry (the StartPos above
+        // still keeps the client off the splash). Fresh logins and
+        // wasteland/outdoor are unaffected.
+        if (pl.isPendingCityCrossSelfPosSuppress()) {
+            Out.writeln(Out.Info,
+                "WorldEntryEvent: city walk-cross — suppressing self"
+                + " PlayerPositionUpdate (client self-positions,"
+                + " retail-faithful) for " + pc.getName());
+        } else {
+            safeSend(pl, () -> new PlayerPositionUpdate(pl, pc, mapId), "PlayerPositionUpdate (self)");
+        }
 
         // ── Phase 4: UpdateModel (retail sends via 0x02 wrapper, we use 0x03) ──
         safeSend(pl, () -> new UpdateModel(pl), "UpdateModel");
@@ -234,6 +250,21 @@ public class WorldEntryEvent extends DummyEvent {
         // the incoming handshake with the right player, which is the only
         // disambiguation we have for multi-boxed clients on the same IP.
         pl.markHandoffPending();
+
+        // The city-cross self-position suppression flag is single-shot:
+        // it must only affect the one world-state burst triggered by the
+        // SZoning1Confirm that set it. Clear it now that this burst has
+        // run, so a later non-cross re-entry (genrep / relog / fresh
+        // login that does NOT route through Zoning1) still gets its
+        // authoritative self-position. Outdoor crosses already clear it
+        // implicitly (Zoning1 calls setPendingCityCrossSelfPosSuppress
+        // (false) for worldId >= 2001); this closes the city-cross leak.
+        if (pl.isPendingCityCrossSelfPosSuppress()) {
+            pl.clearPendingCityCrossSelfPosSuppress();
+            Out.writeln(Out.Info,
+                "WorldEntryEvent: city walk-cross self-pos suppression"
+                + " consumed and cleared for " + pc.getName());
+        }
 
         Out.writeln(Out.Info, "WorldEntryEvent: completed for " + pc.getName());
     }

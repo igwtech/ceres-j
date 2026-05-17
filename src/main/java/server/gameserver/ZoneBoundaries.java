@@ -122,6 +122,34 @@ public final class ZoneBoundaries {
     }
 
     /**
+     * True iff {@code worldId} is an INDEXED CITY / SECTOR zone — plaza,
+     * pepper, industry, outzone p-sectors and the other named zones
+     * whose worldId is below the TinNS outdoor-terrain grid base. This
+     * is the exact complement of {@link #isWastelandOutdoor} over the
+     * valid positive zone-id space.
+     *
+     * <p>Retail evidence (RETAIL_PLAZA_TO_PEPPER_CROSS_DISTRICT pcap,
+     * 2026-05-02; {@code docs/zone_portal_params.md} §7): a city↔city
+     * walk-cross receives NO server-pushed self-position — neither a
+     * {@code 0x03/0x2c} StartPos nor a {@code 0x03/0x1b} self-position.
+     * The client self-positions from the destination zone's local
+     * {@code .dat} geometry across the sector seam (verified plaza_p1
+     * exit {@code (-1057.7,-255.9,2915.3)} → plaza_p3 entry
+     * {@code (-1109.1,-255.9,1076.5)}). Ceres must therefore SUPPRESS
+     * its self-position push for these crosses (pushing stale
+     * source-zone coords is the task #174 "spawn reset to map centre").
+     * The wasteland/outdoor mirror ({@link #mirrorEntryPosition},
+     * worldId &gt;= 2001) is unaffected.
+     *
+     * @param worldId committed destination worldId
+     * @return {@code true} for an indexed city/sector zone
+     *         (0 &lt; worldId &lt; {@value #OUTDOOR_WORLDID_MIN})
+     */
+    public static boolean isIndexedCitySector(int worldId) {
+        return worldId > 0 && worldId < OUTDOOR_WORLDID_MIN;
+    }
+
+    /**
      * Compute the player's entry position in the destination sector
      * for an edge-walk crossing, mirroring across the shared seam
      * exactly as TinNS's {@code GetVhcZoningDestination} does.

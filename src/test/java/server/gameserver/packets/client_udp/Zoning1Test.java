@@ -172,6 +172,92 @@ public class Zoning1Test {
     }
 
     @Test
+    public void cityCrossSetsSelfPosSuppressFlag() throws Exception {
+        // Task #174: a city↔city walk-cross (destination worldId
+        // < 2001 — proven from RETAIL_PLAZA_TO_PEPPER_CROSS_DISTRICT:
+        // plaza_p3=101, pepper_p1=5) must, on SZoning1Confirm commit,
+        // mark the player so the cross-reconnect's world-state burst
+        // SUPPRESSES the server self-position (retail sends none — the
+        // client self-positions). Before commit the flag is false.
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        pl.setTcpConnection(new CapturingTCPConnection());
+        server.testtools.CapturingUDPConnection udp =
+                new server.testtools.CapturingUDPConnection(
+                        java.net.InetAddress.getByName("127.0.0.1"),
+                        5000, pl);
+        pl.setUdpConnection(udp);
+
+        assertFalse("flag must start clear",
+                pl.isPendingCityCrossSelfPosSuppress());
+
+        int cityTarget = 101; // plaza_p3 (retail-proven city sector)
+        assertTrue(server.gameserver.ZoneBoundaries
+                .isIndexedCitySector(cityTarget));
+
+        new Zoning1(buildBody(cityTarget, 1)).execute(pl);
+        // Not set until the deferred confirm commits.
+        assertFalse("flag must not be set before confirm commit",
+                pl.isPendingCityCrossSelfPosSuppress());
+
+        java.lang.reflect.Field f =
+                Player.class.getDeclaredField("eventList");
+        f.setAccessible(true);
+        server.tools.PriorityList q =
+                (server.tools.PriorityList) f.get(pl);
+        ((server.interfaces.GameServerEvent) q.getFirst())
+                .execute(pl);
+
+        assertEquals("MISC_LOCATION committed to city target",
+                cityTarget, pl.getCharacter().getMisc(
+                        PlayerCharacter.MISC_LOCATION));
+        assertTrue("city walk-cross must request self-pos suppression",
+                pl.isPendingCityCrossSelfPosSuppress());
+
+        // The flag is non-consuming on read (every self-pos emitter
+        // in the burst must see it) and cleared explicitly afterwards.
+        assertTrue(pl.isPendingCityCrossSelfPosSuppress());
+        pl.clearPendingCityCrossSelfPosSuppress();
+        assertFalse("explicit clear must reset the flag",
+                pl.isPendingCityCrossSelfPosSuppress());
+    }
+
+    @Test
+    public void outdoorCrossDoesNotSetSelfPosSuppressFlag()
+            throws Exception {
+        // The wasteland/outdoor path (destination worldId >= 2001)
+        // must NOT set the city suppression flag — it keeps its own
+        // coordinate-mirror entry path untouched (task #174 scope:
+        // city vs outdoor partitioned exactly on the worldId range).
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        pl.setTcpConnection(new CapturingTCPConnection());
+        server.testtools.CapturingUDPConnection udp =
+                new server.testtools.CapturingUDPConnection(
+                        java.net.InetAddress.getByName("127.0.0.1"),
+                        5000, pl);
+        pl.setUdpConnection(udp);
+
+        int outdoorTarget = 2007; // a_07 outdoor terrain
+        assertTrue(server.gameserver.ZoneBoundaries
+                .isWastelandOutdoor(outdoorTarget));
+
+        new Zoning1(buildBody(outdoorTarget, 1)).execute(pl);
+        java.lang.reflect.Field f =
+                Player.class.getDeclaredField("eventList");
+        f.setAccessible(true);
+        server.tools.PriorityList q =
+                (server.tools.PriorityList) f.get(pl);
+        ((server.interfaces.GameServerEvent) q.getFirst())
+                .execute(pl);
+
+        assertEquals(outdoorTarget, pl.getCharacter().getMisc(
+                PlayerCharacter.MISC_LOCATION));
+        assertFalse("outdoor cross must NOT suppress self-position",
+                pl.isPendingCityCrossSelfPosSuppress());
+    }
+
+    @Test
     public void noTcpConnectionDoesNotThrow() {
         // Zoning1 no longer touches the TCP connection at all, but
         // keep the guard test: a fixture with no socket must not
