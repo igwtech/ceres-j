@@ -104,12 +104,19 @@ public class ZoneStateCompoundPacket extends PacketBuilderUDP13 {
 
         int angle = npc.getAngle() & 0xFF;
         write(angle == 0 ? 0x40 : angle);             // [12] orient
-        write(0x00);                                  // [13]
-        write(0x00);                                  // [14]
-        write(0x00);                                  // [15]
-        write(0x00);                                  // [16]
-        write(0x11);                                  // [17] trailer
-        write(0x11);                                  // [18] trailer
+        // [13..14] entity_class_id LE16. RETAIL: per-NPC class id —
+        // the model/skeleton selector the client uses to render the
+        // NPC (verified 30/30 raw-0x1b samples HANNIBAL/NORMAN/AUGUSTO,
+        // docs/protocol/packets/udp_s2c_1b.md; e.g. NORMAN 0x010e
+        // emits b9 88, AUGUSTO 0x0123 emits 76 71). Emitting 0x0000
+        // = "class 0" = no model, compounding the no-render bug.
+        int cls = npc.getType() & 0xFFFF;
+        write(cls & 0xFF);                            // [13] class lo
+        write((cls >> 8) & 0xFF);                     // [14] class hi
+        write(0x00);                                  // [15] CONSTANT
+        write(0x00);                                  // [16] CONSTANT
+        write(0x11);                                  // [17] state hash lo
+        write(0x11);                                  // [18] state hash hi
     }
 
     /**
@@ -152,35 +159,18 @@ public class ZoneStateCompoundPacket extends PacketBuilderUDP13 {
         npcData.write(body);
         DatagramPacket npcDp = npcData.getDatagramPackets()[0];
 
-        // Datagram 3: reliable 0x03→0x28 WorldInfo.
-        // Layout from retail pepper_p3 captures (see WorldNPCInfo).
+        // Datagram 3: reliable 0x03→0x28 WorldInfo. Body is built by
+        // WorldNPCInfo.writeBody so the two 0x03/0x28 emitters share
+        // one retail-evidenced layout and cannot drift apart again
+        // (byte-diffed 2026-05-16 vs 331 retail packets — see
+        // docs/protocol/packets/udp_s2c_03_28.md). The previous
+        // hand-rolled block hard-coded the per-NPC [6..9] instance
+        // handle to the constant 8958887 (0/331 retail packets) so
+        // every NPC collided onto one client world-object reference
+        // and none rendered.
         PacketBuilderUDP1303 world = new PacketBuilderUDP1303(owner);
         world.write(0x28);
-        world.write(0x00);
-        world.write(0x01);
-        world.writeShort(npcId);
-        world.write(0x00);
-        world.write(0x00);
-        world.writeInt(8958887);
-        world.writeShort(npc.getType());
-        world.writeShort(npc.getYpos());
-        world.writeShort(npc.getZpos());
-        world.writeShort(npc.getXpos());
-        world.write(0x00);
-        world.write(0x00);
-        world.write(0x22);
-        world.write(0x00); world.write(0x00); world.write(0x00);
-        world.write(0x00); world.write(0x00); world.write(0x00);
-        world.write(0x00); world.write(0x00);
-        world.write(0x00);
-        world.write(0x00); world.write(0x00); world.write(0x00);
-        world.write(0x00); world.write(0x00);
-        byte[] scriptBytes = npc.getScriptName().getBytes();
-        world.write(scriptBytes);
-        world.write(0x00);
-        byte[] modelBytes = npc.getModelName().getBytes();
-        world.write(modelBytes);
-        world.write(0x00);
+        WorldNPCInfo.writeBody(world, npc);
         DatagramPacket worldDp = world.getDatagramPackets()[0];
 
         return new DatagramPacket[] { bcast, npcDp, worldDp };
