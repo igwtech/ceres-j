@@ -25,6 +25,12 @@ public class AccountManager {
 		}
 	}
 
+	/** Test seam: install an in-memory account list so
+	 *  {@link #applyConfigAdmins()} can be exercised without a DB. */
+	static void setAccountsForTesting(LinkedList<Account> l) {
+		accountList = l;
+	}
+
 	public static void init() throws StartupException {
 		load();
 		findaccountCounter();
@@ -69,6 +75,29 @@ public class AccountManager {
 			Out.writeln(Out.Error, "Error loading accounts: " + e.getMessage());
 		}
 		Out.writeln(Out.Info, "Loaded " + accountList.size() + " Accounts");
+		applyConfigAdmins();
+	}
+
+	/**
+	 * Force-promote every account named in the {@code AdminAccounts}
+	 * config key to {@link Account#GM_ADMIN} in memory (never a
+	 * downgrade). This runs after the DB load and is re-applied on
+	 * every boot, so it survives the autosave upsert that would
+	 * otherwise clobber a live {@code gm_level} change with the
+	 * stale in-memory value. Visible for tests.
+	 */
+	static void applyConfigAdmins() {
+		synchronized (accountList) {
+			for (Account ua : accountList) {
+				if (server.tools.Config.isAdminAccount(ua.getUsername())
+						&& ua.getGmLevel() < Account.GM_ADMIN) {
+					ua.setGmLevel(Account.GM_ADMIN);
+					Out.writeln(Out.Info,
+						"AdminAccounts: promoted '" + ua.getUsername()
+						+ "' to GM_ADMIN");
+				}
+			}
+		}
 	}
 
 	public static void save() {
