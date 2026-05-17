@@ -133,6 +133,64 @@ public class PlayerInventory implements ItemContainer{
 		return false;
 	}
 	
+	/**
+	 * Exact-position restore for the F2 grid. {@code packedPos} is the
+	 * persisted {@code posF2*65536 + posY*256 + posX}. We honour the
+	 * slot index ({@code posF2}, the {@code map[]} index that the F2
+	 * CharInfo render keys off) and the X/Y grid origin so the layout
+	 * is identical after a restart.
+	 *
+	 * <p>Item footprint comes from ItemInfoManager when available; on a
+	 * headless server with no client mounted the lookup throws, so we
+	 * fall back to a 1×1 footprint — the slot/origin are still exact,
+	 * only multi-cell occupancy shading is approximate until the next
+	 * client-driven move.
+	 */
+	@Override
+	public boolean restoreItemAtPos(int packedPos, Item it){
+		int posF2 = packedPos / 65536;
+		int posY  = (packedPos - posF2 * 65536) / 256;
+		int posX  = (packedPos - posF2 * 65536 - posY * 256);
+
+		if(posF2 < 0 || posF2 > 254 || posX < 0 || posX > 7
+				|| posY < 0 || posY > 255)
+			return false;
+		if(map[posF2] != null)
+			return false;
+		if(xymap[posX][posY] != -1)
+			return false;
+
+		int sx = 1, sy = 1;
+		try {
+			sx = Math.max(1, it.getInvSizeX());
+			sy = Math.max(1, it.getInvSizeY());
+		} catch (RuntimeException ignored) {
+			// No client/ItemInfo — keep 1×1, slot+origin still exact.
+		}
+		if(posX + sx > 8 || posY + sy > 256)
+			{ sx = 1; sy = 1; }
+		for(int xi = 0; xi < sx; xi++){
+			for(int yj = 0; yj < sy; yj++){
+				if(xymap[posX + xi][posY + yj] != -1)
+					return false;
+			}
+		}
+
+		map[posF2] = it;
+		Items.put(posF2, it);
+		it.setInventoryPos(packedPos);
+		it.setParentContainer(this);
+		for(int xi = 0; xi < sx; xi++){
+			for(int yj = 0; yj < sy; yj++){
+				xymap[posX + xi][posY + yj] = posF2;
+			}
+		}
+		count++;
+		if(posF2 > highestid)
+			highestid = posF2;
+		return true;
+	}
+
 	public void doSort(){
 		if(highestid == count -1)
 			return;

@@ -372,6 +372,17 @@ public class Item {
 	}
 
 	/**
+	 * The raw packed inventory position
+	 * ({@code posF2*65536 + posY*256 + posX} for a player F2 grid, or a
+	 * plain slot index for QB). Persisted in the {@code items.slot}
+	 * column so exact grid layout survives a server restart instead of
+	 * being re-flowed by auto-placement.
+	 */
+	public int getInventoryPos() {
+		return inventorypos;
+	}
+
+	/**
 	 * Pack the 17×short tokens array into 34 bytes (LE). Inverse of
 	 * {@link #deserializeTokens}.
 	 */

@@ -27,13 +27,12 @@ public class ItemManager {
 	 * server startup AFTER all player characters and their
 	 * containers have been initialised.
 	 *
-	 * <p>Items are restored into containers via {@code addItem(pos=-1)}
-	 * — exact F2/Gogu/QB grid positions are NOT round-tripped in v6
-	 * of the schema (only flags + tokens are persisted alongside the
-	 * existing id/container_id/type_id). This means the inventory
-	 * layout may differ after a server restart, but items themselves
-	 * survive — which is what the user-visible "inventory missing"
-	 * bug needed.
+	 * <p>Items are restored into their containers at the EXACT grid
+	 * position persisted in the {@code items.slot} column (via
+	 * {@link ItemContainer#restoreItemAtPos}). If a slot collides or is
+	 * out of range (e.g. a pre-slot schema-v6 row with slot=0) the item
+	 * falls back to auto-placement so it still survives — only its
+	 * grid position is then approximate.
 	 */
 	public static void loadall(){
 		Connection conn = SqliteDatabase.getConnection();
@@ -41,14 +40,16 @@ public class ItemManager {
 
 		int loaded = 0;
 		int orphaned = 0;
+		int reflowed = 0;
 		long maxItemId = 0;
 		try (PreparedStatement ps = conn.prepareStatement(
-				"SELECT id, container_id, type_id, flags, tokens FROM items");
+				"SELECT id, container_id, type_id, slot, flags, tokens FROM items");
 		     ResultSet rs = ps.executeQuery()) {
 			while (rs.next()) {
 				long id = rs.getLong("id");
 				int contId = rs.getInt("container_id");
 				int typeId = rs.getInt("type_id");
+				int slot = rs.getInt("slot");
 				int flags = rs.getInt("flags");
 				byte[] tokenBytes = rs.getBytes("tokens");
 				short[] tokens = Item.deserializeTokens(tokenBytes);
@@ -67,7 +68,12 @@ public class ItemManager {
 				}
 
 				Item it = new Item(typeId, id, cont, flags, tokens);
-				cont.addItem(-1, it, 0);
+				// Restore at the EXACT persisted position; only re-flow
+				// via auto-placement if that slot is unusable.
+				if (!cont.restoreItemAtPos(slot, it)) {
+					cont.addItem(-1, it, 0);
+					reflowed++;
+				}
 				Items.put(id, it);
 				if (!ItemIds.contains(id)) ItemIds.add(id);
 				loaded++;
@@ -78,7 +84,22 @@ public class ItemManager {
 		}
 
 		Out.writeln(Out.Info, "ItemManager: loaded " + loaded
-				+ " items (" + orphaned + " orphaned)");
+				+ " items (" + orphaned + " orphaned, "
+				+ reflowed + " re-flowed)");
+	}
+
+	/**
+	 * Test seam — drop all in-memory item/container state so a unit
+	 * test starts from a clean slate (the static maps otherwise leak
+	 * across tests in the same JVM). Mirrors
+	 * {@code SqliteDatabase.setIsPostgresForTesting}. Not used by
+	 * production code paths.
+	 */
+	public static void resetForTesting(){
+		Items.clear();
+		Container.clear();
+		ContainerIds.clear();
+		ItemIds.clear();
 	}
 
 	public static void init(){
@@ -156,21 +177,26 @@ public class ItemManager {
 				? it.getContainer().getContainerID() : 0;
 		boolean pg = SqliteDatabase.isPostgres();
 		String sql = pg
-				? "INSERT INTO items (id, container_id, type_id, flags, tokens)"
-					+ " VALUES (?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET"
+				? "INSERT INTO items (id, container_id, type_id, slot, flags, tokens)"
+					+ " VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET"
 					+ " container_id=EXCLUDED.container_id,"
 					+ " type_id=EXCLUDED.type_id,"
+					+ " slot=EXCLUDED.slot,"
 					+ " flags=EXCLUDED.flags,"
 					+ " tokens=EXCLUDED.tokens"
 				: "INSERT OR REPLACE INTO items"
-					+ " (id, container_id, type_id, flags, tokens)"
-					+ " VALUES (?, ?, ?, ?, ?)";
+					+ " (id, container_id, type_id, slot, flags, tokens)"
+					+ " VALUES (?, ?, ?, ?, ?, ?)";
 		try (PreparedStatement ps = conn.prepareStatement(sql)) {
 			ps.setLong(1, it.getId());
 			ps.setInt(2, contId);
 			ps.setInt(3, it.getTypeId());
-			ps.setInt(4, it.getFlags());
-			ps.setBytes(5, it.serializeTokens());
+			// slot = the packed inventory position so exact grid
+			// layout (F2 slot + X/Y origin, or QB slot index) survives
+			// a server restart.
+			ps.setInt(4, it.getInventoryPos());
+			ps.setInt(5, it.getFlags());
+			ps.setBytes(6, it.serializeTokens());
 			ps.executeUpdate();
 			return true;
 		}
