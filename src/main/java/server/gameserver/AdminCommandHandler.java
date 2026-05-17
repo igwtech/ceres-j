@@ -19,21 +19,25 @@ import server.tools.Out;
 /**
  * Handles in-game admin/GM commands typed in chat.
  *
- * <p>Commands start with {@code /} and are intercepted before
- * broadcasting to the zone. All players can use basic commands;
- * GM-level commands can be gated by Account.adminLevel later.
+ * <p>Commands start with {@code .} (MaNGOS-style) or the legacy
+ * {@code !} prefix and are consumed before broadcasting to the
+ * zone. The {@code /} prefix is deliberately NOT accepted: the
+ * Neocron client intercepts {@code /}-prefixed input locally
+ * (like the WoW client), so those lines never reach the server.
+ * All players can use basic commands; GM-level commands are gated
+ * by the account GM level.
  *
- * <p>Available commands:
+ * <p>Available commands (examples):
  * <ul>
- *   <li>{@code /pos} — show current Y/Z/X coordinates</li>
- *   <li>{@code /warp <zoneId>} — teleport to a zone</li>
- *   <li>{@code /hp} — show current health/psi/stamina</li>
- *   <li>{@code /heal} — restore HP/PSI/STA to max</li>
- *   <li>{@code /kill} — set HP to 0 (for testing death)</li>
- *   <li>{@code /god} — toggle invincibility</li>
- *   <li>{@code /spawn <type> <x> <y> <z>} — spawn an NPC</li>
- *   <li>{@code /online} — list connected players</li>
- *   <li>{@code /help} — show available commands</li>
+ *   <li>{@code .pos} — show current Y/Z/X coordinates</li>
+ *   <li>{@code .warp <zoneId>} — teleport to a zone</li>
+ *   <li>{@code .hp} — show current health/psi/stamina</li>
+ *   <li>{@code .heal} — restore HP/PSI/STA to max</li>
+ *   <li>{@code .kill} — set HP to 0 (for testing death)</li>
+ *   <li>{@code .god} — toggle invincibility</li>
+ *   <li>{@code .spawn <type> <x> <y> <z>} — spawn an NPC</li>
+ *   <li>{@code .online} — list connected players</li>
+ *   <li>{@code .help} — show available commands</li>
  * </ul>
  */
 public class AdminCommandHandler {
@@ -50,7 +54,13 @@ public class AdminCommandHandler {
         // Strip null bytes and trailing whitespace — readCString()
         // includes everything after offset 7 including null terminators.
         message = message.replace("\0", "").trim();
-        if (!message.startsWith("!")) return false;
+        if (message.isEmpty()) return false;
+        // MaNGOS-style '.' prefix is the canonical one; legacy '!'
+        // kept for backward compat (!setmaxhp / !setsub). '/' is
+        // intentionally rejected — the client swallows /-input
+        // locally so it never reaches the server.
+        char prefix = message.charAt(0);
+        if (prefix != '.' && prefix != '!') return false;
         String cmdLine = message.substring(1).trim();
 
         String[] parts = cmdLine.split("\\s+", 2);
