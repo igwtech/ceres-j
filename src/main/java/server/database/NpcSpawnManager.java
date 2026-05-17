@@ -19,9 +19,13 @@ import server.tools.Out;
  *
  * <p>The fallback is read-only and joins on the path mapping
  * {@code worlds/<dir>/pak_<basename>.dat} derived from
- * {@code world_defs.path}. NPC type / position / name come from
- * {@code world_npcs}; {@code script_name} and {@code model_name}
- * are left blank since {@code world_npcs} does not carry them.
+ * {@code world_defs.path}. NPC type / position come from
+ * {@code world_npcs}; {@code script_name} is sourced from
+ * {@code world_npcs.actor_name} (the world-.dat NPC actorName,
+ * which the retail live pcap proves is the per-spawn AI script
+ * name the client SCRIPTEDPLAYER ctor reads — task #178).
+ * {@code model_name} is left blank since {@code world_npcs}
+ * does not carry it.
  *
  * <p>Without this fallback, only zone 1 (Plaza P1) had NPCs (8
  * stub rows in {@code npc_spawns}); the rest of the world was
@@ -115,12 +119,27 @@ public class NpcSpawnManager {
                     int y = (int) rs.getFloat("pos_y");
                     int z = (int) rs.getFloat("pos_z");
                     int angle = parseAngle(rs.getString("angle"));
+                    // world_npcs.actor_name IS the per-spawn script name.
+                    // Proven 2026-05-17 against the retail live pcap
+                    // (strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap,
+                    // server 157.90.195.74): the trailing string in the
+                    // 0x03/0x28 WorldNPCInfo packet is the world-.dat NPC
+                    // actorName the client SCRIPTEDPLAYER ctor reads to
+                    // resolve the AI script (PROTOCOL.md ~1287). Retail
+                    // entities 266/299/325 carry "WSK"/"WCOP"/
+                    // "PATROL_COPBOT6" — exactly the actorName field
+                    // WorldDatParser extracts (cf. WorldDatParserTest:
+                    // the reaktor NPC's actorName == "STATIC"). The bulk
+                    // world_npcs bridge previously passed script_name=""
+                    // so the client logged "Unable to find script" and
+                    // the NPC never instantiated (task #178).
+                    String script = name != null ? name : "";
                     out.add(new NPC(
                         mapId,
                         zoneId,
                         type,
-                        name != null ? name : "",
-                        "",      // script_name not in world_npcs
+                        script,  // display name == actor token
+                        script,  // script_name = actor_name (authoritative)
                         "",      // model_name not in world_npcs
                         x, y, z, angle,
                         100,     // hp default

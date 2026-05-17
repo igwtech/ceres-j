@@ -155,9 +155,11 @@ public class WorldNPCInfoByteIdentityTest {
     }
 
     @Test
-    public void trailingStringsAreTypeNameThenOrientation() {
+    public void trailingStringsAreScriptNameThenOrientation() {
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
+        // Bulk world_npcs NPC: name == actor_name == script ("WSK"),
+        // exactly the retail entity-266 script token.
         NPC npc = new NPC(257, 1, 5, "WSK", 0, 0, 0, -90, 100, 0);
 
         DatagramPacket dp = new WorldNPCInfo(pl, npc)
@@ -170,13 +172,85 @@ public class WorldNPCInfoByteIdentityTest {
         int o = 11 + 33;
         byte[] name = "WSK".getBytes(StandardCharsets.US_ASCII);
         for (int i = 0; i < name.length; i++) {
-            assertEquals("name byte " + i, name[i], full[o + i]);
+            assertEquals("script byte " + i, name[i], full[o + i]);
         }
-        assertEquals("name NUL", 0x00, full[o + 3] & 0xFF);
+        assertEquals("script NUL", 0x00, full[o + 3] & 0xFF);
         byte[] ori = "-90".getBytes(StandardCharsets.US_ASCII);
         for (int i = 0; i < ori.length; i++) {
             assertEquals("orient byte " + i, ori[i], full[o + 4 + i]);
         }
         assertEquals("orient NUL", 0x00, full[o + 4 + 3] & 0xFF);
+    }
+
+    /**
+     * #178 functional: a scripted NPC (e.g. a copbot from the curated
+     * {@code npc_spawns} path, where the display name differs from the
+     * AI script) must emit the <em>script name</em> at doc [34..], not
+     * the display name. Cross-checked against the retail live pcap
+     * {@code strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap}: entity 325
+     * carries the script token {@code PATROL_COPBOT6}. An empty or
+     * wrong token here is exactly what made the client log
+     * "Unable to find script" and skip instantiating the NPC.
+     */
+    @Test
+    public void scriptedNpcEmitsScriptNameNotDisplayName() {
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        // Curated spawn: display name "Copbot", AI script
+        // "PATROL_COPBOT6" (the retail entity-325 script token).
+        NPC npc = new NPC(325, 1, 0x27e2, "Copbot",
+                "PATROL_COPBOT6", "", 0, 0, 0, 45, 100, 0);
+
+        DatagramPacket dp = new WorldNPCInfo(pl, npc)
+                .getDatagramPackets()[0];
+        byte[] full = new byte[dp.getLength()];
+        System.arraycopy(dp.getData(), 0, full, 0, full.length);
+        int o = 11 + 33;
+        byte[] script = "PATROL_COPBOT6"
+                .getBytes(StandardCharsets.US_ASCII);
+        for (int i = 0; i < script.length; i++) {
+            assertEquals(
+                "doc[34..] must be the AI script name, not display name",
+                script[i], full[o + i]);
+        }
+        assertEquals("script NUL", 0x00, full[o + script.length] & 0xFF);
+        // The display name "Copbot" must NOT appear at the token start.
+        assertNotEquals("must not emit display name as the script token",
+                (int) 'C', full[o] & 0xFF);
+        // Orientation token immediately follows.
+        byte[] ori = "45".getBytes(StandardCharsets.US_ASCII);
+        int oo = o + script.length + 1;
+        for (int i = 0; i < ori.length; i++) {
+            assertEquals("orient byte " + i, ori[i], full[oo + i]);
+        }
+        assertEquals("orient NUL", 0x00, full[oo + ori.length] & 0xFF);
+    }
+
+    /**
+     * #178: a curated spawn that has a display name but no AI script
+     * column must still emit a non-empty token (the display name) — a
+     * zero-length script string is rejected by the client just like an
+     * absent one.
+     */
+    @Test
+    public void emptyScriptFallsBackToDisplayName() {
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        NPC npc = new NPC(300, 1, 7, "Vendor",
+                "", "", 0, 0, 0, 0, 100, 0);
+
+        DatagramPacket dp = new WorldNPCInfo(pl, npc)
+                .getDatagramPackets()[0];
+        byte[] full = new byte[dp.getLength()];
+        System.arraycopy(dp.getData(), 0, full, 0, full.length);
+        int o = 11 + 33;
+        byte[] name = "Vendor".getBytes(StandardCharsets.US_ASCII);
+        for (int i = 0; i < name.length; i++) {
+            assertEquals("fallback display name byte " + i,
+                    name[i], full[o + i]);
+        }
+        assertNotEquals("token must not be zero-length",
+                0x00, full[o] & 0xFF);
+        assertEquals("name NUL", 0x00, full[o + name.length] & 0xFF);
     }
 }
