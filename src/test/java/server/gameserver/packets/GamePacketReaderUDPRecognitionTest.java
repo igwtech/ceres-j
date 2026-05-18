@@ -102,4 +102,66 @@ public class GamePacketReaderUDPRecognitionTest {
         assertNotNull(ev);
         assertTrue(ev instanceof UnknownClientUDPPacket);
     }
+
+    // ─── task #188: raw 0x1f interaction poll + 0x3c telemetry ─────
+
+    @Test
+    public void rawInteractionPollIsRecognisedNotUnknown() throws Exception {
+        // RETAIL_LIVE_p1p3_sit_npc_20260517.pcap: C→S raw poll
+        // `1f 2b 01 55` (also seen with ids 0xd5/0x0a/0x0b). Must
+        // route to InteractionPoll, NOT Unknown.
+        byte[] sub = hex("1f 2b 01 55");
+        GameServerEvent ev = decode(sub);
+        assertNotNull(ev);
+        assertEquals(
+            "server.gameserver.packets.client_udp.InteractionPoll",
+            ev.getClass().getName());
+    }
+
+    @Test
+    public void rawInteractionPollOtherIdsAlsoRecognised() throws Exception {
+        for (String h : new String[] {
+                "1f d5 01 55", "1f 0a 01 55", "1f 0b 01 55" }) {
+            GameServerEvent ev = decode(hex(h));
+            assertNotNull(h, ev);
+            assertEquals(h,
+                "server.gameserver.packets.client_udp.InteractionPoll",
+                ev.getClass().getName());
+        }
+    }
+
+    @Test
+    public void malformedRaw1fFallsThroughToUnknown() throws Exception {
+        // Wrong length / wrong constant bytes must NOT be treated as
+        // a poll — defensive shape guard.
+        assertTrue(decode(hex("1f 2b 01 55 00"))
+                instanceof UnknownClientUDPPacket);
+        assertTrue(decode(hex("1f 2b 00 55"))
+                instanceof UnknownClientUDPPacket);
+        assertTrue(decode(hex("1f 2b 01 99"))
+                instanceof UnknownClientUDPPacket);
+    }
+
+    @Test
+    public void rawTelemetry3cIsRecognisedNotUnknown() throws Exception {
+        // RETAIL_LIVE_p1p3_sit_npc_20260517.pcap: C→S raw telemetry
+        // `3c 03 00 05 0b000000 006cae46` (12 B). Must route to
+        // ClientTelemetry3c, NOT Unknown.
+        byte[] sub = hex("3c 03 00 05 0b 00 00 00 00 6c ae 46");
+        GameServerEvent ev = decode(sub);
+        assertNotNull(ev);
+        assertEquals(
+            "server.gameserver.packets.client_udp.ClientTelemetry3c",
+            ev.getClass().getName());
+    }
+
+    @Test
+    public void malformedRaw3cFallsThroughToUnknown() throws Exception {
+        // Wrong length / byte[2] != 0x00 must not be treated as
+        // telemetry.
+        assertTrue(decode(hex("3c 03 00 05 0b 00 00 00 00 6c ae"))
+                instanceof UnknownClientUDPPacket);
+        assertTrue(decode(hex("3c 03 ff 05 0b 00 00 00 00 6c ae 46"))
+                instanceof UnknownClientUDPPacket);
+    }
 }

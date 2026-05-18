@@ -300,6 +300,39 @@ public final class GamePacketReaderUDP {
 			return new Movement(subPacket);
 		case 0x2a:
 			return new RequestPositionUpdate(subPacket);
+		case 0x1f:
+			// Raw (unreliable) interaction poll, NOT the 0x03/0x1f
+			// reliable GamePackets multiplexer. Retail C→S form is a
+			// fixed 4-byte `1f <id> 01 55` (byte[2]=0x01, byte[3]=0x55
+			// invariant across all 23 observations in
+			// RETAIL_LIVE_p1p3_sit_npc_20260517.pcap). The server must
+			// answer every poll with `1f <id> 01 56 00 00 00 00`
+			// (InteractionPollAck) — without it the client's
+			// interaction lock-out never releases (the in-game
+			// "Unknown" message when trying to sit where a retail
+			// player sits). Shape-guard so a future / malformed raw
+			// 0x1f doesn't get mis-handled as a poll.
+			if (subPacket.length == 4
+					&& (subPacket[2] & 0xFF) == 0x01
+					&& (subPacket[3] & 0xFF) == 0x55) {
+				return new InteractionPoll(subPacket);
+			}
+			pd.reset();
+			return pd;
+		case 0x3c:
+			// Raw (unreliable) client telemetry — the C→S counterpart
+			// to the server's AttributeUpdate3c push channel. Fixed
+			// 12-byte `3c <seq> 00 <tag> <i32> <f32>` (byte[2]=0x00
+			// invariant across all 13 observations; recurs ~3s during
+			// play). Fire-and-forget: retail's server never replies to
+			// the C→S 0x3c. Recognise cleanly so it stops drowning the
+			// log in "Unknown UDP13 Packet".
+			if (subPacket.length == 12
+					&& (subPacket[2] & 0xFF) == 0x00) {
+				return new ClientTelemetry3c(subPacket);
+			}
+			pd.reset();
+			return pd;
 		// ─── Catalog-driven recognition (task #137) ──────────────────
 		// Sub-packet top-bytes that retail captures show the *server*
 		// emits but our parser previously logged as "Unknown UDP13
