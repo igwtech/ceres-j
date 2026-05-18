@@ -1,0 +1,1489 @@
+======================================================
+FUNCTION FUN_006b1640 @ 006b1640
+======================================================
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+void FUN_006b1640(undefined4 param_1,undefined8 *param_2)
+
+{
+  undefined4 *puVar1;
+  undefined4 *puVar2;
+  void *pvVar3;
+  undefined4 uVar4;
+  undefined4 *in_ECX;
+  undefined4 local_20;
+  undefined4 local_1c;
+  undefined4 local_18;
+  uint local_14;
+  void *local_10;
+  undefined1 *puStack_c;
+  int local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009d636c;
+  local_10 = ExceptionList;
+  local_14 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  thunk_FUN_00750660(param_1,0);
+  *in_ECX = SPECCAM::vftable;
+  in_ECX[2] = SPECCAM::vftable;
+  in_ECX[10] = param_2;
+  in_ECX[0xc] = 0;
+  *(undefined1 *)(in_ECX + 9) = 0;
+  in_ECX[0xd] = 0;
+  in_ECX[0xe] = 0;
+  local_8 = 0;
+  puVar1 = in_ECX;
+  puVar2 = in_ECX;
+  if ((DAT_011635c4 != (undefined4 *)0x0) &&
+     (puVar1 = DAT_011635c4, puVar2 = DAT_011635c8, DAT_011635c8 != (undefined4 *)0x0)) {
+    DAT_011635c8[0xd] = in_ECX;
+    in_ECX[0xe] = DAT_011635c8;
+    puVar1 = DAT_011635c4;
+    puVar2 = in_ECX;
+  }
+  DAT_011635c8 = puVar2;
+  DAT_011635c4 = puVar1;
+  *(undefined8 *)(in_ECX + 5) = *param_2;
+  in_ECX[7] = *(undefined4 *)(param_2 + 1);
+  local_20 = 0;
+  local_1c = 0x42b40000;
+  local_18 = 0;
+  pvVar3 = operator_new(0x70);
+  local_8._0_1_ = 1;
+  if (pvVar3 == (void *)0x0) {
+    uVar4 = 0;
+  }
+  else {
+    uVar4 = thunk_FUN_00771470(param_1);
+  }
+  local_8 = (uint)local_8._1_3_ << 8;
+  in_ECX[0xb] = uVar4;
+  thunk_FUN_00772260(100,3,0,1,0,1,0x400ccccd,in_ECX + 5,&local_20);
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_004d8a50 @ 004d8a50
+======================================================
+
+int FUN_004d8a50(undefined4 param_1,undefined4 param_2,undefined4 param_3,undefined4 param_4,
+                undefined4 param_5,undefined4 param_6,undefined4 param_7)
+
+{
+  int iVar1;
+  int iVar2;
+  int *in_ECX;
+  
+  if (*in_ECX != 0) {
+    for (iVar1 = thunk_FUN_004e1f10(param_3,0,&LAB_004094d5); iVar1 != 0;
+        iVar1 = *(int *)(iVar1 + 0xc)) {
+      iVar2 = (**(code **)(iVar1 + 8))(param_1,param_2,param_3,param_4,param_5,param_6,param_7);
+      if (iVar2 != 0) {
+        return iVar2;
+      }
+    }
+  }
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_0053d040 @ 0053d040
+======================================================
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+void FUN_0053d040(int param_1,code *param_2,int *param_3,byte param_4,code *param_5,int param_6)
+
+{
+  code cVar1;
+  undefined1 uVar2;
+  undefined2 uVar3;
+  short sVar4;
+  undefined8 *puVar5;
+  int iVar6;
+  undefined4 uVar7;
+  code *pcVar8;
+  code *pcVar9;
+  uint uVar10;
+  int *piVar11;
+  int iVar12;
+  undefined4 *in_ECX;
+  char *pcVar13;
+  uint uStack_13c;
+  undefined1 local_124 [4];
+  undefined1 local_120 [4];
+  undefined1 local_11c [4];
+  undefined1 local_118 [4];
+  undefined1 local_114 [4];
+  undefined1 local_110 [4];
+  undefined4 *local_10c;
+  int local_108;
+  code *local_104;
+  code *local_100;
+  int *local_fc;
+  undefined4 *local_f8;
+  code *local_f4;
+  undefined4 *local_f0;
+  undefined1 local_e9;
+  void *local_e8;
+  undefined4 local_e4;
+  undefined4 uStack_e0;
+  undefined4 uStack_dc;
+  undefined4 uStack_d8;
+  undefined4 local_d4;
+  undefined4 uStack_d0;
+  undefined4 uStack_cc;
+  undefined4 uStack_c8;
+  undefined4 local_c4;
+  undefined4 local_c0;
+  undefined4 local_bc;
+  undefined4 uStack_b8;
+  undefined4 uStack_b4;
+  undefined4 uStack_b0;
+  undefined4 local_ac;
+  undefined4 local_a8;
+  undefined4 local_a4;
+  char *local_a0;
+  undefined4 uStack_9c;
+  undefined4 local_98;
+  undefined4 uStack_94;
+  undefined4 uStack_90;
+  uint uStack_8c;
+  float local_88;
+  float local_84;
+  float local_80;
+  undefined1 local_7c [100];
+  uint local_18;
+  undefined1 *local_14;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  puStack_c = &LAB_009c58b1;
+  local_10 = ExceptionList;
+  uStack_13c = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  local_14 = (undefined1 *)&uStack_13c;
+  ExceptionList = &local_10;
+  local_fc = param_3;
+  local_100 = param_5;
+  local_108 = param_6;
+  local_f0 = (undefined4 *)param_1;
+  local_104 = param_2;
+  *(undefined2 *)(in_ECX + 1) = 0;
+  local_8 = 0;
+  *in_ECX = WORLDMGR::vftable;
+  if (param_1 != 0) {
+    *(int *)(param_1 + 0x88) = *(int *)(param_1 + 0x88) + 1;
+  }
+  in_ECX[3] = 0;
+  in_ECX[0xd] = 0;
+  in_ECX[0x13] = 0;
+  in_ECX[0x14] = 0;
+  in_ECX[0x17] = 0;
+  in_ECX[0xe] = 0;
+  in_ECX[0x40] = 0;
+  in_ECX[0x41] = 0;
+  in_ECX[0x18] = 0;
+  in_ECX[0x19] = 0;
+  in_ECX[0x43] = 0x7ffffbff;
+  in_ECX[0x44] = 1;
+  *(undefined1 *)(in_ECX + 0x42) = 0;
+  *(undefined1 *)((int)in_ECX + 0x109) = 0;
+  in_ECX[0x15] = 0;
+  in_ECX[0x16] = 0;
+  in_ECX[0x10] = 0;
+  in_ECX[0x11] = 0;
+  in_ECX[0x1c] = 0;
+  in_ECX[0x1a] = 0;
+  in_ECX[0x1b] = 0;
+  in_ECX[0xf] = 0;
+  in_ECX[7] = 0;
+  in_ECX[9] = 0;
+  in_ECX[10] = 0;
+  in_ECX[0xb] = 0;
+  in_ECX[6] = 0;
+  in_ECX[4] = 0;
+  in_ECX[0x1d] = 0;
+  in_ECX[0x12] = 0;
+  in_ECX[5] = 0;
+  in_ECX[0x45] = 0;
+  local_f8 = in_ECX;
+  local_18 = uStack_13c;
+  thunk_FUN_00467ea0();
+  *(undefined8 *)(in_ECX + 0x49) = 0;
+  *(undefined2 *)(in_ECX + 0x4b) = 0;
+  *(undefined1 *)((int)in_ECX + 0x12e) = 0;
+  memset(in_ECX + 0x1e,0,0x80);
+  in_ECX[0x3e] = 0;
+  *(undefined1 *)(in_ECX + 0x3f) = 0;
+  thunk_FUN_00529960();
+  local_8._0_1_ = 1;
+  if (local_f0 == (undefined4 *)0x0) {
+    thunk_FUN_00447e80(local_7c,100," EXCEPTION [WorldMgr]: GameStruct is not valid!\n");
+    thunk_FUN_0045a280("Init.Log",local_7c);
+    thunk_FUN_00456a20(local_110,local_7c);
+                    /* WARNING: Subroutine does not return */
+    _CxxThrowException(local_110,(ThrowInfo *)&DAT_00ad1894);
+  }
+  in_ECX[2] = local_f0;
+  *(undefined4 **)((int)local_f0 + 0xc) = in_ECX;
+  *(undefined1 *)(in_ECX + 0x42) = *(undefined1 *)(in_ECX[2] + 0x2a);
+  puVar5 = operator_new(8);
+  in_ECX[5] = puVar5;
+  if (puVar5 == (undefined8 *)0x0) {
+    thunk_FUN_00447e80(local_7c,100," EXCEPTION [WorldMgr]: Not enough memory for worlddata!\n");
+    thunk_FUN_0045a280("Init.Log",local_7c);
+    thunk_FUN_00456a20(local_114,local_7c);
+                    /* WARNING: Subroutine does not return */
+    _CxxThrowException(local_114,(ThrowInfo *)&DAT_00ad1894);
+  }
+  *puVar5 = 0;
+  *(undefined1 *)(in_ECX[5] + 4) = 1;
+  thunk_FUN_0045a280("Init.Log",". . . world loaded.\n");
+  if (param_2 == (code *)0x0) {
+    iVar6 = thunk_FUN_0049d490(0,*(undefined1 *)(in_ECX + 0x42));
+    in_ECX[3] = iVar6;
+    if (iVar6 == 0) {
+      thunk_FUN_00447e80(local_7c,100," EXCEPTION [WorldMgr]: World loading failed: %s!\n",0);
+      thunk_FUN_0045a280("Init.Log",local_7c);
+      thunk_FUN_00456a20(local_120,local_7c);
+                    /* WARNING: Subroutine does not return */
+      _CxxThrowException(local_120,(ThrowInfo *)&DAT_00ad1894);
+    }
+    *(undefined1 *)(in_ECX[5] + 5) = 0;
+  }
+  else {
+    *(undefined1 *)(in_ECX[5] + 5) = 1;
+    local_f4 = (code *)thunk_FUN_0043f3c0(0,1,param_2,0,1);
+    if (local_f4 == (code *)0x0) {
+      thunk_FUN_00447e80(local_7c,100," EXCEPTION [WorldMgr]: Worldfile openening failed: %s!\n",
+                         param_2);
+      thunk_FUN_0045a280("Init.Log",local_7c);
+      thunk_FUN_00456a20(local_118,local_7c);
+                    /* WARNING: Subroutine does not return */
+      _CxxThrowException(local_118,(ThrowInfo *)&DAT_00ad1894);
+    }
+    iVar6 = thunk_FUN_00486680(local_f4,*(undefined1 *)((int)local_f0 + 0x2a));
+    in_ECX[3] = iVar6;
+    if (iVar6 == 0) {
+      thunk_FUN_00447e80(local_7c,100," EXCEPTION [WorldMgr]: World creation failed: %s!\n",param_2)
+      ;
+      thunk_FUN_0045a280("Init.Log",local_7c);
+      thunk_FUN_00456a20(local_11c,local_7c);
+                    /* WARNING: Subroutine does not return */
+      _CxxThrowException(local_11c,(ThrowInfo *)&DAT_00ad1894);
+    }
+    thunk_FUN_004641c0(&local_f4);
+    local_f4 = (code *)in_ECX[3];
+    uVar7 = thunk_FUN_0049d080();
+    thunk_FUN_00479470(uVar7,local_f4);
+    local_f4 = param_2;
+    do {
+      cVar1 = *local_f4;
+      local_f4 = local_f4 + 1;
+    } while (cVar1 != (code)0x0);
+    local_f4 = local_f4 + -(int)(param_2 + 1);
+    pcVar8 = (code *)thunk_FUN_009ac153(local_f4 + 1);
+    in_ECX[6] = pcVar8;
+    pcVar9 = param_2;
+    do {
+      cVar1 = *pcVar9;
+      pcVar9 = pcVar9 + 1;
+      *pcVar8 = cVar1;
+      pcVar8 = pcVar8 + 1;
+    } while (cVar1 != (code)0x0);
+    pcVar9 = local_f4 + -1;
+    if (0 < (int)pcVar9) {
+      do {
+        if ((int)pcVar9 <= (int)(local_f4 + -5)) break;
+        if (pcVar9[in_ECX[6]] == (code)0x2e) {
+          pcVar9[in_ECX[6]] = (code)0x0;
+          break;
+        }
+        pcVar9 = pcVar9 + -1;
+      } while (0 < (int)pcVar9);
+    }
+    thunk_FUN_0045a280("Init.Log","WorldManager: Getting start position.\n");
+    local_f8 = operator_new(0x10);
+    local_8._0_1_ = 2;
+    if (local_f8 == (void *)0x0) {
+      uVar7 = 0;
+    }
+    else {
+      uVar7 = thunk_FUN_00445530(0);
+    }
+    local_8._0_1_ = 1;
+    in_ECX[0xd] = uVar7;
+    local_f8 = (undefined4 *)thunk_FUN_004872e0(in_ECX[3],"DeathMatchStart");
+    if ((local_f8 != (undefined4 *)0x0) &&
+       (local_f0 = (undefined4 *)thunk_FUN_0052d5c0(local_f8,0), local_f0 != (undefined4 *)0x0)) {
+      *(undefined2 *)(in_ECX + 0xc) = 0;
+      while (local_f0 != (undefined4 *)0x0) {
+        local_f4 = (code *)thunk_FUN_0052dae0(local_f0);
+        local_10c = operator_new(0xc);
+        uVar7 = *(undefined4 *)(local_f4 + 4);
+        *local_10c = *(undefined4 *)local_f4;
+        local_10c[1] = uVar7;
+        local_10c[2] = *(undefined4 *)(local_f4 + 8);
+        local_f4 = (code *)in_ECX[0xd];
+        local_e8 = operator_new(0x10);
+        local_8._0_1_ = 3;
+        if (local_e8 == (void *)0x0) {
+          uVar7 = 0;
+        }
+        else {
+          uVar7 = thunk_FUN_00445530(local_10c);
+        }
+        local_8._0_1_ = 1;
+        thunk_FUN_00445720(uVar7);
+        local_f0 = (undefined4 *)thunk_FUN_0052d5c0(local_f8,local_f0);
+        *(short *)(in_ECX + 0xc) = *(short *)(in_ECX + 0xc) + 1;
+      }
+    }
+    if (*(short *)(in_ECX + 0xc) == 0) {
+      local_f8 = operator_new(0xc);
+      *local_f8 = 0;
+      local_f8[1] = 0;
+      local_f8[2] = 0;
+      local_10c = (undefined4 *)in_ECX[0xd];
+      local_e8 = operator_new(0x10);
+      local_8._0_1_ = 4;
+      if (local_e8 == (void *)0x0) {
+        uVar7 = 0;
+      }
+      else {
+        uVar7 = thunk_FUN_00445530(local_f8);
+      }
+      local_8._0_1_ = 1;
+      thunk_FUN_00445720(uVar7);
+      *(short *)(in_ECX + 0xc) = *(short *)(in_ECX + 0xc) + 1;
+    }
+  }
+  local_ac = 0;
+  local_a8 = 0;
+  local_a4 = 0;
+  local_e8 = operator_new(0x28);
+  local_8._0_1_ = 5;
+  if (local_e8 == (void *)0x0) {
+    iVar6 = 0;
+  }
+  else {
+    iVar6 = thunk_FUN_00545a60(in_ECX[2],&local_ac,0x46fa0000,0x46fa0000,0x46fa0000);
+  }
+  local_8._0_1_ = 1;
+  uVar2 = (undefined1)local_8;
+  local_8._0_1_ = 1;
+  in_ECX[4] = iVar6;
+  if (iVar6 == 0) {
+    local_8._0_1_ = uVar2;
+    thunk_FUN_00447e80(local_7c,100," EXCEPTION [WorldMgr]: WorldGrid creation failed!\n");
+    thunk_FUN_0045a280("Init.Log",local_7c);
+    thunk_FUN_00456a20(local_124,local_7c);
+                    /* WARNING: Subroutine does not return */
+    _CxxThrowException(local_124,(ThrowInfo *)&DAT_00ad1894);
+  }
+  local_f8 = (undefined4 *)thunk_FUN_00529960();
+  if (local_fc != (int *)0x0) {
+    thunk_FUN_00550e30(0x37);
+    (**(code **)(*local_fc + 4))(0);
+  }
+  thunk_FUN_00529960();
+  if (*(char *)(in_ECX[2] + 0x2a) == '\0') {
+    in_ECX[0x1a] = 0;
+    uVar7 = 0;
+  }
+  else {
+    local_e8 = operator_new(0x1d8);
+    local_8._0_1_ = 6;
+    if (local_e8 == (void *)0x0) {
+      uVar7 = 0;
+    }
+    else {
+      uVar7 = thunk_FUN_005e6ce0(in_ECX[2]);
+    }
+    local_8._0_1_ = 1;
+    in_ECX[0x1a] = uVar7;
+    local_e8 = operator_new(0x148);
+    local_8._0_1_ = 7;
+    if (local_e8 == (void *)0x0) {
+      uVar7 = 0;
+      local_8._0_1_ = 1;
+    }
+    else {
+      uVar7 = thunk_FUN_005e7860(in_ECX[2]);
+      local_8._0_1_ = 1;
+    }
+  }
+  in_ECX[0x1b] = uVar7;
+  local_e8 = operator_new(0x10);
+  local_8._0_1_ = 8;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_00445530(0);
+  }
+  local_8._0_1_ = 1;
+  in_ECX[0xb] = uVar7;
+  thunk_FUN_00541440();
+  thunk_FUN_00447e80(local_7c,100,"Creating FX-System for worlds . . .\n");
+  thunk_FUN_0045a280("Init.Log",local_7c);
+  local_e8 = operator_new(0x80);
+  local_8._0_1_ = 9;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_005e2bf0(7);
+  }
+  local_8._0_1_ = 1;
+  in_ECX[0x18] = uVar7;
+  thunk_FUN_005e2ca0(0x10000,"Corona",0x4c);
+  thunk_FUN_005e2ca0(0x10001,"NModelController",0x10);
+  thunk_FUN_005e2ca0(0x10002,"ElectricBolt",0x4c);
+  thunk_FUN_005e2ca0(0x10003,"DynamicLight",0x48);
+  thunk_FUN_005e2ca0(0x10004,"ModelController",8);
+  thunk_FUN_005e2ca0(0x10005,"AmbientSound",0x40);
+  thunk_FUN_005e2ca0(0x10006,"StaticSound",0x20);
+  thunk_FUN_005e2ca0(0x10007,"SteamFX",0x44);
+  thunk_FUN_005e2ca0(0x10008,"DistanceFog",0x28);
+  thunk_FUN_005e2ca0(0x10009,"Decal",0x3c);
+  thunk_FUN_005e2ca0(0x1002d,"NCDecal",0x5c);
+  thunk_FUN_005e2ca0(0x1000a,"GliderSystem",0x10);
+  thunk_FUN_005e2ca0(0x1000b,"MiscCharSystem",0x10);
+  thunk_FUN_005e2ca0(0x1000c,"Sparkles",0x2c);
+  thunk_FUN_005e2ca0(0x1000d,"LiquidDrop",0x2c);
+  thunk_FUN_005e2ca0(0x1000e,"AmbientContentSound",0x18);
+  thunk_FUN_005e2ca0(0x1000f,"Spectator",0x1c);
+  thunk_FUN_005e2ca0(0x10010,"ContentSoundOverride",0x10);
+  thunk_FUN_005e2ca0(0x1001e,"AnimatedTexture",0x14);
+  thunk_FUN_005e2ca0(0x10022,"NewAmbientContentSound",0x1c);
+  thunk_FUN_005e2ca0(0x10026,"AntiGravParticle",0x14);
+  thunk_FUN_005e2ca0(0x1002e,"NewAntiGravParticle",0x3c);
+  thunk_FUN_00447e80(local_7c,100,"Creating FX-System for actors . . .\n");
+  thunk_FUN_0045a280("Init.Log",local_7c);
+  local_e8 = operator_new(0x80);
+  local_8._0_1_ = 10;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_005e2bf0(3);
+  }
+  local_8 = CONCAT31(local_8._1_3_,1);
+  in_ECX[0x19] = uVar7;
+  thunk_FUN_005e2ca0(4,&DAT_00a23b74,0x10);
+  thunk_FUN_005e2ca0(5,"MovingPlat",0x10);
+  thunk_FUN_005e2ca0(6,"PhysicsObject",0x30);
+  thunk_FUN_005e2ca0(7,"PhysicsJoint",0x28);
+  thunk_FUN_005e2ca0(0x19,"StaticActor",0x24);
+  thunk_FUN_005e2ca0(0x1a,&DAT_00a23bbc,0x18);
+  thunk_FUN_005e2ca0(0x1b,"NDoor",0x1c);
+  thunk_FUN_005e2ca0(0x1c,"NMovingPlat",0x1c);
+  thunk_FUN_005e2ca0(0x1d,"Terminal",0x24);
+  thunk_FUN_005e2ca0(0x1001d,"TestTerrain",0xc);
+  thunk_FUN_005e2ca0(0x27,"SubwayTrain",0x18);
+  thunk_FUN_005e2ca0(0x25,"TutorialItem",0x14);
+  if (local_fc != (int *)0x0) {
+    thunk_FUN_00550e30(0x3c);
+    (**(code **)(*local_fc + 4))(0);
+  }
+  if (*(char *)(in_ECX + 0x42) == '\0') {
+    in_ECX[0x15] = 0;
+  }
+  else {
+    thunk_FUN_00447e80(local_7c,100,"Creating other FX-Systems . . .\n");
+    thunk_FUN_0045a280("Init.Log",local_7c);
+    (**(code **)(**(int **)(in_ECX[2] + 0x3c) + 0x20))(in_ECX[3]);
+    (**(code **)(**(int **)(in_ECX[2] + 0x40) + 0x20))(in_ECX[3]);
+    (**(code **)(**(int **)(in_ECX[2] + 0x44) + 0x20))(in_ECX[3]);
+    local_e8 = operator_new(0x350);
+    local_8._0_1_ = 0xb;
+    if (local_e8 == (void *)0x0) {
+      uVar7 = 0;
+    }
+    else {
+      uVar7 = thunk_FUN_005e8710(in_ECX[2]);
+    }
+    local_8._0_1_ = 1;
+    in_ECX[0x13] = uVar7;
+    local_e8 = operator_new(100);
+    local_8._0_1_ = 0xc;
+    if (local_e8 == (void *)0x0) {
+      uVar7 = 0;
+    }
+    else {
+      uVar7 = thunk_FUN_005eb6d0(in_ECX[2]);
+    }
+    local_8._0_1_ = 1;
+    in_ECX[0x14] = uVar7;
+    uVar7 = thunk_FUN_005e2d10(in_ECX[2]);
+    in_ECX[0x15] = uVar7;
+    local_e8 = operator_new(0x10);
+    local_8._0_1_ = 0xd;
+    if (local_e8 == (void *)0x0) {
+      uVar7 = 0;
+    }
+    else {
+      uVar7 = thunk_FUN_00445530(0);
+    }
+    local_8 = CONCAT31(local_8._1_3_,1);
+    in_ECX[0x16] = uVar7;
+    thunk_FUN_004d8b30();
+    uVar7 = thunk_FUN_004d8a50(in_ECX[2],7,0x10011,0,0,0,0);
+    thunk_FUN_0053f780(uVar7,0);
+    if (*(char *)(in_ECX[2] + 0x2a) != '\0') {
+      iVar6 = thunk_FUN_004872e0(in_ECX[3],"WeatherTypeID");
+      if ((((iVar6 == 0) || (iVar6 = thunk_FUN_0052d5c0(iVar6,0), iVar6 == 0)) ||
+          (iVar6 = thunk_FUN_0052dae0(iVar6), iVar6 == 0)) || (*(int *)(iVar6 + 0xc) != -1)) {
+        local_e8 = operator_new(0x80);
+        local_8._0_1_ = 0xe;
+        if (local_e8 == (void *)0x0) {
+          uVar7 = 0;
+        }
+        else {
+          uVar7 = thunk_FUN_005ed050(in_ECX[2]);
+        }
+        local_8 = CONCAT31(local_8._1_3_,1);
+        *(undefined4 *)in_ECX[5] = uVar7;
+        local_e9 = 1;
+        thunk_FUN_00543a60(8,1,&local_e9);
+      }
+      else {
+        *(undefined4 *)in_ECX[5] = 0;
+        local_d4 = 0;
+        uStack_d0 = 0;
+        uStack_cc = 0;
+        uStack_c8 = 0;
+        local_c4 = 0;
+        local_c0 = 0;
+        local_e4 = 0x437f0000;
+        uStack_e0 = 0x437f0000;
+        uStack_dc = 0x437f0000;
+        uStack_d8 = 0x437f0000;
+        thunk_FUN_00488410(in_ECX[3],0,&local_e4);
+        thunk_FUN_00545090(0,0x61);
+        thunk_FUN_00545090(0,0x7a);
+        thunk_FUN_00545090(1,0x61);
+        thunk_FUN_00545090(1,0x7a);
+        local_bc = 0x43160000;
+        uStack_b8 = 0x43160000;
+        uStack_b4 = 0x432a0000;
+        uStack_b0 = 0;
+        thunk_FUN_0050e5f0(&local_bc,0x42c80000,0x459c4000);
+        local_e9 = 0;
+        thunk_FUN_00543a60(8,1,&local_e9);
+        local_88 = 0.0;
+        local_98 = 0;
+        uStack_94 = 0;
+        uStack_90 = 0;
+        uStack_8c = 0x3f800000;
+        local_84 = 0.0;
+        local_80 = 0.0;
+        thunk_FUN_004880b0(in_ECX[3],&local_88,&local_98);
+      }
+    }
+  }
+  local_e8 = operator_new(0x20);
+  local_8._0_1_ = 0xf;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_004e1ba0(0x400);
+  }
+  local_8 = CONCAT31(local_8._1_3_,1);
+  in_ECX[0xe] = uVar7;
+  local_f0 = (undefined4 *)thunk_FUN_005e2d10(in_ECX[2]);
+  while (local_f0[3] != 0) {
+    local_f8 = *(undefined4 **)(local_f0[3] + 4);
+    uVar10 = thunk_FUN_00540fd0(0);
+    *(uint *)((int)local_f8 + 8) = (uVar10 & 0x1fffff) << 10 | 0x3fe;
+    thunk_FUN_0053ffb0(local_f8);
+    if ((undefined4 *)local_f0[3] != (undefined4 *)0x0) {
+      (*(code *)**(undefined4 **)local_f0[3])(1);
+    }
+  }
+  (**(code **)*local_f0)(1);
+  thunk_FUN_00447e80(local_7c,100," . . . FX-Systems created.\n");
+  thunk_FUN_0045a280("Init.Log",local_7c);
+  if (local_fc != (int *)0x0) {
+    thunk_FUN_00550e30(0x41);
+    (**(code **)(*local_fc + 4))(0);
+  }
+  local_e8 = operator_new(0x28);
+  local_8._0_1_ = 0x10;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_005e30b0(in_ECX[2]);
+  }
+  local_8._0_1_ = 1;
+  uVar2 = (undefined1)local_8;
+  local_8._0_1_ = 1;
+  in_ECX[0x11] = uVar7;
+  if ((param_4 & 1) == 0) {
+    if (param_2 != (code *)0x0) {
+      if ((local_100 == (code *)0x0) || (*local_100 == (code)0x20)) {
+        pcVar9 = param_2 + 1;
+        do {
+          cVar1 = *param_2;
+          param_2 = param_2 + 1;
+        } while (cVar1 != (code)0x0);
+        iVar6 = (int)param_2 - (int)pcVar9;
+        if (((3 < iVar6) && (uVar2 = (undefined1)local_8, local_104[iVar6 + -3] == (code)0x62)) &&
+           ((local_104[iVar6 + -2] == (code)0x73 && (local_104[iVar6 + -1] == (code)0x70)))) {
+          local_f0 = (undefined4 *)thunk_FUN_009ac153(iVar6 + 1);
+          local_100 = (code *)((int)local_f0 - (int)local_104);
+          pcVar9 = local_104;
+          do {
+            cVar1 = *pcVar9;
+            (local_100 + -1)[(int)(pcVar9 + 1)] = cVar1;
+            pcVar9 = pcVar9 + 1;
+          } while (cVar1 != (code)0x0);
+          *(undefined2 *)((int)local_f0 + iVar6 + -3) = 0x6164;
+          *(undefined1 *)((int)local_f0 + iVar6 + -1) = 0x74;
+          thunk_FUN_00542cb0(local_f0);
+          free(local_f0);
+          uVar2 = (undefined1)local_8;
+        }
+      }
+      else {
+        thunk_FUN_00542cb0(local_100);
+        uVar2 = (undefined1)local_8;
+      }
+      goto LAB_0053de7c;
+    }
+  }
+  else {
+    uVar2 = (undefined1)local_8;
+    if (param_2 != (code *)0x0) goto LAB_0053de7c;
+  }
+  local_e8 = operator_new(0x28);
+  local_8._0_1_ = 0x11;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_005e3160(in_ECX[2],"AirPathPoint",0);
+  }
+  local_8._0_1_ = 1;
+  in_ECX[0x10] = uVar7;
+  uVar2 = (undefined1)local_8;
+LAB_0053de7c:
+  local_8._0_1_ = uVar2;
+  piVar11 = local_fc;
+  if (local_fc != (int *)0x0) {
+    thunk_FUN_00550e30(0x46);
+    (**(code **)(*piVar11 + 4))(0);
+  }
+  if (*(char *)(in_ECX + 0x42) != '\0') {
+    uVar7 = thunk_FUN_0049d090();
+    local_100 = (code *)thunk_FUN_00458ed0(uVar7,".\\worlds\\Procs.prc",1);
+    if (local_100 != (code *)0x0) {
+      uVar7 = thunk_FUN_005ebfe0(local_100,in_ECX[3]);
+      in_ECX[0x17] = uVar7;
+      thunk_FUN_004641c0(&local_100);
+    }
+  }
+  local_e8 = operator_new(0x10);
+  local_8._0_1_ = 0x12;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_00445530(0);
+  }
+  local_8._0_1_ = 1;
+  in_ECX[0xf] = uVar7;
+  local_e8 = operator_new(8);
+  local_8._0_1_ = 0x13;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_005e68a0(in_ECX[2]);
+  }
+  local_8._0_1_ = 1;
+  in_ECX[0x1c] = uVar7;
+  piVar11 = (int *)thunk_FUN_004704b0();
+  local_a0 = (char *)0x0;
+  uStack_9c = 0;
+  local_98 = 0;
+  uStack_94 = 0;
+  uStack_90 = 0;
+  uStack_8c = 0;
+  local_100 = *(code **)(*piVar11 + 0x14);
+  local_a0 = operator_new(0x20);
+  uStack_90 = 0x16;
+  uStack_8c = 0x1f;
+  builtin_strncpy(local_a0,"game.misc.show-env-map",0x17);
+  local_8._0_1_ = 0x14;
+  piVar11 = (int *)(*local_100)(&local_a0);
+  (**(code **)(*piVar11 + 0x2c))();
+  thunk_FUN_00486da0(3);
+  local_8 = CONCAT31(local_8._1_3_,1);
+  if (0xf < uStack_8c) {
+    uVar10 = uStack_8c + 1;
+    pcVar13 = local_a0;
+    if (0xfff < uVar10) {
+      pcVar13 = *(char **)(local_a0 + -4);
+      uVar10 = uStack_8c + 0x24;
+      if ((char *)0x1f < local_a0 + (-4 - (int)pcVar13)) {
+                    /* WARNING: Subroutine does not return */
+        _invoke_watson((wchar_t *)0x0,(wchar_t *)0x0,(wchar_t *)0x0,0,0);
+      }
+    }
+    thunk_FUN_009ac142(pcVar13,uVar10);
+  }
+  local_104 = (code *)0x0;
+  thunk_FUN_00540ec0(&local_104);
+  if (*(int *)in_ECX[5] != 0) {
+    thunk_FUN_005eec40(local_104);
+  }
+  if ((local_108 != 0) && (*(char *)(in_ECX[2] + 0x2a) != '\0')) {
+    uVar3 = thunk_FUN_004b3710(5);
+    *(undefined2 *)(in_ECX + 0x45) = uVar3;
+    sVar4 = thunk_FUN_004b3710(6);
+    *(short *)((int)in_ECX + 0x116) = sVar4;
+    if ((*(short *)(in_ECX + 0x45) != 0) &&
+       (((sVar4 != 0 &&
+         (iVar6 = (**(code **)(**(int **)(in_ECX[2] + 0x40) + 0x3c))
+                            (*(short *)(in_ECX + 0x45),sVar4), iVar6 != 0)) &&
+        (iVar6 = thunk_FUN_0047c6a0(), iVar6 != 0)))) {
+      iVar12 = thunk_FUN_004b3710(7);
+      local_88 = (float)iVar12;
+      iVar12 = thunk_FUN_004b3710(8);
+      local_84 = (float)iVar12;
+      iVar12 = thunk_FUN_004b3710(9);
+      local_80 = (float)iVar12;
+      thunk_FUN_00488290(in_ECX[3],iVar6,&local_88);
+    }
+  }
+  thunk_FUN_00447e80(local_7c,100," . . . Initialization of WorldManager completed!\n");
+  thunk_FUN_0045a280("Init.Log",local_7c);
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_0053d040 @ 0053d040
+======================================================
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+void FUN_0053d040(int param_1,code *param_2,int *param_3,byte param_4,code *param_5,int param_6)
+
+{
+  code cVar1;
+  undefined1 uVar2;
+  undefined2 uVar3;
+  short sVar4;
+  undefined8 *puVar5;
+  int iVar6;
+  undefined4 uVar7;
+  code *pcVar8;
+  code *pcVar9;
+  uint uVar10;
+  int *piVar11;
+  int iVar12;
+  undefined4 *in_ECX;
+  char *pcVar13;
+  uint uStack_13c;
+  undefined1 local_124 [4];
+  undefined1 local_120 [4];
+  undefined1 local_11c [4];
+  undefined1 local_118 [4];
+  undefined1 local_114 [4];
+  undefined1 local_110 [4];
+  undefined4 *local_10c;
+  int local_108;
+  code *local_104;
+  code *local_100;
+  int *local_fc;
+  undefined4 *local_f8;
+  code *local_f4;
+  undefined4 *local_f0;
+  undefined1 local_e9;
+  void *local_e8;
+  undefined4 local_e4;
+  undefined4 uStack_e0;
+  undefined4 uStack_dc;
+  undefined4 uStack_d8;
+  undefined4 local_d4;
+  undefined4 uStack_d0;
+  undefined4 uStack_cc;
+  undefined4 uStack_c8;
+  undefined4 local_c4;
+  undefined4 local_c0;
+  undefined4 local_bc;
+  undefined4 uStack_b8;
+  undefined4 uStack_b4;
+  undefined4 uStack_b0;
+  undefined4 local_ac;
+  undefined4 local_a8;
+  undefined4 local_a4;
+  char *local_a0;
+  undefined4 uStack_9c;
+  undefined4 local_98;
+  undefined4 uStack_94;
+  undefined4 uStack_90;
+  uint uStack_8c;
+  float local_88;
+  float local_84;
+  float local_80;
+  undefined1 local_7c [100];
+  uint local_18;
+  undefined1 *local_14;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  puStack_c = &LAB_009c58b1;
+  local_10 = ExceptionList;
+  uStack_13c = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  local_14 = (undefined1 *)&uStack_13c;
+  ExceptionList = &local_10;
+  local_fc = param_3;
+  local_100 = param_5;
+  local_108 = param_6;
+  local_f0 = (undefined4 *)param_1;
+  local_104 = param_2;
+  *(undefined2 *)(in_ECX + 1) = 0;
+  local_8 = 0;
+  *in_ECX = WORLDMGR::vftable;
+  if (param_1 != 0) {
+    *(int *)(param_1 + 0x88) = *(int *)(param_1 + 0x88) + 1;
+  }
+  in_ECX[3] = 0;
+  in_ECX[0xd] = 0;
+  in_ECX[0x13] = 0;
+  in_ECX[0x14] = 0;
+  in_ECX[0x17] = 0;
+  in_ECX[0xe] = 0;
+  in_ECX[0x40] = 0;
+  in_ECX[0x41] = 0;
+  in_ECX[0x18] = 0;
+  in_ECX[0x19] = 0;
+  in_ECX[0x43] = 0x7ffffbff;
+  in_ECX[0x44] = 1;
+  *(undefined1 *)(in_ECX + 0x42) = 0;
+  *(undefined1 *)((int)in_ECX + 0x109) = 0;
+  in_ECX[0x15] = 0;
+  in_ECX[0x16] = 0;
+  in_ECX[0x10] = 0;
+  in_ECX[0x11] = 0;
+  in_ECX[0x1c] = 0;
+  in_ECX[0x1a] = 0;
+  in_ECX[0x1b] = 0;
+  in_ECX[0xf] = 0;
+  in_ECX[7] = 0;
+  in_ECX[9] = 0;
+  in_ECX[10] = 0;
+  in_ECX[0xb] = 0;
+  in_ECX[6] = 0;
+  in_ECX[4] = 0;
+  in_ECX[0x1d] = 0;
+  in_ECX[0x12] = 0;
+  in_ECX[5] = 0;
+  in_ECX[0x45] = 0;
+  local_f8 = in_ECX;
+  local_18 = uStack_13c;
+  thunk_FUN_00467ea0();
+  *(undefined8 *)(in_ECX + 0x49) = 0;
+  *(undefined2 *)(in_ECX + 0x4b) = 0;
+  *(undefined1 *)((int)in_ECX + 0x12e) = 0;
+  memset(in_ECX + 0x1e,0,0x80);
+  in_ECX[0x3e] = 0;
+  *(undefined1 *)(in_ECX + 0x3f) = 0;
+  thunk_FUN_00529960();
+  local_8._0_1_ = 1;
+  if (local_f0 == (undefined4 *)0x0) {
+    thunk_FUN_00447e80(local_7c,100," EXCEPTION [WorldMgr]: GameStruct is not valid!\n");
+    thunk_FUN_0045a280("Init.Log",local_7c);
+    thunk_FUN_00456a20(local_110,local_7c);
+                    /* WARNING: Subroutine does not return */
+    _CxxThrowException(local_110,(ThrowInfo *)&DAT_00ad1894);
+  }
+  in_ECX[2] = local_f0;
+  *(undefined4 **)((int)local_f0 + 0xc) = in_ECX;
+  *(undefined1 *)(in_ECX + 0x42) = *(undefined1 *)(in_ECX[2] + 0x2a);
+  puVar5 = operator_new(8);
+  in_ECX[5] = puVar5;
+  if (puVar5 == (undefined8 *)0x0) {
+    thunk_FUN_00447e80(local_7c,100," EXCEPTION [WorldMgr]: Not enough memory for worlddata!\n");
+    thunk_FUN_0045a280("Init.Log",local_7c);
+    thunk_FUN_00456a20(local_114,local_7c);
+                    /* WARNING: Subroutine does not return */
+    _CxxThrowException(local_114,(ThrowInfo *)&DAT_00ad1894);
+  }
+  *puVar5 = 0;
+  *(undefined1 *)(in_ECX[5] + 4) = 1;
+  thunk_FUN_0045a280("Init.Log",". . . world loaded.\n");
+  if (param_2 == (code *)0x0) {
+    iVar6 = thunk_FUN_0049d490(0,*(undefined1 *)(in_ECX + 0x42));
+    in_ECX[3] = iVar6;
+    if (iVar6 == 0) {
+      thunk_FUN_00447e80(local_7c,100," EXCEPTION [WorldMgr]: World loading failed: %s!\n",0);
+      thunk_FUN_0045a280("Init.Log",local_7c);
+      thunk_FUN_00456a20(local_120,local_7c);
+                    /* WARNING: Subroutine does not return */
+      _CxxThrowException(local_120,(ThrowInfo *)&DAT_00ad1894);
+    }
+    *(undefined1 *)(in_ECX[5] + 5) = 0;
+  }
+  else {
+    *(undefined1 *)(in_ECX[5] + 5) = 1;
+    local_f4 = (code *)thunk_FUN_0043f3c0(0,1,param_2,0,1);
+    if (local_f4 == (code *)0x0) {
+      thunk_FUN_00447e80(local_7c,100," EXCEPTION [WorldMgr]: Worldfile openening failed: %s!\n",
+                         param_2);
+      thunk_FUN_0045a280("Init.Log",local_7c);
+      thunk_FUN_00456a20(local_118,local_7c);
+                    /* WARNING: Subroutine does not return */
+      _CxxThrowException(local_118,(ThrowInfo *)&DAT_00ad1894);
+    }
+    iVar6 = thunk_FUN_00486680(local_f4,*(undefined1 *)((int)local_f0 + 0x2a));
+    in_ECX[3] = iVar6;
+    if (iVar6 == 0) {
+      thunk_FUN_00447e80(local_7c,100," EXCEPTION [WorldMgr]: World creation failed: %s!\n",param_2)
+      ;
+      thunk_FUN_0045a280("Init.Log",local_7c);
+      thunk_FUN_00456a20(local_11c,local_7c);
+                    /* WARNING: Subroutine does not return */
+      _CxxThrowException(local_11c,(ThrowInfo *)&DAT_00ad1894);
+    }
+    thunk_FUN_004641c0(&local_f4);
+    local_f4 = (code *)in_ECX[3];
+    uVar7 = thunk_FUN_0049d080();
+    thunk_FUN_00479470(uVar7,local_f4);
+    local_f4 = param_2;
+    do {
+      cVar1 = *local_f4;
+      local_f4 = local_f4 + 1;
+    } while (cVar1 != (code)0x0);
+    local_f4 = local_f4 + -(int)(param_2 + 1);
+    pcVar8 = (code *)thunk_FUN_009ac153(local_f4 + 1);
+    in_ECX[6] = pcVar8;
+    pcVar9 = param_2;
+    do {
+      cVar1 = *pcVar9;
+      pcVar9 = pcVar9 + 1;
+      *pcVar8 = cVar1;
+      pcVar8 = pcVar8 + 1;
+    } while (cVar1 != (code)0x0);
+    pcVar9 = local_f4 + -1;
+    if (0 < (int)pcVar9) {
+      do {
+        if ((int)pcVar9 <= (int)(local_f4 + -5)) break;
+        if (pcVar9[in_ECX[6]] == (code)0x2e) {
+          pcVar9[in_ECX[6]] = (code)0x0;
+          break;
+        }
+        pcVar9 = pcVar9 + -1;
+      } while (0 < (int)pcVar9);
+    }
+    thunk_FUN_0045a280("Init.Log","WorldManager: Getting start position.\n");
+    local_f8 = operator_new(0x10);
+    local_8._0_1_ = 2;
+    if (local_f8 == (void *)0x0) {
+      uVar7 = 0;
+    }
+    else {
+      uVar7 = thunk_FUN_00445530(0);
+    }
+    local_8._0_1_ = 1;
+    in_ECX[0xd] = uVar7;
+    local_f8 = (undefined4 *)thunk_FUN_004872e0(in_ECX[3],"DeathMatchStart");
+    if ((local_f8 != (undefined4 *)0x0) &&
+       (local_f0 = (undefined4 *)thunk_FUN_0052d5c0(local_f8,0), local_f0 != (undefined4 *)0x0)) {
+      *(undefined2 *)(in_ECX + 0xc) = 0;
+      while (local_f0 != (undefined4 *)0x0) {
+        local_f4 = (code *)thunk_FUN_0052dae0(local_f0);
+        local_10c = operator_new(0xc);
+        uVar7 = *(undefined4 *)(local_f4 + 4);
+        *local_10c = *(undefined4 *)local_f4;
+        local_10c[1] = uVar7;
+        local_10c[2] = *(undefined4 *)(local_f4 + 8);
+        local_f4 = (code *)in_ECX[0xd];
+        local_e8 = operator_new(0x10);
+        local_8._0_1_ = 3;
+        if (local_e8 == (void *)0x0) {
+          uVar7 = 0;
+        }
+        else {
+          uVar7 = thunk_FUN_00445530(local_10c);
+        }
+        local_8._0_1_ = 1;
+        thunk_FUN_00445720(uVar7);
+        local_f0 = (undefined4 *)thunk_FUN_0052d5c0(local_f8,local_f0);
+        *(short *)(in_ECX + 0xc) = *(short *)(in_ECX + 0xc) + 1;
+      }
+    }
+    if (*(short *)(in_ECX + 0xc) == 0) {
+      local_f8 = operator_new(0xc);
+      *local_f8 = 0;
+      local_f8[1] = 0;
+      local_f8[2] = 0;
+      local_10c = (undefined4 *)in_ECX[0xd];
+      local_e8 = operator_new(0x10);
+      local_8._0_1_ = 4;
+      if (local_e8 == (void *)0x0) {
+        uVar7 = 0;
+      }
+      else {
+        uVar7 = thunk_FUN_00445530(local_f8);
+      }
+      local_8._0_1_ = 1;
+      thunk_FUN_00445720(uVar7);
+      *(short *)(in_ECX + 0xc) = *(short *)(in_ECX + 0xc) + 1;
+    }
+  }
+  local_ac = 0;
+  local_a8 = 0;
+  local_a4 = 0;
+  local_e8 = operator_new(0x28);
+  local_8._0_1_ = 5;
+  if (local_e8 == (void *)0x0) {
+    iVar6 = 0;
+  }
+  else {
+    iVar6 = thunk_FUN_00545a60(in_ECX[2],&local_ac,0x46fa0000,0x46fa0000,0x46fa0000);
+  }
+  local_8._0_1_ = 1;
+  uVar2 = (undefined1)local_8;
+  local_8._0_1_ = 1;
+  in_ECX[4] = iVar6;
+  if (iVar6 == 0) {
+    local_8._0_1_ = uVar2;
+    thunk_FUN_00447e80(local_7c,100," EXCEPTION [WorldMgr]: WorldGrid creation failed!\n");
+    thunk_FUN_0045a280("Init.Log",local_7c);
+    thunk_FUN_00456a20(local_124,local_7c);
+                    /* WARNING: Subroutine does not return */
+    _CxxThrowException(local_124,(ThrowInfo *)&DAT_00ad1894);
+  }
+  local_f8 = (undefined4 *)thunk_FUN_00529960();
+  if (local_fc != (int *)0x0) {
+    thunk_FUN_00550e30(0x37);
+    (**(code **)(*local_fc + 4))(0);
+  }
+  thunk_FUN_00529960();
+  if (*(char *)(in_ECX[2] + 0x2a) == '\0') {
+    in_ECX[0x1a] = 0;
+    uVar7 = 0;
+  }
+  else {
+    local_e8 = operator_new(0x1d8);
+    local_8._0_1_ = 6;
+    if (local_e8 == (void *)0x0) {
+      uVar7 = 0;
+    }
+    else {
+      uVar7 = thunk_FUN_005e6ce0(in_ECX[2]);
+    }
+    local_8._0_1_ = 1;
+    in_ECX[0x1a] = uVar7;
+    local_e8 = operator_new(0x148);
+    local_8._0_1_ = 7;
+    if (local_e8 == (void *)0x0) {
+      uVar7 = 0;
+      local_8._0_1_ = 1;
+    }
+    else {
+      uVar7 = thunk_FUN_005e7860(in_ECX[2]);
+      local_8._0_1_ = 1;
+    }
+  }
+  in_ECX[0x1b] = uVar7;
+  local_e8 = operator_new(0x10);
+  local_8._0_1_ = 8;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_00445530(0);
+  }
+  local_8._0_1_ = 1;
+  in_ECX[0xb] = uVar7;
+  thunk_FUN_00541440();
+  thunk_FUN_00447e80(local_7c,100,"Creating FX-System for worlds . . .\n");
+  thunk_FUN_0045a280("Init.Log",local_7c);
+  local_e8 = operator_new(0x80);
+  local_8._0_1_ = 9;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_005e2bf0(7);
+  }
+  local_8._0_1_ = 1;
+  in_ECX[0x18] = uVar7;
+  thunk_FUN_005e2ca0(0x10000,"Corona",0x4c);
+  thunk_FUN_005e2ca0(0x10001,"NModelController",0x10);
+  thunk_FUN_005e2ca0(0x10002,"ElectricBolt",0x4c);
+  thunk_FUN_005e2ca0(0x10003,"DynamicLight",0x48);
+  thunk_FUN_005e2ca0(0x10004,"ModelController",8);
+  thunk_FUN_005e2ca0(0x10005,"AmbientSound",0x40);
+  thunk_FUN_005e2ca0(0x10006,"StaticSound",0x20);
+  thunk_FUN_005e2ca0(0x10007,"SteamFX",0x44);
+  thunk_FUN_005e2ca0(0x10008,"DistanceFog",0x28);
+  thunk_FUN_005e2ca0(0x10009,"Decal",0x3c);
+  thunk_FUN_005e2ca0(0x1002d,"NCDecal",0x5c);
+  thunk_FUN_005e2ca0(0x1000a,"GliderSystem",0x10);
+  thunk_FUN_005e2ca0(0x1000b,"MiscCharSystem",0x10);
+  thunk_FUN_005e2ca0(0x1000c,"Sparkles",0x2c);
+  thunk_FUN_005e2ca0(0x1000d,"LiquidDrop",0x2c);
+  thunk_FUN_005e2ca0(0x1000e,"AmbientContentSound",0x18);
+  thunk_FUN_005e2ca0(0x1000f,"Spectator",0x1c);
+  thunk_FUN_005e2ca0(0x10010,"ContentSoundOverride",0x10);
+  thunk_FUN_005e2ca0(0x1001e,"AnimatedTexture",0x14);
+  thunk_FUN_005e2ca0(0x10022,"NewAmbientContentSound",0x1c);
+  thunk_FUN_005e2ca0(0x10026,"AntiGravParticle",0x14);
+  thunk_FUN_005e2ca0(0x1002e,"NewAntiGravParticle",0x3c);
+  thunk_FUN_00447e80(local_7c,100,"Creating FX-System for actors . . .\n");
+  thunk_FUN_0045a280("Init.Log",local_7c);
+  local_e8 = operator_new(0x80);
+  local_8._0_1_ = 10;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_005e2bf0(3);
+  }
+  local_8 = CONCAT31(local_8._1_3_,1);
+  in_ECX[0x19] = uVar7;
+  thunk_FUN_005e2ca0(4,&DAT_00a23b74,0x10);
+  thunk_FUN_005e2ca0(5,"MovingPlat",0x10);
+  thunk_FUN_005e2ca0(6,"PhysicsObject",0x30);
+  thunk_FUN_005e2ca0(7,"PhysicsJoint",0x28);
+  thunk_FUN_005e2ca0(0x19,"StaticActor",0x24);
+  thunk_FUN_005e2ca0(0x1a,&DAT_00a23bbc,0x18);
+  thunk_FUN_005e2ca0(0x1b,"NDoor",0x1c);
+  thunk_FUN_005e2ca0(0x1c,"NMovingPlat",0x1c);
+  thunk_FUN_005e2ca0(0x1d,"Terminal",0x24);
+  thunk_FUN_005e2ca0(0x1001d,"TestTerrain",0xc);
+  thunk_FUN_005e2ca0(0x27,"SubwayTrain",0x18);
+  thunk_FUN_005e2ca0(0x25,"TutorialItem",0x14);
+  if (local_fc != (int *)0x0) {
+    thunk_FUN_00550e30(0x3c);
+    (**(code **)(*local_fc + 4))(0);
+  }
+  if (*(char *)(in_ECX + 0x42) == '\0') {
+    in_ECX[0x15] = 0;
+  }
+  else {
+    thunk_FUN_00447e80(local_7c,100,"Creating other FX-Systems . . .\n");
+    thunk_FUN_0045a280("Init.Log",local_7c);
+    (**(code **)(**(int **)(in_ECX[2] + 0x3c) + 0x20))(in_ECX[3]);
+    (**(code **)(**(int **)(in_ECX[2] + 0x40) + 0x20))(in_ECX[3]);
+    (**(code **)(**(int **)(in_ECX[2] + 0x44) + 0x20))(in_ECX[3]);
+    local_e8 = operator_new(0x350);
+    local_8._0_1_ = 0xb;
+    if (local_e8 == (void *)0x0) {
+      uVar7 = 0;
+    }
+    else {
+      uVar7 = thunk_FUN_005e8710(in_ECX[2]);
+    }
+    local_8._0_1_ = 1;
+    in_ECX[0x13] = uVar7;
+    local_e8 = operator_new(100);
+    local_8._0_1_ = 0xc;
+    if (local_e8 == (void *)0x0) {
+      uVar7 = 0;
+    }
+    else {
+      uVar7 = thunk_FUN_005eb6d0(in_ECX[2]);
+    }
+    local_8._0_1_ = 1;
+    in_ECX[0x14] = uVar7;
+    uVar7 = thunk_FUN_005e2d10(in_ECX[2]);
+    in_ECX[0x15] = uVar7;
+    local_e8 = operator_new(0x10);
+    local_8._0_1_ = 0xd;
+    if (local_e8 == (void *)0x0) {
+      uVar7 = 0;
+    }
+    else {
+      uVar7 = thunk_FUN_00445530(0);
+    }
+    local_8 = CONCAT31(local_8._1_3_,1);
+    in_ECX[0x16] = uVar7;
+    thunk_FUN_004d8b30();
+    uVar7 = thunk_FUN_004d8a50(in_ECX[2],7,0x10011,0,0,0,0);
+    thunk_FUN_0053f780(uVar7,0);
+    if (*(char *)(in_ECX[2] + 0x2a) != '\0') {
+      iVar6 = thunk_FUN_004872e0(in_ECX[3],"WeatherTypeID");
+      if ((((iVar6 == 0) || (iVar6 = thunk_FUN_0052d5c0(iVar6,0), iVar6 == 0)) ||
+          (iVar6 = thunk_FUN_0052dae0(iVar6), iVar6 == 0)) || (*(int *)(iVar6 + 0xc) != -1)) {
+        local_e8 = operator_new(0x80);
+        local_8._0_1_ = 0xe;
+        if (local_e8 == (void *)0x0) {
+          uVar7 = 0;
+        }
+        else {
+          uVar7 = thunk_FUN_005ed050(in_ECX[2]);
+        }
+        local_8 = CONCAT31(local_8._1_3_,1);
+        *(undefined4 *)in_ECX[5] = uVar7;
+        local_e9 = 1;
+        thunk_FUN_00543a60(8,1,&local_e9);
+      }
+      else {
+        *(undefined4 *)in_ECX[5] = 0;
+        local_d4 = 0;
+        uStack_d0 = 0;
+        uStack_cc = 0;
+        uStack_c8 = 0;
+        local_c4 = 0;
+        local_c0 = 0;
+        local_e4 = 0x437f0000;
+        uStack_e0 = 0x437f0000;
+        uStack_dc = 0x437f0000;
+        uStack_d8 = 0x437f0000;
+        thunk_FUN_00488410(in_ECX[3],0,&local_e4);
+        thunk_FUN_00545090(0,0x61);
+        thunk_FUN_00545090(0,0x7a);
+        thunk_FUN_00545090(1,0x61);
+        thunk_FUN_00545090(1,0x7a);
+        local_bc = 0x43160000;
+        uStack_b8 = 0x43160000;
+        uStack_b4 = 0x432a0000;
+        uStack_b0 = 0;
+        thunk_FUN_0050e5f0(&local_bc,0x42c80000,0x459c4000);
+        local_e9 = 0;
+        thunk_FUN_00543a60(8,1,&local_e9);
+        local_88 = 0.0;
+        local_98 = 0;
+        uStack_94 = 0;
+        uStack_90 = 0;
+        uStack_8c = 0x3f800000;
+        local_84 = 0.0;
+        local_80 = 0.0;
+        thunk_FUN_004880b0(in_ECX[3],&local_88,&local_98);
+      }
+    }
+  }
+  local_e8 = operator_new(0x20);
+  local_8._0_1_ = 0xf;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_004e1ba0(0x400);
+  }
+  local_8 = CONCAT31(local_8._1_3_,1);
+  in_ECX[0xe] = uVar7;
+  local_f0 = (undefined4 *)thunk_FUN_005e2d10(in_ECX[2]);
+  while (local_f0[3] != 0) {
+    local_f8 = *(undefined4 **)(local_f0[3] + 4);
+    uVar10 = thunk_FUN_00540fd0(0);
+    *(uint *)((int)local_f8 + 8) = (uVar10 & 0x1fffff) << 10 | 0x3fe;
+    thunk_FUN_0053ffb0(local_f8);
+    if ((undefined4 *)local_f0[3] != (undefined4 *)0x0) {
+      (*(code *)**(undefined4 **)local_f0[3])(1);
+    }
+  }
+  (**(code **)*local_f0)(1);
+  thunk_FUN_00447e80(local_7c,100," . . . FX-Systems created.\n");
+  thunk_FUN_0045a280("Init.Log",local_7c);
+  if (local_fc != (int *)0x0) {
+    thunk_FUN_00550e30(0x41);
+    (**(code **)(*local_fc + 4))(0);
+  }
+  local_e8 = operator_new(0x28);
+  local_8._0_1_ = 0x10;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_005e30b0(in_ECX[2]);
+  }
+  local_8._0_1_ = 1;
+  uVar2 = (undefined1)local_8;
+  local_8._0_1_ = 1;
+  in_ECX[0x11] = uVar7;
+  if ((param_4 & 1) == 0) {
+    if (param_2 != (code *)0x0) {
+      if ((local_100 == (code *)0x0) || (*local_100 == (code)0x20)) {
+        pcVar9 = param_2 + 1;
+        do {
+          cVar1 = *param_2;
+          param_2 = param_2 + 1;
+        } while (cVar1 != (code)0x0);
+        iVar6 = (int)param_2 - (int)pcVar9;
+        if (((3 < iVar6) && (uVar2 = (undefined1)local_8, local_104[iVar6 + -3] == (code)0x62)) &&
+           ((local_104[iVar6 + -2] == (code)0x73 && (local_104[iVar6 + -1] == (code)0x70)))) {
+          local_f0 = (undefined4 *)thunk_FUN_009ac153(iVar6 + 1);
+          local_100 = (code *)((int)local_f0 - (int)local_104);
+          pcVar9 = local_104;
+          do {
+            cVar1 = *pcVar9;
+            (local_100 + -1)[(int)(pcVar9 + 1)] = cVar1;
+            pcVar9 = pcVar9 + 1;
+          } while (cVar1 != (code)0x0);
+          *(undefined2 *)((int)local_f0 + iVar6 + -3) = 0x6164;
+          *(undefined1 *)((int)local_f0 + iVar6 + -1) = 0x74;
+          thunk_FUN_00542cb0(local_f0);
+          free(local_f0);
+          uVar2 = (undefined1)local_8;
+        }
+      }
+      else {
+        thunk_FUN_00542cb0(local_100);
+        uVar2 = (undefined1)local_8;
+      }
+      goto LAB_0053de7c;
+    }
+  }
+  else {
+    uVar2 = (undefined1)local_8;
+    if (param_2 != (code *)0x0) goto LAB_0053de7c;
+  }
+  local_e8 = operator_new(0x28);
+  local_8._0_1_ = 0x11;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_005e3160(in_ECX[2],"AirPathPoint",0);
+  }
+  local_8._0_1_ = 1;
+  in_ECX[0x10] = uVar7;
+  uVar2 = (undefined1)local_8;
+LAB_0053de7c:
+  local_8._0_1_ = uVar2;
+  piVar11 = local_fc;
+  if (local_fc != (int *)0x0) {
+    thunk_FUN_00550e30(0x46);
+    (**(code **)(*piVar11 + 4))(0);
+  }
+  if (*(char *)(in_ECX + 0x42) != '\0') {
+    uVar7 = thunk_FUN_0049d090();
+    local_100 = (code *)thunk_FUN_00458ed0(uVar7,".\\worlds\\Procs.prc",1);
+    if (local_100 != (code *)0x0) {
+      uVar7 = thunk_FUN_005ebfe0(local_100,in_ECX[3]);
+      in_ECX[0x17] = uVar7;
+      thunk_FUN_004641c0(&local_100);
+    }
+  }
+  local_e8 = operator_new(0x10);
+  local_8._0_1_ = 0x12;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_00445530(0);
+  }
+  local_8._0_1_ = 1;
+  in_ECX[0xf] = uVar7;
+  local_e8 = operator_new(8);
+  local_8._0_1_ = 0x13;
+  if (local_e8 == (void *)0x0) {
+    uVar7 = 0;
+  }
+  else {
+    uVar7 = thunk_FUN_005e68a0(in_ECX[2]);
+  }
+  local_8._0_1_ = 1;
+  in_ECX[0x1c] = uVar7;
+  piVar11 = (int *)thunk_FUN_004704b0();
+  local_a0 = (char *)0x0;
+  uStack_9c = 0;
+  local_98 = 0;
+  uStack_94 = 0;
+  uStack_90 = 0;
+  uStack_8c = 0;
+  local_100 = *(code **)(*piVar11 + 0x14);
+  local_a0 = operator_new(0x20);
+  uStack_90 = 0x16;
+  uStack_8c = 0x1f;
+  builtin_strncpy(local_a0,"game.misc.show-env-map",0x17);
+  local_8._0_1_ = 0x14;
+  piVar11 = (int *)(*local_100)(&local_a0);
+  (**(code **)(*piVar11 + 0x2c))();
+  thunk_FUN_00486da0(3);
+  local_8 = CONCAT31(local_8._1_3_,1);
+  if (0xf < uStack_8c) {
+    uVar10 = uStack_8c + 1;
+    pcVar13 = local_a0;
+    if (0xfff < uVar10) {
+      pcVar13 = *(char **)(local_a0 + -4);
+      uVar10 = uStack_8c + 0x24;
+      if ((char *)0x1f < local_a0 + (-4 - (int)pcVar13)) {
+                    /* WARNING: Subroutine does not return */
+        _invoke_watson((wchar_t *)0x0,(wchar_t *)0x0,(wchar_t *)0x0,0,0);
+      }
+    }
+    thunk_FUN_009ac142(pcVar13,uVar10);
+  }
+  local_104 = (code *)0x0;
+  thunk_FUN_00540ec0(&local_104);
+  if (*(int *)in_ECX[5] != 0) {
+    thunk_FUN_005eec40(local_104);
+  }
+  if ((local_108 != 0) && (*(char *)(in_ECX[2] + 0x2a) != '\0')) {
+    uVar3 = thunk_FUN_004b3710(5);
+    *(undefined2 *)(in_ECX + 0x45) = uVar3;
+    sVar4 = thunk_FUN_004b3710(6);
+    *(short *)((int)in_ECX + 0x116) = sVar4;
+    if ((*(short *)(in_ECX + 0x45) != 0) &&
+       (((sVar4 != 0 &&
+         (iVar6 = (**(code **)(**(int **)(in_ECX[2] + 0x40) + 0x3c))
+                            (*(short *)(in_ECX + 0x45),sVar4), iVar6 != 0)) &&
+        (iVar6 = thunk_FUN_0047c6a0(), iVar6 != 0)))) {
+      iVar12 = thunk_FUN_004b3710(7);
+      local_88 = (float)iVar12;
+      iVar12 = thunk_FUN_004b3710(8);
+      local_84 = (float)iVar12;
+      iVar12 = thunk_FUN_004b3710(9);
+      local_80 = (float)iVar12;
+      thunk_FUN_00488290(in_ECX[3],iVar6,&local_88);
+    }
+  }
+  thunk_FUN_00447e80(local_7c,100," . . . Initialization of WorldManager completed!\n");
+  thunk_FUN_0045a280("Init.Log",local_7c);
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_00540ab0 @ 00540ab0
+======================================================
+
+int FUN_00540ab0(undefined2 param_1,undefined4 param_2,undefined4 param_3,undefined2 param_4,
+                undefined4 param_5)
+
+{
+  double dVar1;
+  int iVar2;
+  int in_ECX;
+  
+  iVar2 = *(int *)(in_ECX + 0x100);
+  dVar1 = (double)(&DAT_00a0bd40)[-(iVar2 >> 0x1f)];
+  thunk_FUN_004d8b30();
+  iVar2 = thunk_FUN_004d8a50(*(undefined4 *)(in_ECX + 8),3,param_1,param_2,param_4,param_5,
+                             (float)((double)iVar2 + dVar1) / 1000.0);
+  if (iVar2 != 0) {
+    *(undefined4 *)(iVar2 + 8) = param_2;
+    thunk_FUN_0053ffb0(iVar2);
+    return iVar2;
+  }
+  thunk_FUN_004471c0("@WWORLDMGR : Unable to Spawn WA: %i",param_1);
+  return 0;
+}
+
+
+

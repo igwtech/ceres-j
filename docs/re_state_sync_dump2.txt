@@ -1,0 +1,176 @@
+##### NON-THUNK CALLERS OF 00541f20 #####
+  FUN_004b8fb0 @ 004b8fb0  (callsite 004b9058)
+  FUN_00541800 @ 00541800  (callsite 0054181c)
+  FUN_00558950 @ 00558950  (callsite 00558bcc)
+  FUN_00558950 @ 00558950  (callsite 00558d5a)
+
+##### NON-THUNK CALLERS OF 004d8a50 #####
+  FUN_004b58e0 @ 004b58e0  (callsite 004b5d6b)
+  FUN_004b58e0 @ 004b58e0  (callsite 004b5dc9)
+  FUN_004b58e0 @ 004b58e0  (callsite 004b5edb)
+  FUN_004b58e0 @ 004b58e0  (callsite 004b5f0c)
+  FUN_0053d040 @ 0053d040  (callsite 0053daa8)
+  FUN_004bd670 @ 004bd670  (callsite 004bd743)
+  FUN_005e2d10 @ 005e2d10  (callsite 005e2dec)
+  FUN_004b6380 @ 004b6380  (callsite 004b68fd)
+  FUN_005edb80 @ 005edb80  (callsite 005edbaf)
+  FUN_005436d0 @ 005436d0  (callsite 005437f6)
+  FUN_005458b0 @ 005458b0  (callsite 00545917)
+  FUN_00557b90 @ 00557b90  (callsite 00557eb3)
+  FUN_00557b90 @ 00557b90  (callsite 00557f0d)
+  FUN_00540ab0 @ 00540ab0  (callsite 00540b0b)
+  FUN_00545940 @ 00545940  (callsite 005459a5)
+  FUN_005459d0 @ 005459d0  (callsite 00545a29)
+  FUN_005bf530 @ 005bf530  (callsite 005bfa51)
+  FUN_005f70b0 @ 005f70b0  (callsite 005f7182)
+  FUN_005f75c0 @ 005f75c0  (callsite 005f76d3)
+  FUN_005f7820 @ 005f7820  (callsite 005f790d)
+  FUN_005f8390 @ 005f8390  (callsite 005f8487)
+  FUN_005f8970 @ 005f8970  (callsite 005f8a11)
+  FUN_005fa2a0 @ 005fa2a0  (callsite 005fa30b)
+  FUN_005fa750 @ 005fa750  (callsite 005fa7b3)
+  FUN_005fac90 @ 005fac90  (callsite 005fad98)
+  FUN_0076d790 @ 0076d790  (callsite 0076e131)
+  FUN_0076d790 @ 0076d790  (callsite 0076e218)
+  FUN_006253b0 @ 006253b0  (callsite 006255a3)
+  FUN_00633500 @ 00633500  (callsite 006335bd)
+  FUN_0078fbe0 @ 0078fbe0  (callsite 0078fc78)
+  FUN_0078fbe0 @ 0078fbe0  (callsite 0078fcc7)
+  FUN_0078fbe0 @ 0078fbe0  (callsite 0078fd05)
+  FUN_0064cd90 @ 0064cd90  (callsite 0064d66f)
+  FUN_00666a80 @ 00666a80  (callsite 00666eb7)
+  FUN_00667e70 @ 00667e70  (callsite 00667f70)
+  FUN_0066c6c0 @ 0066c6c0  (callsite 0066ca61)
+  FUN_006742e0 @ 006742e0  (callsite 00674418)
+  FUN_006744e0 @ 006744e0  (callsite 00674633)
+  FUN_00674f30 @ 00674f30  (callsite 00675249)
+  FUN_00674f30 @ 00674f30  (callsite 006752a6)
+  FUN_00675410 @ 00675410  (callsite 00675729)
+  FUN_00675410 @ 00675410  (callsite 00675786)
+  FUN_007add90 @ 007add90  (callsite 007adeb3)
+  FUN_00676e30 @ 00676e30  (callsite 00677034)
+  FUN_00677f10 @ 00677f10  (callsite 006780e8)
+  FUN_006796b0 @ 006796b0  (callsite 0067973c)
+  FUN_00679060 @ 00679060  (callsite 006791f0)
+  FUN_00679290 @ 00679290  (callsite 00679410)
+  FUN_006794a0 @ 006794a0  (callsite 00679620)
+  FUN_006798e0 @ 006798e0  (callsite 00679bc6)
+  FUN_0067b2f0 @ 0067b2f0  (callsite 0067b511)
+  FUN_0067d550 @ 0067d550  (callsite 0067d5cd)
+  FUN_00686c10 @ 00686c10  (callsite 00686d91)
+  FUN_00686c10 @ 00686c10  (callsite 00686de7)
+  FUN_00696d20 @ 00696d20  (callsite 00696f73)
+  FUN_0069da00 @ 0069da00  (callsite 0069daf3)
+  FUN_006c1120 @ 006c1120  (callsite 006c12ca)
+  FUN_006ce1d0 @ 006ce1d0  (callsite 006ce7aa)
+  FUN_006d2ca0 @ 006d2ca0  (callsite 006d2d58)
+  FUN_00774bb0 @ 00774bb0  (callsite 0077535d)
+  FUN_00775590 @ 00775590  (callsite 00775b3a)
+  FUN_007985d0 @ 007985d0  (callsite 007986ce)
+  FUN_0081ede0 @ 0081ede0  (callsite 0081eefa)
+  FUN_0064ec90 @ 0064ec90  (callsite 0064f11f)
+  FUN_007af300 @ 007af300  (callsite 007afb32)
+  FUN_00798750 @ 00798750  (callsite 00798988)
+  FUN_00798750 @ 00798750  (callsite 00798add)
+  FUN_004bc680 @ 004bc680  (callsite 004bc6f6)
+  FUN_00764a60 @ 00764a60  (callsite 00764c8a)
+  FUN_00764a60 @ 00764a60  (callsite 0076584e)
+  FUN_00543a80 @ 00543a80  (callsite 00543cc4)
+  FUN_005440f4 @ 005440f4  (callsite 00543ffd)
+  FUN_004a9ac0 @ 004a9ac0  (callsite 004ae6f8)
+  FUN_005fb650 @ 005fb650  (callsite 005fb69c)
+
+======================================================
+FUNCTION FUN_004d8a50 @ 004d8a50
+======================================================
+
+int FUN_004d8a50(undefined4 param_1,undefined4 param_2,undefined4 param_3,undefined4 param_4,
+                undefined4 param_5,undefined4 param_6,undefined4 param_7)
+
+{
+  int iVar1;
+  int iVar2;
+  int *in_ECX;
+  
+  if (*in_ECX != 0) {
+    for (iVar1 = thunk_FUN_004e1f10(param_3,0,&LAB_004094d5); iVar1 != 0;
+        iVar1 = *(int *)(iVar1 + 0xc)) {
+      iVar2 = (**(code **)(iVar1 + 8))(param_1,param_2,param_3,param_4,param_5,param_6,param_7);
+      if (iVar2 != 0) {
+        return iVar2;
+      }
+    }
+  }
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_004d8b30 @ 004d8b30
+======================================================
+
+undefined * FUN_004d8b30(void)
+
+{
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009c4081;
+  local_10 = ExceptionList;
+  ExceptionList = &local_10;
+  if (*(int *)(*(int *)((int)ThreadLocalStoragePointer + _tls_index * 4) + 0x184) < DAT_00c13eb0) {
+    thunk_FUN_009aca27(&DAT_00c13eb0,DAT_00b13e00 ^ (uint)&stack0xfffffffc);
+    if (DAT_00c13eb0 == -1) {
+      local_8 = 0;
+      thunk_FUN_004d88c0();
+      thunk_FUN_009ac96f(&LAB_009fdee0);
+      thunk_FUN_009ac9c2(&DAT_00c13eb0);
+    }
+  }
+  ExceptionList = local_10;
+  return &DAT_00c13eac;
+}
+
+
+
+======================================================
+FUNCTION FUN_0053ffb0 @ 0053ffb0
+======================================================
+
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+undefined4 FUN_0053ffb0(int *param_1)
+
+{
+  int iVar1;
+  
+  if (param_1 != (int *)0x0) {
+    (**(code **)(*param_1 + 0x28))(0,0,0);
+    iVar1 = thunk_FUN_004e1f10(((uint)param_1[2] >> 8) + (param_1[2] & 0xffU),param_1,&LAB_00401154)
+    ;
+    if (iVar1 != 0) {
+      _DAT_00000000 = 0;
+    }
+    thunk_FUN_004e2060(param_1,((uint)param_1[2] >> 8) + (param_1[2] & 0xffU));
+  }
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_004e1f10 @ 004e1f10
+======================================================
+
+void FUN_004e1f10(undefined4 param_1,undefined4 param_2,undefined4 param_3)
+
+{
+  thunk_FUN_004e1d90(FUN_004e1960,param_1,param_2,param_3,0);
+  return;
+}
+
+
+

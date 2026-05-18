@@ -1,0 +1,700 @@
+======================================================
+FUNCTION FUN_00558950 @ 00558950
+======================================================
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4 FUN_00558950(void)
+
+{
+  int *piVar1;
+  char cVar2;
+  undefined2 uVar3;
+  undefined4 uVar4;
+  int iVar5;
+  int iVar6;
+  int in_ECX;
+  undefined4 local_27c;
+  undefined1 *local_278;
+  int local_274;
+  undefined4 local_270;
+  undefined1 *local_26c;
+  undefined1 local_264;
+  undefined2 local_263;
+  undefined4 local_261;
+  undefined1 uStack_25d;
+  char cStack_25c;
+  undefined2 uStack_25b;
+  undefined4 uStack_259;
+  undefined4 uStack_255;
+  undefined1 local_1fc [500];
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  if (*(char *)(in_ECX + 0x145) == '\0') {
+    if (*(char *)(in_ECX + 0x164) != '\0') {
+      local_264 = 0x18;
+      local_263 = 0xd;
+      local_261._1_3_ = (undefined3)*(undefined4 *)(in_ECX + 0x2b4);
+      local_261 = CONCAT31(local_261._1_3_,*(undefined1 *)(in_ECX + 0x2dc));
+      uStack_25d = (undefined1)((uint)*(undefined4 *)(in_ECX + 0x2b4) >> 0x18);
+      uStack_259 = *(undefined4 *)(in_ECX + 0x150);
+      uStack_255 = *(undefined4 *)(in_ECX + 0x15c);
+      cStack_25c = *(char *)(in_ECX + 0x149);
+      if (cStack_25c == '\0') {
+        iVar6 = *(int *)(in_ECX + 0x160);
+        piVar1 = *(int **)(in_ECX + 0x48);
+        if (iVar6 == -1) {
+          uStack_25b = 0xffff;
+          (**(code **)(*piVar1 + 8))(piVar1,"Change Entity not available, Respawn Change");
+        }
+        else {
+          uStack_25b = (undefined2)iVar6;
+          (**(code **)(*piVar1 + 8))(piVar1,"Change Entity %i",iVar6);
+        }
+      }
+      else if ((((cStack_25c == '\x01') || (cStack_25c == '\x02')) || (cStack_25c == '\x03')) ||
+              (cStack_25c == '\x04')) {
+        uStack_255 = *(undefined4 *)(in_ECX + 0x14c);
+      }
+      local_278 = &local_264;
+      local_27c = 0x13;
+      (**(code **)(**(int **)(in_ECX + 0x3c) + 0x28))(0xff,&local_27c,0xff,6);
+      *(undefined1 *)(in_ECX + 0x164) = 0;
+      uVar4 = thunk_FUN_004c1190();
+      *(undefined4 *)(in_ECX + 0x2a4) = uVar4;
+    }
+    if (*(char *)(in_ECX + 0x146) == '\0') {
+      if (*(int *)(in_ECX + 0x2ec) == -1) {
+        iVar6 = *(int *)(in_ECX + 0x2a4);
+        iVar5 = thunk_FUN_004c1190();
+        if (2000 < (uint)(iVar5 - iVar6)) {
+          (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                    (*(int **)(in_ECX + 0x48),"Request Command ID %i %s",
+                     *(undefined1 *)(in_ECX + 0x2dc),*(undefined4 *)(in_ECX + 0x270));
+          *(undefined1 *)(in_ECX + 0x164) = 1;
+          uVar4 = thunk_FUN_004c1190();
+          *(short *)(in_ECX + 0x2aa) = *(short *)(in_ECX + 0x2aa) + 1;
+          *(undefined4 *)(in_ECX + 0x2a4) = uVar4;
+          if (6 < *(ushort *)(in_ECX + 0x2aa)) {
+            (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                      (*(int **)(in_ECX + 0x48),"CommandID Request failed %i, %s",
+                       *(undefined1 *)(in_ECX + 0x2dc),*(undefined4 *)(in_ECX + 0x270));
+            thunk_FUN_00559050();
+            return 1;
+          }
+        }
+      }
+      else {
+        local_274 = 0;
+        local_278 = (undefined1 *)CONCAT22(local_278._2_2_,0xb0);
+        (**(code **)(**(int **)(in_ECX + 0x10c) + 8))(0x6c,8,&local_278);
+        if (local_274 == *(int *)(in_ECX + 0x2ec)) {
+          *(undefined1 *)(in_ECX + 0x146) = 1;
+          *(undefined4 *)(in_ECX + 0x2ec) = 0xffffffff;
+          uVar4 = thunk_FUN_004c1190();
+          *(undefined4 *)(in_ECX + 0x2a0) = uVar4;
+          *(undefined2 *)(in_ECX + 0x2aa) = 0;
+        }
+        else {
+          (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                    (*(int **)(in_ECX + 0x48),"wrong commandID from change %i %i",
+                     *(int *)(in_ECX + 0x2ec),local_274);
+        }
+        thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\WorldClient.cpp"
+                           ,0x79b);
+        cVar2 = thunk_FUN_004b8cd0(&local_270);
+        while (cVar2 != '\0') {
+          thunk_FUN_00541f20(&local_270);
+          cVar2 = thunk_FUN_004b8cd0(&local_270);
+        }
+        thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\WorldClient.cpp"
+                           ,0x7a2);
+        (**(code **)(**(int **)(in_ECX + 0x3c) + 0x2c))();
+        iVar6 = thunk_FUN_004c1190();
+        if (12000 < (uint)(iVar6 - *(int *)(in_ECX + 0x2a0))) {
+          (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                    (*(int **)(in_ECX + 0x48),"Wait for last command failed - connection reset");
+          thunk_FUN_00559050();
+          return 1;
+        }
+      }
+    }
+    else {
+      *(undefined4 *)(in_ECX + 0x2ec) = 0xffffffff;
+      local_263 = 3;
+      cStack_25c = '\0';
+      uStack_25b = 0;
+      uStack_259 = 0;
+      uStack_255 = 0;
+      local_261._1_3_ = (undefined3)*(undefined4 *)(in_ECX + 0x2b4);
+      local_261 = CONCAT31(local_261._1_3_,*(undefined1 *)(in_ECX + 0x2dc));
+      uStack_25d = (undefined1)((uint)*(undefined4 *)(in_ECX + 0x2b4) >> 0x18);
+      local_26c = &local_264;
+      local_264 = 0x18;
+      local_270 = 0x13;
+      (**(code **)(**(int **)(in_ECX + 0x3c) + 0x28))(0xff,&local_270,0xff,6);
+      (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                (*(int **)(in_ECX + 0x48),"WORLDCLIENT : Client up to date %i",
+                 *(undefined4 *)(in_ECX + 0x2b0));
+      *(undefined1 *)(in_ECX + 0x145) = 1;
+      *(undefined2 *)(in_ECX + 0x2ac) = 7;
+      thunk_FUN_0055ce20(0,0);
+    }
+  }
+  if (*(char *)(in_ECX + 0x147) != '\0') {
+    (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+              (*(int **)(in_ECX + 0x48),"WORLDCLIENT : info rcv %i",*(undefined4 *)(in_ECX + 0x2b0))
+    ;
+    cVar2 = (**(code **)(**(int **)(in_ECX + 0x3c) + 0x18))(0xff);
+    if (cVar2 == '\0') {
+      (**(code **)(**(int **)(in_ECX + 0x48) + 4))("WORLDCLIENT : shutdownconnection failed");
+      thunk_FUN_004471c0("WORLDCLIENT : shutdownconnection failed");
+    }
+    cVar2 = thunk_FUN_004b8cd0(&local_270);
+    while (cVar2 != '\0') {
+      thunk_FUN_00541f20(&local_270);
+      cVar2 = thunk_FUN_004b8cd0(&local_270);
+    }
+    thunk_FUN_00559040();
+    *(undefined1 *)(in_ECX + 0x144) = 0;
+    *(undefined1 *)(in_ECX + 0x147) = 0;
+    thunk_FUN_00559040();
+    (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+              (*(int **)(in_ECX + 0x48),"WORLDCLIENT : session closed %i",
+               *(undefined4 *)(in_ECX + 0x2b0));
+  }
+  if ((*(char *)(in_ECX + 0x145) != '\0') && (*(char *)(in_ECX + 0x144) == '\0')) {
+    cVar2 = thunk_FUN_00558400(*(undefined4 *)(in_ECX + 0x2c0));
+    *(bool *)(in_ECX + 0x2c4) = cVar2 == '\0';
+    (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+              (*(int **)(in_ECX + 0x48),"WORLDCLIENT : Load World %s",
+               *(undefined4 *)(in_ECX + 0x2c0));
+    if (*(int *)(in_ECX + 0x30) == 0) {
+      thunk_FUN_00447e80(local_1fc,500,"WORLDCLIENT : World load failed : %s",
+                         *(undefined4 *)(in_ECX + 0x2c0));
+                    /* WARNING: Subroutine does not return */
+      thunk_FUN_00559250(local_1fc);
+    }
+    thunk_FUN_004b9b20();
+    uVar4 = thunk_FUN_004c1190();
+    *(undefined4 *)(in_ECX + 0xd0) = uVar4;
+    uVar4 = thunk_FUN_004c1190();
+    *(undefined4 *)(in_ECX + 0xd4) = uVar4;
+    if (*(char *)(in_ECX + 0x4e) != '\0') {
+      iVar6 = thunk_FUN_004c1190();
+      thunk_FUN_004ba3f0(iVar6 + 1);
+    }
+    uVar4 = thunk_FUN_004c1190();
+    *(undefined4 *)(in_ECX + 0xd0) = uVar4;
+    uVar4 = thunk_FUN_004c1190();
+    *(undefined4 *)(in_ECX + 0xd4) = uVar4;
+    *(undefined4 *)(in_ECX + 0xc0) = 0;
+    *(undefined4 *)(in_ECX + 0x50) = 0;
+    *(undefined4 *)(in_ECX + 0xe0) = 0;
+    thunk_FUN_00545120(0);
+    *(undefined2 *)(in_ECX + 0x145) = 0;
+    *(undefined2 *)(in_ECX + 0x2aa) = 0;
+    uVar3 = 6;
+    *(undefined4 *)(in_ECX + 0x2ec) = 0xffffffff;
+    if (*(char *)(in_ECX + 0x2e5) == '\0') {
+      uVar3 = 5;
+    }
+    *(undefined2 *)(in_ECX + 0x2ac) = uVar3;
+  }
+  return 1;
+}
+
+
+
+======================================================
+FUNCTION FUN_00541800 @ 00541800
+======================================================
+
+void FUN_00541800(int param_1)
+
+{
+  int iVar1;
+  undefined4 uVar2;
+  
+  if (param_1 != 0) {
+    iVar1 = *(int *)(param_1 + 0xc);
+    while (iVar1 != 0) {
+      uVar2 = *(undefined4 *)(iVar1 + 4);
+      thunk_FUN_00541f20(uVar2);
+      thunk_FUN_009ac142(uVar2,0xc);
+      if (*(undefined4 **)(param_1 + 0xc) != (undefined4 *)0x0) {
+        (**(code **)**(undefined4 **)(param_1 + 0xc))(1);
+      }
+      iVar1 = *(int *)(param_1 + 0xc);
+    }
+  }
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_004b8fb0 @ 004b8fb0
+======================================================
+
+void FUN_004b8fb0(int param_1)
+
+{
+  char cVar1;
+  undefined4 uVar2;
+  int iVar3;
+  uint uVar4;
+  int in_ECX;
+  uint uVar5;
+  uint uVar6;
+  undefined1 local_14 [12];
+  int local_8;
+  
+  thunk_FUN_004b9620();
+  if ((*(int *)(in_ECX + 0xb8) < 1) || (*(int *)(in_ECX + 0x1ac) <= *(int *)(in_ECX + 0xb8))) {
+    local_8 = thunk_FUN_004c1190();
+    param_1 = param_1 - *(int *)(in_ECX + 0xd0);
+    uVar4 = *(uint *)(in_ECX + 0xdc);
+    uVar5 = (uint)(param_1 * 100) / 1000;
+    uVar6 = uVar5;
+    if (((int)uVar4 <= (int)uVar5) && (uVar6 = uVar4, (int)uVar4 < (int)-uVar5)) {
+      uVar6 = -uVar5;
+    }
+    *(uint *)(in_ECX + 0xdc) = uVar4 - uVar6;
+    uVar2 = thunk_FUN_00555340(*(undefined4 *)(in_ECX + 0xc0),uVar6 + param_1);
+    *(int *)(in_ECX + 0xd0) = *(int *)(in_ECX + 0xd0) + param_1;
+    *(undefined4 *)(in_ECX + 0xc0) = uVar2;
+    thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\Client.cpp",
+                       899);
+    cVar1 = thunk_FUN_004b8cd0(local_14);
+    while (cVar1 != '\0') {
+      thunk_FUN_00541f20(local_14);
+      cVar1 = thunk_FUN_004b8cd0(local_14);
+    }
+    thunk_FUN_00555bf0();
+    thunk_FUN_00541900(*(int *)(in_ECX + 0xc0));
+    thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\Client.cpp",
+                       0x38e);
+    iVar3 = thunk_FUN_004c1190();
+    uVar4 = iVar3 - *(int *)(in_ECX + 0x108);
+    uVar6 = (int)uVar4 >> 0x1f;
+    if (0x32 < (int)((uVar4 ^ uVar6) - uVar6)) {
+      *(int *)(in_ECX + 0x108) = iVar3;
+      (**(code **)(**(int **)(in_ECX + 0x3c) + 0x2c))();
+    }
+    iVar3 = *(int *)(in_ECX + 0xc0);
+    *(float *)(in_ECX + 0x50) =
+         (float)((double)iVar3 + (double)(&DAT_00a0bd40)[-(iVar3 >> 0x1f)]) / 1000.0;
+    thunk_FUN_0053ce90();
+    iVar3 = thunk_FUN_004c1190();
+    DAT_00bf6210 = iVar3 - local_8;
+    *(int *)(in_ECX + 0x1ac) = *(int *)(in_ECX + 0x1ac) + 1;
+  }
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_0069a580 @ 0069a580
+======================================================
+
+void FUN_0069a580(int param_1,undefined4 param_2,undefined4 *param_3,undefined4 param_4)
+
+{
+  byte bVar1;
+  char cVar2;
+  uint uVar3;
+  void *_Dst;
+  int *piVar4;
+  undefined4 *in_ECX;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009d5b3f;
+  local_10 = ExceptionList;
+  uVar3 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  thunk_FUN_0078a530(param_1);
+  local_8 = 0;
+  thunk_FUN_007aef30(param_1,param_4);
+  *in_ECX = SCRIPTEDPLAYER::vftable;
+  in_ECX[5] = SCRIPTEDPLAYER::vftable;
+  in_ECX[0x5b] = SCRIPTEDPLAYER::vftable;
+  in_ECX[0x136] = SCRIPTEDPLAYER::vftable;
+  in_ECX[0x157] = 0;
+  in_ECX[0x158] = 0;
+  in_ECX[0x159] = 0;
+  in_ECX[0x15a] = 0;
+  in_ECX[0x15b] = 0;
+  in_ECX[0x15c] = 0xf;
+  *(undefined1 *)(in_ECX + 0x157) = 0;
+  in_ECX[0x15d] = 0;
+  in_ECX[0x15e] = 0;
+  in_ECX[0x15f] = 0;
+  in_ECX[0x160] = 0;
+  in_ECX[0x161] = 0;
+  in_ECX[0x162] = 0xf;
+  *(undefined1 *)(in_ECX + 0x15d) = 0;
+  in_ECX[0x16a] = 0;
+  in_ECX[0x16b] = 0;
+  in_ECX[0x16c] = 0;
+  *(undefined1 *)(in_ECX + 0x176) = 0;
+  in_ECX[0x18d] = 0;
+  in_ECX[0x18e] = 0;
+  in_ECX[399] = 0;
+  in_ECX[400] = 0;
+  in_ECX[0x191] = 0;
+  in_ECX[0x192] = 0xf;
+  *(undefined1 *)(in_ECX + 0x18d) = 0;
+  local_8._0_1_ = 5;
+  thunk_FUN_007b9160(uVar3);
+  in_ECX[0x1df] = 0;
+  in_ECX[0x1e0] = 0;
+  in_ECX[0x1e1] = 0;
+  in_ECX[0x1e2] = 0;
+  in_ECX[0x1e3] = 0;
+  in_ECX[0x1e4] = 0xf;
+  *(undefined1 *)(in_ECX + 0x1df) = 0;
+  local_8 = CONCAT31(local_8._1_3_,7);
+  *(undefined2 *)(in_ECX + 0x1f7) = 1;
+  in_ECX[0x151] = 0;
+  thunk_FUN_006a08f0();
+  thunk_FUN_006ad480(param_3[6]);
+  in_ECX[0x1ec] = *param_3;
+  *(undefined2 *)(in_ECX + 0x163) = *(undefined2 *)(param_3 + 1);
+  in_ECX[0x1e6] = (uint)*(ushort *)(param_3 + 0xb);
+  *(char *)(in_ECX + 0x6a) = (char)param_2;
+  in_ECX[2] = param_2;
+  *(undefined8 *)(in_ECX + 0x24) = *(undefined8 *)(param_3 + 2);
+  in_ECX[0x26] = param_3[4];
+  in_ECX[0x25] = (float)in_ECX[0x25] + 10.0;
+  bVar1 = *(byte *)(param_3 + 8);
+  *(byte *)(in_ECX + 0x193) = bVar1;
+  if (bVar1 == 0) {
+    in_ECX[0x194] = 0;
+  }
+  else {
+    _Dst = (void *)thunk_FUN_009ac153((uint)bVar1 * 0xc);
+    in_ECX[0x194] = _Dst;
+    if ((void *)param_3[9] != (void *)0x0) {
+      memcpy(_Dst,(void *)param_3[9],(uint)*(byte *)(in_ECX + 0x193) * 0xc);
+    }
+  }
+  thunk_FUN_0069f460(param_4);
+  if (param_3[6] != 0) {
+    cVar2 = thunk_FUN_007afe80(param_3[6],param_3[7]);
+    if ((cVar2 == '\0') && (*(char *)((int)in_ECX + 0x5d) != '\0')) {
+      piVar4 = in_ECX + 0x13e;
+      if (0xf < (uint)in_ECX[0x143]) {
+        piVar4 = (int *)*piVar4;
+      }
+      (**(code **)(**(int **)(param_1 + 0x24) + 8))
+                (*(int **)(param_1 + 0x24),
+                 "SCRIPTEDPLAYER : Script spawn failed \'%s\' NpcId: %d WorldId: %d",piVar4,
+                 *(undefined2 *)(in_ECX + 0x163),in_ECX[0x14b]);
+    }
+  }
+  if (*(char *)(in_ECX[7] + 0x29) == '\0') {
+    thunk_FUN_0069cb50();
+  }
+  *(undefined1 *)((int)in_ECX + 0x682) = 0;
+  thunk_FUN_006a06e0();
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_00699fd0 @ 00699fd0
+======================================================
+
+void FUN_00699fd0(int param_1,undefined4 param_2,undefined4 *param_3,short param_4,int param_5)
+
+{
+  char *pcVar1;
+  byte bVar2;
+  int iVar3;
+  char cVar4;
+  uint uVar5;
+  int iVar6;
+  uint uVar7;
+  int *piVar8;
+  undefined4 uVar9;
+  undefined4 *in_ECX;
+  char *pcVar10;
+  float10 fVar11;
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  local_8 = 0xffffffff;
+  puStack_c = &LAB_009d5a8f;
+  local_10 = ExceptionList;
+  uVar5 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  ExceptionList = &local_10;
+  thunk_FUN_0078a530(param_1);
+  local_8 = 0;
+  thunk_FUN_007aef30(param_1,param_5);
+  *in_ECX = SCRIPTEDPLAYER::vftable;
+  in_ECX[5] = SCRIPTEDPLAYER::vftable;
+  in_ECX[0x5b] = SCRIPTEDPLAYER::vftable;
+  in_ECX[0x136] = SCRIPTEDPLAYER::vftable;
+  in_ECX[0x157] = 0;
+  in_ECX[0x158] = 0;
+  in_ECX[0x159] = 0;
+  in_ECX[0x15a] = 0;
+  in_ECX[0x15b] = 0;
+  in_ECX[0x15c] = 0xf;
+  *(undefined1 *)(in_ECX + 0x157) = 0;
+  in_ECX[0x15d] = 0;
+  in_ECX[0x15e] = 0;
+  in_ECX[0x15f] = 0;
+  in_ECX[0x160] = 0;
+  in_ECX[0x161] = 0;
+  in_ECX[0x162] = 0xf;
+  *(undefined1 *)(in_ECX + 0x15d) = 0;
+  in_ECX[0x16a] = 0;
+  in_ECX[0x16b] = 0;
+  in_ECX[0x16c] = 0;
+  *(undefined1 *)(in_ECX + 0x176) = 0;
+  in_ECX[0x18d] = 0;
+  in_ECX[0x18e] = 0;
+  in_ECX[399] = 0;
+  in_ECX[400] = 0;
+  in_ECX[0x191] = 0;
+  in_ECX[0x192] = 0xf;
+  *(undefined1 *)(in_ECX + 0x18d) = 0;
+  local_8._0_1_ = 5;
+  thunk_FUN_007b9160(uVar5);
+  in_ECX[0x1df] = 0;
+  in_ECX[0x1e0] = 0;
+  in_ECX[0x1e1] = 0;
+  in_ECX[0x1e2] = 0;
+  in_ECX[0x1e3] = 0;
+  in_ECX[0x1e4] = 0xf;
+  *(undefined1 *)(in_ECX + 0x1df) = 0;
+  local_8 = CONCAT31(local_8._1_3_,7);
+  *(undefined2 *)(in_ECX + 0x1f7) = 1;
+  in_ECX[0x151] = 0;
+  thunk_FUN_006a08f0();
+  pcVar1 = (char *)((int)param_3 + 0x1d);
+  thunk_FUN_006ad480(pcVar1);
+  in_ECX[0x1ec] = *param_3;
+  *(undefined2 *)(in_ECX + 0x163) = *(undefined2 *)(param_3 + 1);
+  *(char *)(in_ECX + 0x6a) = (char)param_2;
+  in_ECX[2] = param_2;
+  thunk_FUN_0054e210(*(undefined2 *)((int)param_3 + 6),*(undefined2 *)(param_3 + 2),
+                     *(undefined2 *)((int)param_3 + 10),in_ECX + 0x24);
+  in_ECX[0x25] = (float)in_ECX[0x25] + 2.0;
+  in_ECX[0x1e6] = (uint)*(ushort *)((int)param_3 + 0x1b);
+  thunk_FUN_0069f460(param_5);
+  iVar3 = in_ECX[0x166];
+  in_ECX[0x167] = iVar3;
+  iVar6 = iVar3;
+  if ((float)*(int *)((int)param_3 + 0xd) < (float)iVar3) {
+    iVar6 = (int)(float)*(int *)((int)param_3 + 0xd);
+    in_ECX[0x166] = iVar6;
+    if (iVar3 < iVar6) {
+      in_ECX[0x167] = iVar6;
+    }
+  }
+  if (((float)iVar6 == 0.0) && (cVar4 = thunk_FUN_00791aa0(), cVar4 == '\0')) {
+    in_ECX[0x15] = param_5;
+    thunk_FUN_006a1000(0);
+  }
+  if (in_ECX[0x16a] != in_ECX[0x16b]) {
+    in_ECX[0x16b] = in_ECX[0x16a];
+  }
+  uVar5 = 0;
+  in_ECX[0x16d] = in_ECX[0x134];
+  do {
+    bVar2 = *(byte *)((int)param_3 + uVar5 + 0x11);
+    uVar7 = uVar5 & 0xffff;
+    fVar11 = (float10)thunk_FUN_0077f230(uVar7,3);
+    if (((float)bVar2 * 4.0 < (float)fVar11) &&
+       (fVar11 = (float10)thunk_FUN_0077f230(uVar7,3), (float)fVar11 != -1.0)) {
+      thunk_FUN_0077f410(uVar7,(float)*(byte *)((int)param_3 + uVar5 + 0x11) * 4.0,3);
+    }
+    uVar5 = uVar5 + 1;
+  } while ((int)uVar5 < 10);
+  in_ECX[0x194] = 0;
+  cVar4 = *pcVar1;
+  pcVar10 = pcVar1;
+  while (cVar4 != '\0') {
+    pcVar10 = pcVar10 + 1;
+    cVar4 = *pcVar10;
+  }
+  pcVar10 = pcVar10 + 1;
+  cVar4 = thunk_FUN_007afe80(pcVar1,pcVar10);
+  if (cVar4 == '\0') {
+    if (*(char *)((int)in_ECX + 0x5d) != '\0') {
+      piVar8 = in_ECX + 0x13e;
+      if (0xf < (uint)in_ECX[0x143]) {
+        piVar8 = (int *)*piVar8;
+      }
+      (**(code **)(**(int **)(param_1 + 0x24) + 8))
+                (*(int **)(param_1 + 0x24),
+                 "SCRIPTEDPLAYER : Script spawn failed \'%s\' NpcId: %d WorldId: %d",piVar8,
+                 *(undefined2 *)(in_ECX + 0x163),in_ECX[0x14b]);
+    }
+    piVar8 = in_ECX + 0x13e;
+    if (0xf < (uint)in_ECX[0x143]) {
+      piVar8 = (int *)*piVar8;
+    }
+    thunk_FUN_004471c0("SCRIPTEDPLAYER : Script spawn failed \'%s\' NpcId: %d WorldId: %d",piVar8,
+                       *(undefined2 *)(in_ECX + 0x163),in_ECX[0x14b]);
+  }
+  cVar4 = *pcVar10;
+  while (cVar4 != '\0') {
+    pcVar10 = pcVar10 + 1;
+    cVar4 = *pcVar10;
+  }
+  pcVar10 = pcVar10 + 1;
+  bVar2 = *(byte *)(param_3 + 3);
+  *(byte *)(in_ECX + 0x193) = bVar2;
+  if (bVar2 == 0) {
+    in_ECX[0x194] = 0;
+  }
+  else {
+    uVar9 = thunk_FUN_009ac153((uint)bVar2 * 0xc);
+    in_ECX[0x194] = uVar9;
+    param_5 = 0;
+    if (*(char *)(in_ECX + 0x193) != '\0') {
+      param_1 = 0;
+      do {
+        thunk_FUN_0054e210(*(undefined2 *)pcVar10,*(undefined2 *)(pcVar10 + 2),
+                           *(undefined2 *)(pcVar10 + 4),in_ECX[0x194] + param_1);
+        param_5 = param_5 + 1;
+        param_1 = param_1 + 0xc;
+        pcVar10 = pcVar10 + 6;
+      } while (param_5 < (int)(uint)*(byte *)(in_ECX + 0x193));
+    }
+  }
+  if ((short)(((short)param_3 - (short)pcVar10) + param_4) != 0) {
+    thunk_FUN_004509c0(pcVar10);
+  }
+  *(undefined1 *)((int)in_ECX + 0x682) = 0;
+  thunk_FUN_006a06e0();
+  ExceptionList = local_10;
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_004d8a50 @ 004d8a50
+======================================================
+
+int FUN_004d8a50(undefined4 param_1,undefined4 param_2,undefined4 param_3,undefined4 param_4,
+                undefined4 param_5,undefined4 param_6,undefined4 param_7)
+
+{
+  int iVar1;
+  int iVar2;
+  int *in_ECX;
+  
+  if (*in_ECX != 0) {
+    for (iVar1 = thunk_FUN_004e1f10(param_3,0,&LAB_004094d5); iVar1 != 0;
+        iVar1 = *(int *)(iVar1 + 0xc)) {
+      iVar2 = (**(code **)(iVar1 + 8))(param_1,param_2,param_3,param_4,param_5,param_6,param_7);
+      if (iVar2 != 0) {
+        return iVar2;
+      }
+    }
+  }
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_007e7c00 @ 007e7c00
+======================================================
+
+float10 FUN_007e7c00(undefined4 param_1,int *param_2,float param_3)
+
+{
+  ushort uVar1;
+  byte bVar2;
+  int iVar3;
+  float *pfVar4;
+  uint uVar5;
+  int in_ECX;
+  float *pfVar6;
+  int iVar7;
+  float fVar8;
+  float fVar9;
+  undefined1 auVar10 [16];
+  float local_c;
+  float local_8;
+  
+  local_c = 0.0;
+  local_8 = 1.0;
+  iVar3 = thunk_FUN_004daa70(param_1);
+  pfVar4 = (float *)thunk_FUN_004daaa0(param_1);
+  if (param_3 <= 0.0) {
+    param_3 = 1.0;
+  }
+  iVar7 = 0;
+  pfVar6 = pfVar4;
+  do {
+    pfVar6 = pfVar6 + 1;
+    uVar1 = *(ushort *)(iVar3 + iVar7 * 2);
+    uVar5 = (uint)uVar1;
+    if (uVar1 == 0) break;
+    fVar8 = 0.0;
+    if (uVar5 < 1000) {
+      if ((int)uVar5 < *(int *)(in_ECX + 0x88)) {
+        fVar8 = *(float *)(*(int *)(in_ECX + 0x90) + 4 + uVar5 * 0xc);
+LAB_007e7cae:
+        fVar9 = fVar8;
+        if (fVar8 <= 0.0) {
+          fVar9 = 0.0;
+        }
+        if (fVar8 <= param_3) {
+          fVar8 = (fVar9 / param_3) * 0.7;
+        }
+        else {
+          auVar10._0_8_ = (double)((fVar9 - param_3) * 0.03125);
+          auVar10._8_8_ = 0;
+          libm_sse2_pow_precise();
+          fVar8 = (float)auVar10._0_8_ * 0.3 + 0.7;
+        }
+      }
+LAB_007e7ce8:
+      local_c = fVar8 * *pfVar6 + local_c;
+    }
+    else {
+      if (uVar5 < 2000) {
+        if ((int)(uVar5 - 1000) < *(int *)(in_ECX + 0x84)) {
+          fVar8 = *(float *)(*(int *)(in_ECX + 0x8c) + -0x6d5c + uVar5 * 0x1c);
+          goto LAB_007e7cae;
+        }
+        goto LAB_007e7ce8;
+      }
+      if ((uVar5 < 0x7d7) && (param_2 != (int *)0x0)) {
+        bVar2 = (**(code **)(*param_2 + 0x10))(uVar5 - 2000);
+        local_8 = ((float)bVar2 + 64.0) / 255.0;
+      }
+    }
+    iVar7 = iVar7 + 1;
+  } while (iVar7 < 8);
+  fVar9 = local_8 * local_c * *(float *)(in_ECX + 0x440) + *pfVar4;
+  fVar8 = 2.0;
+  if (fVar9 <= 2.0) {
+    fVar8 = fVar9;
+  }
+  fVar9 = 0.001;
+  if (0.001 <= fVar8) {
+    fVar9 = fVar8;
+  }
+  return (float10)fVar9;
+}
+
+
+
