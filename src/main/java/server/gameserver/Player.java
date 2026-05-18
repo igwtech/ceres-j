@@ -464,4 +464,34 @@ public class Player extends Thread {
 	public void setSeatedChairRawId(int rawObjectId) {
 		this.seatedChairRawId = rawObjectId;
 	}
+
+	/**
+	 * Toolbelt slot index of the weapon currently drawn / in-hand,
+	 * or {@code -1} when no weapon is equipped (holstered).
+	 *
+	 * <p>Set by
+	 * {@link server.gameserver.packets.client_udp.ToolbeltSlotUse}
+	 * when the player presses a toolbelt key (the
+	 * {@code 0x03/0x1f/<localId>/0x1f} SlotUse packet). Pressing the
+	 * key of the slot whose weapon is already drawn holsters it
+	 * (toggle); pressing a different slot's key switches to that
+	 * weapon. Transient session state (not persisted) — same
+	 * lifetime model as {@link #seatedChairRawId}.
+	 */
+	private volatile int activeWeaponSlot = -1;
+
+	/** Toolbelt slot of the drawn weapon, or {@code -1} if holstered. */
+	public int getActiveWeaponSlot() {
+		return activeWeaponSlot;
+	}
+
+	/** True if a toolbelt weapon is currently drawn / in-hand. */
+	public boolean hasWeaponDrawn() {
+		return activeWeaponSlot >= 0;
+	}
+
+	/** Set the drawn-weapon toolbelt slot ({@code -1} = holstered). */
+	public void setActiveWeaponSlot(int slot) {
+		this.activeWeaponSlot = slot;
+	}
 }

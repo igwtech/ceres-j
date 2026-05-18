@@ -383,5 +383,32 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 		}
 	}
 
+	/**
+	 * Broadcast a weapon-slot equip / holster
+	 * ({@code 0x03/0x1f/<localId>/0x1f} SlotUse) for {@code pl} to
+	 * every client in the zone, including {@code pl} itself.
+	 *
+	 * <p>Same all-observers rule as {@link #sendPlayerSit}: the
+	 * subject is NOT skipped (retail per-entity {@code 0x03/0x1f}
+	 * state broadcasts — chair-sit {@code 0x21} verified — echo the
+	 * subject's own {@code localId} back to the subject so the local
+	 * client plays the draw/holster animation in sync with peers).
+	 *
+	 * @param pl   the player whose weapon state changed.
+	 * @param slot toolbelt slot index now drawn ({@code 0..0x0a}),
+	 *             or {@link WeaponSlotEquip#HOLSTER} ({@code 0xff})
+	 *             to holster.
+	 */
+	public void sendPlayerWeaponSlot(Player pl, int slot){
+		int mapId = pl.getMapID();
+		synchronized(playerList){
+			for (Player reciever : playerList.values()) {
+				if (reciever == null
+						|| reciever.getUdpConnection() == null) continue;
+				reciever.send(new WeaponSlotEquip(reciever, mapId, slot));
+			}
+		}
+	}
+
 	// TODO: all the position update stuff
 }

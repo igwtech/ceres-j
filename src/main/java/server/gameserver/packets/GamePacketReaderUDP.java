@@ -179,6 +179,16 @@ public final class GamePacketReaderUDP {
 					return new AdminCommandRequest(subPacket);
 				case 0x17:
 					return new UseItem(subPacket);
+				case 0x1f:
+					// Toolbelt-slot equip / holster (SlotUse). Byte-
+					// pinned from the user's capture pressing toolbelt
+					// key "1": 03 <seq2> 1f <localId2> 1f <slot u8>
+					// (here `1f 00 00 1f 00`). tag 0x1f = SlotUse per
+					// docs/PROTOCOL.md; slot range 0..0x0b cross-checked
+					// vs client FUN_007e67b0 "SRV activate slot: %i".
+					// Previously fell through to "Unknown UDP13 Packet"
+					// so the weapon never drew/holstered.
+					return new ToolbeltSlotUse(subPacket);
 				case 0x22:
 					// Explicit exit-seat (stand up without moving).
 					// 1f 03 00 22, no body. Byte-pinned from
