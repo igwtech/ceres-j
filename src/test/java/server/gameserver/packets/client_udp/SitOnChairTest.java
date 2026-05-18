@@ -228,6 +228,69 @@ public class SitOnChairTest {
                 | ((body[9] & 0xFF) << 8));
     }
 
+    /**
+     * Regression for the "client never visibly sits" bug.
+     *
+     * <p>While seated the retail client sends a continuous
+     * <em>seated-anchor sync</em> {@code 0x20} (type byte
+     * {@code 0x80}, payload = the seated chair's rawObjectId),
+     * byte-pinned from
+     * {@code strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap} t=204.619s
+     * as {@code 20 03 00 80 00 48 08 00 00}. The old code stood the
+     * player up on <em>any</em> {@code 0x20}, so this keepalive
+     * cleared the seat within a frame of the {@code 0x21} sit
+     * broadcast and the chair-sit was never visible. The seated-anchor
+     * sync must be a no-op: player stays seated, no {@link ExitSeat}.
+     */
+    @Test
+    public void seatedAnchorSyncDoesNotStandUp() throws Exception {
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        installPlazaP1Zone(pl);
+        CapturingUDPConnection cap =
+                CapturingUDPConnection.replaceOn(pl);
+
+        new UseItem(useBody(CHAIR_RAW_ID)).execute(pl);
+        assertTrue(pl.isSeated());
+
+        // Retail seated-anchor sync, reliable-wrapped:
+        //   03 <seq2> 20 <localId LE2> 80 <chair rawObjectId LE4> 00
+        // = 03 11 00 | 20 03 00 80 00 48 08 00 00
+        byte[] anchor = {
+                0x03, 0x11, 0x00,              // reliable 03 + seq LE2
+                0x20,                          // 0x20 movement channel
+                0x03, 0x00,                    // localId LE2 = 3
+                (byte) 0x80,                   // type = seated anchor
+                0x00, 0x48, 0x08, 0x00,        // chair rawObjectId LE4
+                0x00                           // trailer
+        };
+        new Movement(anchor).execute(pl);
+
+        // Still seated — the anchor sync is a no-op. No ExitSeat has
+        // been emitted yet (only the SitOnChair from the UseItem).
+        assertTrue("seated-anchor 0x20 sync must NOT stand the "
+                + "player up", pl.isSeated());
+        assertEquals(CHAIR_RAW_ID, pl.getSeatedChairRawId());
+        for (ServerUDPPacket p : cap.received()) {
+            assertFalse("seated-anchor sync must not emit ExitSeat",
+                    p instanceof ExitSeat);
+        }
+
+        // A subsequent REAL locomotion 0x20 (no 0x80 type) still
+        // stands the player up + emits ExitSeat (retail behaviour
+        // preserved).
+        byte[] move = { 0x03, 0x12, 0x00, 0x20, 0x00 };
+        new Movement(move).execute(pl);
+        assertFalse("real locomotion 0x20 must still stand up",
+                pl.isSeated());
+        boolean exited = false;
+        for (ServerUDPPacket p : cap.received()) {
+            if (p instanceof ExitSeat) exited = true;
+        }
+        assertTrue("real locomotion after seated must emit ExitSeat",
+                exited);
+    }
+
     @Test
     public void explicitExitSeatRequestStandsUp() throws Exception {
         Player pl = PacketTestFixture

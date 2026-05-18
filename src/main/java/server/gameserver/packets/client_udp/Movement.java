@@ -21,8 +21,56 @@ import server.tools.Out;
  */
 public class Movement extends GamePacketDecoderUDP {
 
+	/** Raw sub-packet bytes, retained so the seated-anchor
+	 *  discriminator can peek the {@code 0x20} type byte before the
+	 *  streaming decoder consumes it. Layout (reliable form, as the
+	 *  dispatcher hands it over):
+	 *  {@code [0]=0x03 [1..2]=seq LE2 [3]=0x20 [4..5]=localId LE2
+	 *  [6]=type [7..]=payload}. */
+	private final byte[] raw;
+
 	public Movement(byte[] subPacket) {
 		super(subPacket);
+		this.raw = subPacket;
+	}
+
+	/**
+	 * Seated-anchor / locomotion discriminator for the {@code 0x20}
+	 * movement sub-packet.
+	 *
+	 * <p>Byte-pinned from
+	 * {@code strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap}
+	 * (server 157.90.195.74). While a player is seated in a chair the
+	 * retail client does <em>not</em> stop sending {@code 0x20}
+	 * packets — it sends a continuous <em>seated-anchor sync</em>:
+	 *
+	 * <pre>
+	 *   20 &lt;localId LE2&gt; 80 &lt;seated chair rawObjectId LE4&gt; 00
+	 * </pre>
+	 *
+	 * <p>(observed e.g. {@code 20 03 00 80 00 48 08 00 00} at
+	 * t=204.619s, repeated ~once/sec for the whole time the captured
+	 * player stayed seated). The type byte is {@code 0x80}; a real
+	 * locomotion {@code 0x20} uses {@code 0x7f} (and other
+	 * movement-bit values) and carries float coordinates instead.
+	 * Retail's genuine stand-up signal is the explicit
+	 * {@code 0x03/0x1f/0x22} ({@link ExitSeatRequest}) or a real
+	 * locomotion {@code 0x20}, never the {@code 0x80} anchor.
+	 *
+	 * <p>The previous code stood the player up on <em>every</em>
+	 * {@code 0x20}, so the first post-sit anchor sync (arriving within
+	 * a frame of the {@code 0x21} sit broadcast) immediately cleared
+	 * the seat and broadcast {@link ExitSeat} — the client popped out
+	 * of the chair before the sit was ever visible.
+	 *
+	 * @return {@code true} if this {@code 0x20} is the seated-anchor
+	 *         keepalive (type byte {@code 0x80}), which must be
+	 *         ignored entirely while seated.
+	 */
+	private boolean isSeatedAnchorSync() {
+		// raw[6] = the 0x20 type byte (see field javadoc for layout).
+		return raw != null && raw.length > 6
+				&& (raw[6] & 0xFF) == 0x80;
 	}
 
 	/**
@@ -46,14 +94,31 @@ public class Movement extends GamePacketDecoderUDP {
 	public void execute(Player pl) {
 		PlayerCharacter pc = pl.getCharacter();
 
+		// ── Seated-anchor sync: ignore entirely ─────────────────────
+		// While seated the retail client keeps sending 0x20 packets,
+		// but as a seated-anchor keepalive (type byte 0x80, carrying
+		// the chair rawObjectId) — NOT locomotion. Treating it as a
+		// move stood the player up within a frame of the 0x21 sit
+		// broadcast, so the chair-sit was never visible. Drop it: do
+		// not stand up, do not commit a position. The genuine
+		// stand-up is the explicit 0x03/0x1f/0x22 (ExitSeatRequest)
+		// or a real locomotion 0x20 (handled below). Byte-pinned from
+		// strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap — see
+		// isSeatedAnchorSync().
+		if (pl.isSeated() && isSeatedAnchorSync()) {
+			return;
+		}
+
 		// ── Stand up if seated ──────────────────────────────────────
 		// A seated player (UseItem on a chair set seatedChairRawId)
-		// stands the moment they send a real movement packet. Clear
-		// the transient sit-state and broadcast the exit-seat posture
-		// (0x03/0x1f/<localId>/0x22) to the zone so peers stop
-		// rendering them seated. The position itself is committed by
-		// the normal movement path below (which also drives the peer
-		// SMovement broadcast). See SitOnChair / ExitSeat.
+		// stands the moment they send a real locomotion movement
+		// packet (anything that is not the seated-anchor sync handled
+		// above). Clear the transient sit-state and broadcast the
+		// exit-seat posture (0x03/0x1f/<localId>/0x22) to the zone so
+		// peers stop rendering them seated. The position itself is
+		// committed by the normal movement path below (which also
+		// drives the peer SMovement broadcast). See SitOnChair /
+		// ExitSeat.
 		if (pl.isSeated()) {
 			pl.setSeatedChairRawId(0);
 			server.gameserver.Zone sz = pl.getZone();
