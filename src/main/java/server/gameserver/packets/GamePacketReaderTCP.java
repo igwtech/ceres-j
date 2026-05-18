@@ -21,6 +21,10 @@ public final class GamePacketReaderTCP {
 		if (size != is.read(readbuffer, 0, size)) {
 			throw new IOException();
 		}
+		if (server.tools.Debug.isWireEnabled()) {
+			server.tools.WireLog.tcpIn(tcp.wireUser(),
+					readbuffer, readbuffer.length);
+		}
 		tcp.addEvent(decode(readbuffer, tcp));
 	}
 

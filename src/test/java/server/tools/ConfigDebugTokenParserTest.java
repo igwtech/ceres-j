@@ -18,7 +18,7 @@ import org.junit.Test;
  */
 public class ConfigDebugTokenParserTest {
 
-    private boolean savedUnk, savedSnd, savedEv, savedRcv, savedSub;
+    private boolean savedUnk, savedSnd, savedEv, savedRcv, savedSub, savedWire;
 
     @Before
     public void capture() throws Exception {
@@ -27,12 +27,14 @@ public class ConfigDebugTokenParserTest {
         savedEv  = read("debugEvents");
         savedRcv = read("debugReceivedPackets");
         savedSub = read("debugSubPackets");
+        savedWire = read("debugWire");
         // Force a clean slate so we measure the *parser's* effect.
         write("debugUnknownPackets", false);
         write("debugSendingPackets", false);
         write("debugEvents",         false);
         write("debugReceivedPackets",false);
         write("debugSubPackets",     false);
+        write("debugWire",           false);
     }
 
     @After
@@ -42,6 +44,7 @@ public class ConfigDebugTokenParserTest {
         write("debugEvents",          savedEv);
         write("debugReceivedPackets", savedRcv);
         write("debugSubPackets",      savedSub);
+        write("debugWire",            savedWire);
     }
 
     private static boolean read(String name) throws Exception {
@@ -66,6 +69,20 @@ public class ConfigDebugTokenParserTest {
         assertFalse(read("debugSendingPackets"));
         assertFalse(read("debugEvents"));
         assertFalse(read("debugReceivedPackets"));
+    }
+
+    @Test
+    public void wireTokenFlipsItsFlagAndIsOffByDefault() throws Exception {
+        // Default (no token) leaves it off.
+        Config.applyDebugTokens("unknownPackets");
+        assertFalse("wire must stay off without its token",
+                read("debugWire"));
+        // Its own token enables it without bleeding into others.
+        Config.applyDebugTokens("wire");
+        assertTrue("wire token must enable debugWire",
+                read("debugWire"));
+        assertFalse(read("debugSendingPackets"));
+        assertFalse(read("debugSubPackets"));
     }
 
     @Test

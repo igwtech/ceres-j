@@ -35,6 +35,8 @@ public final class Config {
 	public static boolean debugEvents = false;
         public static boolean debugReceivedPackets = false;
 	public static boolean debugSubPackets = false;
+	/** task #198: parsed in/out wire log (the {@code wire} token). */
+	public static boolean debugWire = false;
 
 	public static void init() throws StartupException {
 		if (properties != null) return;
@@ -287,6 +289,7 @@ public final class Config {
 			else if (t.equalsIgnoreCase("events"))         debugEvents = true;
 			else if (t.equalsIgnoreCase("receivedPackets")) debugReceivedPackets = true;
 			else if (t.equalsIgnoreCase("subPackets"))     debugSubPackets = true;
+			else if (t.equalsIgnoreCase("wire"))           debugWire = true;
 		}
 	}
 
