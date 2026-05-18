@@ -2,8 +2,8 @@ package server.gameserver.internalEvents;
 
 import server.database.playerCharacters.PlayerCharacter;
 import server.gameserver.Player;
-import server.gameserver.packets.server_udp.CashUpdateProbe;
-import server.gameserver.packets.server_udp.CharsysOnly;
+import server.gameserver.packets.server_udp.CashUpdate;
+import server.gameserver.packets.server_udp.ForcedZoning;
 import server.gameserver.packets.server_udp.LocalChatMessage;
 import server.gameserver.packets.server_udp.PoolStatusBroadcast;
 import server.gameserver.packets.server_udp.PoolUpdate;
@@ -16,19 +16,23 @@ import server.tools.Timer;
  * tracked resource (HLT/STA/PSI/Soullight/Cash) at known timestamps so
  * we can correlate server send-order with HUD response in a screencast.
  *
- * <p>Triggered by appending {@code new ResourceProbeEvent()} to the
- * player's event queue right after world-entry completes. The sequence
- * (with delays) is:
+ * <p><b>Task #191:</b> the earlier revision sent the dead
+ * {@code 0x03/0x07} disc-{@code 0x02}/{@code 0x01} CHARSYS multipart
+ * ({@code CharsysOnly}). That path maps to client UI event {@code 0xa8}
+ * — a no-op QUERY that NEVER parses the buffer, so the HUD never moved
+ * and the probe produced false negatives. It now exercises only the
+ * proven client-applying carriers, exactly the ones the user-visible GM
+ * commands use:
  * <pre>
  *   t+0s   LocalChat banner: "ResourceProbe begin"
- *   t+2s   sethp 25  -> PoolUpdate(POOL_HP, -75, max)+ PoolStatusBroadcast
- *   t+5s   setpsi 25 -> PoolUpdate(POOL_PSI, -75, max)+ PoolStatusBroadcast
- *   t+8s   setsta 25 -> PoolUpdate(POOL_STA, -75, max)+ PoolStatusBroadcast
+ *   t+2s   sethp 25  -> PoolUpdate(POOL_HP, delta, max) + PoolStatusBroadcast
+ *   t+5s   setpsi 25 -> PoolUpdate(POOL_PSI, delta, max) + PoolStatusBroadcast
+ *   t+8s   setsta 25 -> PoolUpdate(POOL_STA, delta, max) + PoolStatusBroadcast
  *   t+11s  setsl 0   -> SoullightUpdate(0)
  *   t+14s  setsl 100 -> SoullightUpdate(100)
- *   t+17s  setcash 99999 (probe sub=0x04 on 0x02 wrapper)
- *   t+20s  setcash 0     (probe sub=0x04 on 0x03 wrapper)
- *   t+23s  heal -> PoolUpdate(POOL_HP/PSI/STA, +full)+ PoolStatusBroadcast
+ *   t+17s  setcash 99999 -> CashUpdate (retail-verified 0x1f/0x25 0x13)
+ *   t+20s  setsub HLT 175 -> ForcedZoning (CharInfo redelivery)
+ *   t+23s  heal -> PoolUpdate(HP/PSI/STA, +full) + PoolStatusBroadcast
  *   t+26s  banner: "ResourceProbe end"
  * </pre>
  */
@@ -55,60 +59,84 @@ public class ResourceProbeEvent extends DummyEvent {
         try {
             switch (step) {
             case 0:
-                banner(pl, "ResourceProbe begin (CharsysOnly multipart, disc=0x02)");
+                banner(pl, "ResourceProbe begin (verified applying carriers)");
                 Out.writeln(Out.Info, "ResourceProbe step 0: begin");
                 break;
             case 1: {
-                // Test A: disc=0x01 (CharInfo path) with 72-byte filler so
-                // event 0x13ef fires with our [section 2][section 8] body.
-                // The 0x13ef event is OUTSIDE the bit-0 guard so subsequent
-                // sends should still trigger it.
-                byte[] sec2 = CharsysOnly.poolsOnly(pl, 1234, 9999, 50, 200, 75, 250, 0);
-                byte[] sec8 = CharsysOnly.cashOnly(pl, 1234567);
-                byte[] payload = CharsysOnly.prependCharInfoFiller(
-                        CharsysOnly.concat(sec2, sec8));
-                pl.send(new CharsysOnly(pl, payload, CharsysOnly.DISC_CHARINFO));
-                banner(pl, "disc=0x01+filler: HP=1234/9999 cash=1234567");
-                Out.writeln(Out.Info, "ResourceProbe step 1: disc=0x01 + filler sent ("
-                        + payload.length + " bytes)");
+                // HP -> 25 via the retail-verified signed-delta PoolUpdate
+                // (0x1f 01 00 50) + status snapshot — the same lever
+                // .sethp uses, which the client actually applies.
+                int target = 25;
+                int delta = target - pc.getHealth();
+                pc.setHealth(target);
+                pl.send(new PoolUpdate(pl, PoolUpdate.POOL_HP, delta, pc.getMaxHealth()));
+                pl.send(new PoolStatusBroadcast(pl));
+                banner(pl, "HP -> 25 (PoolUpdate delta=" + delta + ")");
+                Out.writeln(Out.Info, "ResourceProbe step 1: HP PoolUpdate");
                 break;
             }
             case 2: {
-                // Test B: disc=0x02 (CharsysInfo path) — fires event 0xa8.
-                byte[] sec2 = CharsysOnly.poolsOnly(pl, 5, 50, 5, 50, 5, 50, 50);
-                byte[] sec8 = CharsysOnly.cashOnly(pl, 7777777);
-                byte[] payload = CharsysOnly.concat(sec2, sec8);
-                pl.send(new CharsysOnly(pl, payload, CharsysOnly.DISC_CHARSYS));
-                banner(pl, "disc=0x02: HP=5/50 cash=7777777");
-                Out.writeln(Out.Info, "ResourceProbe step 2: disc=0x02 sent ("
-                        + payload.length + " bytes)");
+                int target = 25;
+                int delta = target - pc.getPsi();
+                pc.setPsi(target);
+                pl.send(new PoolUpdate(pl, PoolUpdate.POOL_PSI, delta, pc.getMaxPsi()));
+                pl.send(new PoolStatusBroadcast(pl));
+                banner(pl, "PSI -> 25 (PoolUpdate delta=" + delta + ")");
+                Out.writeln(Out.Info, "ResourceProbe step 2: PSI PoolUpdate");
                 break;
             }
             case 3: {
-                // Test C: disc=0x01 + filler with extreme values to confirm
-                // visibility if HUD updates.
-                byte[] sec2 = CharsysOnly.poolsOnly(pl, 999, 999, 999, 999, 999, 999, 100);
-                byte[] sec8 = CharsysOnly.cashOnly(pl, 88888888);
-                byte[] payload = CharsysOnly.prependCharInfoFiller(
-                        CharsysOnly.concat(sec2, sec8));
-                pl.send(new CharsysOnly(pl, payload, CharsysOnly.DISC_CHARINFO));
-                banner(pl, "disc=0x01+filler: HP=999 SL=100 cash=88888888");
-                Out.writeln(Out.Info, "ResourceProbe step 3: extreme values sent");
+                int target = 25;
+                int delta = target - pc.getStamina();
+                pc.setStamina(target);
+                pl.send(new PoolUpdate(pl, PoolUpdate.POOL_STA, delta, pc.getMaxStamina()));
+                pl.send(new PoolStatusBroadcast(pl));
+                banner(pl, "STA -> 25 (PoolUpdate delta=" + delta + ")");
+                Out.writeln(Out.Info, "ResourceProbe step 3: STA PoolUpdate");
                 break;
             }
             case 4:
-                pl.send(new PoolUpdate(pl, PoolUpdate.POOL_HP, -50, 100));
-                banner(pl, "(control) PoolUpdate delta=-50");
-                Out.writeln(Out.Info, "ResourceProbe step 4: control PoolUpdate");
+                pl.send(new SoullightUpdate(pl, 0.0f));
+                banner(pl, "Soullight -> 0.0 (0x02/0x1f 0x25 0x1f)");
+                Out.writeln(Out.Info, "ResourceProbe step 4: SoullightUpdate 0");
                 break;
             case 5:
-                pl.send(new SoullightUpdate(pl, 50.0f));
-                banner(pl, "(control) SoullightUpdate=50.0");
-                Out.writeln(Out.Info, "ResourceProbe step 5: control SoullightUpdate");
+                pl.send(new SoullightUpdate(pl, 100.0f));
+                banner(pl, "Soullight -> 100.0");
+                Out.writeln(Out.Info, "ResourceProbe step 5: SoullightUpdate 100");
                 break;
-            case 6:
+            case 6: {
+                int cash = 99999;
+                pc.setCash(cash);
+                pl.send(new CashUpdate(pl, cash));
+                banner(pl, "Cash -> 99999 (verified CashUpdate carrier)");
+                Out.writeln(Out.Info, "ResourceProbe step 6: CashUpdate");
+                break;
+            }
+            case 7:
+                pc.setSubskillLVL(PlayerCharacter.SUBSKILL_HLT, 175);
+                pl.send(new ForcedZoning(pl, pl.getMapID()));
+                banner(pl, "HLT subskill -> 175 (ForcedZoning CharInfo redelivery)");
+                Out.writeln(Out.Info, "ResourceProbe step 7: ForcedZoning");
+                break;
+            case 8: {
+                int hpDelta  = pc.getMaxHealth()  - pc.getHealth();
+                int psiDelta = pc.getMaxPsi()     - pc.getPsi();
+                int staDelta = pc.getMaxStamina() - pc.getStamina();
+                pc.setHealth(pc.getMaxHealth());
+                pc.setPsi(pc.getMaxPsi());
+                pc.setStamina(pc.getMaxStamina());
+                pl.send(new PoolUpdate(pl, PoolUpdate.POOL_HP,  hpDelta,  pc.getMaxHealth()));
+                pl.send(new PoolUpdate(pl, PoolUpdate.POOL_PSI, psiDelta, pc.getMaxPsi()));
+                pl.send(new PoolUpdate(pl, PoolUpdate.POOL_STA, staDelta, pc.getMaxStamina()));
+                pl.send(new PoolStatusBroadcast(pl));
+                banner(pl, "heal -> full (PoolUpdate ×3 + status)");
+                Out.writeln(Out.Info, "ResourceProbe step 8: heal");
+                break;
+            }
+            case 9:
                 banner(pl, "ResourceProbe end");
-                Out.writeln(Out.Info, "ResourceProbe step 6: done");
+                Out.writeln(Out.Info, "ResourceProbe step 9: done");
                 done = true;
                 break;
             default:

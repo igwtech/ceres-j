@@ -13,6 +13,39 @@ import server.networktools.PacketBuilderUDP1303;
  * {@code 0x02} (the CHARSYS path, distinct from the CharInfo {@code 0x01}
  * path used by {@link CharInfo}).
  *
+ * <p><b>DO NOT USE FOR STATE THAT MUST APPLY ON THE CLIENT (task #191).</b>
+ * The {@code 0x03/0x07} disc-{@code 0x02} multipart maps to client UI
+ * event {@code 0xa8}, which is a <em>no-op QUERY</em> — the client
+ * acknowledges the buffer but NEVER runs the CHARSYS TLV parser
+ * ({@code FUN_008447d0}) nor the FullCharsysInfo recompute
+ * ({@code FUN_0080b8b0}), so HP/PSI/STA/cash/subskills the buffer
+ * carries are silently discarded. The disc-{@code 0x01} path only fires
+ * getters ({@code 0xa7}/{@code 0x13ef}). The dedicated single-packet
+ * CHARSYS handler that fires the applying event {@code 0x6e}
+ * (vtable-B slot 8 → {@code FUN_00841dc0} → {@code FUN_008033d0} →
+ * {@code FUN_008447d0} → {@code FUN_0080b8b0}) has no pinned server-side
+ * opcode in the available spec, and case {@code 0xb3} is gated/dead in
+ * the Evolution build (project memory {@code charsys_dead_code}).
+ *
+ * <p>The proven server-side levers that DO apply are used instead by
+ * every user-visible GM command:
+ * <ul>
+ *   <li>HP/PSI/STA → {@link PoolUpdate} ({@code 0x1f 01 00 50}
+ *       signed-delta, retail death-capture verified) +
+ *       {@link PoolStatusBroadcast}.</li>
+ *   <li>Subskills / pool maxima → {@link ForcedZoning} full-CharInfo
+ *       redelivery (project memory {@code hud_pool_path_confirmed}).</li>
+ *   <li>Cash → {@link CashUpdate} ({@code 0x03/0x1f → 0x25 0x13 → 0x04},
+ *       retail HUD-screenshot verified, project memory
+ *       {@code cash_and_falldamage_subops}).</li>
+ *   <li>Soullight → {@link SoullightUpdate}
+ *       ({@code 0x02/0x1f → 0x25 0x1f} float, retail verified).</li>
+ * </ul>
+ *
+ * <p>This class is retained only as a reverse-engineering harness
+ * primitive (see {@code ResourceProbeEvent}); it is {@code @Deprecated}
+ * to flag that wiring it into a runtime command path is a known bug.
+ *
  * <p>Ghidra trace (2026-04-26):
  * <pre>
  *   network handler -> FUN_00841dc0 (vtable B slot 8)
@@ -41,6 +74,7 @@ import server.networktools.PacketBuilderUDP1303;
  * — see {@link CharInfo} Section 8 for the full structure; here we keep it
  * minimal.
  */
+@Deprecated
 public class CharsysOnly implements ServerUDPPacket {
 
     private static final int CHUNK_BYTES = 220 - 6; // multipart 6-byte header
