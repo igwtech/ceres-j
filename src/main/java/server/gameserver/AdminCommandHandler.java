@@ -314,9 +314,20 @@ public class AdminCommandHandler {
 
     private static void cmdHeal(Player pl) {
         PlayerCharacter pc = pl.getCharacter();
+        int hpDelta  = pc.getMaxHealth()  - pc.getHealth();
+        int psiDelta = pc.getMaxPsi()     - pc.getPsi();
+        int staDelta = pc.getMaxStamina() - pc.getStamina();
         pc.setHealth(pc.getMaxHealth());
         pc.setPsi(pc.getMaxPsi());
         pc.setStamina(pc.getMaxStamina());
+        // Without these the HUD bars stay depleted until the ~1 Hz
+        // PoolStatusBroadcast re-syncs. Push the same signed-delta
+        // PoolUpdate + status snapshot that cmdSetHp uses so the
+        // client reacts immediately.
+        pl.send(new PoolUpdate(pl, PoolUpdate.POOL_HP,  hpDelta,  pc.getMaxHealth()));
+        pl.send(new PoolUpdate(pl, PoolUpdate.POOL_PSI, psiDelta, pc.getMaxPsi()));
+        pl.send(new PoolUpdate(pl, PoolUpdate.POOL_STA, staDelta, pc.getMaxStamina()));
+        pl.send(new PoolStatusBroadcast(pl));
         reply(pl, "Healed to full.");
     }
 
@@ -329,7 +340,12 @@ public class AdminCommandHandler {
         // Toggle god mode via a simple flag on PlayerCharacter
         // For now just heal and report
         PlayerCharacter pc = pl.getCharacter();
+        int hpDelta = pc.getMaxHealth() - pc.getHealth();
         pc.setHealth(pc.getMaxHealth());
+        // Refresh the HUD HP bar immediately (signed-delta PoolUpdate
+        // + status snapshot, same lever as cmdSetHp / cmdHeal).
+        pl.send(new PoolUpdate(pl, PoolUpdate.POOL_HP, hpDelta, pc.getMaxHealth()));
+        pl.send(new PoolStatusBroadcast(pl));
         reply(pl, "God mode: healed to full (toggle not yet implemented).");
     }
 
