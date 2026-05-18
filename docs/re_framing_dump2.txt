@@ -1,0 +1,70 @@
+# Callers of FUN_004b7190 (ClientNetBuffer enqueue) and their callers
+
+======================================================
+FUNCTION FUN_004b7190 @ 004b7190
+REAL CALLERS: FUN_004b8f00@004b8f00 
+======================================================
+
+void FUN_004b7190(size_t *param_1)
+
+{
+  size_t _Size;
+  void *_Src;
+  int in_ECX;
+  int iVar1;
+  undefined4 uVar2;
+  
+  _Size = *param_1;
+  if ((_Size - 1 < 64000) && (_Src = (void *)param_1[1], _Src != (void *)0x0)) {
+    thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\Client.cpp",
+                       0x871);
+    iVar1 = *(int *)(in_ECX + 0x1d8);
+    if (64000 < (int)(_Size + 9 + iVar1)) {
+      iVar1 = 0;
+      **(undefined4 **)(in_ECX + 0x1dc) = 0;
+      *(undefined4 *)(*(int *)(in_ECX + 0x1dc) + *(int *)(in_ECX + 0x1d8)) = 0xffffffff;
+      *(undefined4 *)(in_ECX + 0x1d8) = 0;
+    }
+    if ((iVar1 < *(int *)(in_ECX + 0x1d4)) && (*(int *)(in_ECX + 0x1d4) <= (int)(_Size + 9 + iVar1))
+       ) {
+      thunk_FUN_004471c0("@WCLIENT : Message does not fit into Clientbuffer");
+      uVar2 = 0x884;
+    }
+    else {
+      *(char *)(iVar1 + 4 + *(int *)(in_ECX + 0x1dc)) = (char)param_1[2];
+      memcpy((void *)(*(int *)(in_ECX + 0x1dc) + iVar1 + 5),_Src,_Size);
+      iVar1 = iVar1 + 5 + _Size;
+      uVar2 = 0x898;
+      *(undefined4 *)(iVar1 + *(int *)(in_ECX + 0x1dc)) = 0;
+      *(size_t *)(*(int *)(in_ECX + 0x1dc) + *(int *)(in_ECX + 0x1d8)) = _Size;
+      *(int *)(in_ECX + 0x1d8) = iVar1;
+    }
+    thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\Client.cpp",
+                       uVar2);
+  }
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_004b8f00 @ 004b8f00
+REAL CALLERS: 
+======================================================
+
+undefined4 FUN_004b8f00(undefined4 param_1,undefined4 param_2)
+
+{
+  char cVar1;
+  int in_ECX;
+  
+  cVar1 = (**(code **)(*(int *)(in_ECX + -0x10) + 0x10))(param_1,param_2);
+  if (cVar1 != '\0') {
+    return 1;
+  }
+  thunk_FUN_004b7190(param_2);
+  return 0;
+}
+
+
+
