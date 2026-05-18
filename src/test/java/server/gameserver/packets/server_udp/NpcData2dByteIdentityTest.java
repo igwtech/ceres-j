@@ -10,112 +10,121 @@ import server.gameserver.NPC;
 import server.gameserver.Player;
 
 /**
- * Pins the reliable {@code 0x03/0x2d} NPCData datagram emitted by
- * {@link ZoneStateCompoundPacket} to the verified retail 55-byte
- * NPC-tick form (task #167/#177).
+ * Pins the {@link ZoneStateCompoundPacket} per-NPC zone-state refresh
+ * to the retail-evidenced two-datagram chain.
  *
- * <p>The body must be byte-identical to the pinned retail sample
- * (sub-action 0xf4, category 0x0003) EXCEPT the per-NPC overlay:
- * the 2-byte entity id at [7..8] and the five float32 slots at
- * [15..34]. The framing, the 0xffffffff sentinel and the
- * invariant trailer must match retail verbatim — that is what the
- * client's world-actor parser keys on (a wrong length/shape made
- * it log "Update Message corrupted" / "Unable to Spawn WA" and
- * never render NPCs).
+ * <p><strong>Byte-pinned 2026-05-17 (task #178d)</strong> from the
+ * live retail pcap
+ * {@code strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap} (server
+ * 157.90.195.74), machine-decoded with the corrected reliable frame
+ * parser ({@code tools/npc-lifecycle.py}).
+ *
+ * <p>The decisive retail finding: a persistently-rendered scripted
+ * city NPC (entities 266 "WSK" / 299 "WCOP" / 325 "PATROL_COPBOT6")
+ * receives ONLY a reliable {@code 0x03/0x28} WorldInfo plus a
+ * reliable {@code 0x03/0x2d} 6-byte ping. It NEVER receives a raw
+ * {@code 0x1b} (every {@code 0x1b} in the capture carries a small
+ * world-item id {@code 0x8b..0xdb}; scripted NPC ids are
+ * {@code >= 0x0100} and appear only in {@code 0x28}/{@code 0x2d}).
+ *
+ * <p>The pre-#178d packet emitted THREE datagrams including a raw
+ * {@code 0x1b} keyed on the NPC id — that registered the NPC in the
+ * client's transient world-item table, which the client GC'd within a
+ * frame ("appears then disappears"). It also emitted a 55-byte
+ * {@code 0x2d} template (sub-action 0xf4, entity at {@code [7..8]})
+ * from an older capture that does not match this class. Both are
+ * corrected here: no {@code 0x1b}, and the deterministic 6-byte
+ * {@code 0x2d} ping.
  */
 public class NpcData2dByteIdentityTest {
 
-    /** Retail-verified template (same constant as the builder). */
-    private static final byte[] TPL = hex(
-        "2df4030000712085549b45ffffffff457ba93844d78a5645d063ac45"
-      + "7be93044d78a564543000080060000000100000081ca0900709c53");
+    private static int u16(byte[] b, int o) {
+        return (b[o] & 0xFF) | ((b[o + 1] & 0xFF) << 8);
+    }
 
-    private static byte[] hex(String s) {
-        byte[] b = new byte[s.length() / 2];
-        for (int i = 0; i < b.length; i++) {
-            b[i] = (byte) Integer.parseInt(
-                s.substring(i * 2, i * 2 + 2), 16);
-        }
+    /** Datagram inner sub-op = byte at wire offset 10
+     *  (0x13(1)+ctr(2)+ctr+sk(2)+subLen(2)+0x03(1)+seq(2)). */
+    private static int subOp(DatagramPacket dp) {
+        return dp.getData()[10] & 0xFF;
+    }
+
+    private static byte[] body(DatagramPacket dp) {
+        int len = dp.getLength();
+        byte[] b = new byte[len - 10];
+        System.arraycopy(dp.getData(), 10, b, 0, b.length);
         return b;
     }
 
-    private static int le32(byte[] b, int o) {
-        return (b[o] & 0xFF) | ((b[o + 1] & 0xFF) << 8)
-             | ((b[o + 2] & 0xFF) << 16) | ((b[o + 3] & 0xFF) << 24);
-    }
-
-    /** Strip {@code [0x13][ctr2][ctr+sk2][subLen2][0x03][seq2]}
-     *  (10-byte reliable prefix) → the 0x2d body. dps[1] is the
-     *  NPCData datagram (0=0x1b bcast, 2=0x28 worldinfo). */
-    private static byte[] npcBody(DatagramPacket[] dps) {
-        byte[] full = dps[1].getData();
-        int len = dps[1].getLength();
-        byte[] body = new byte[len - 10];
-        System.arraycopy(full, 10, body, 0, body.length);
-        return body;
-    }
-
     @Test
-    public void npcDataIs55ByteRetailForm() {
+    public void emitsExactlyTwoReliableDatagrams_28then2d_no1b() {
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
-        // NPC(x, y, z, hp, armor, type, id)
-        NPC npc = new NPC(1234, -567, 89, 100, 0, 42, 0x0137);
-        ZoneStateCompoundPacket pkt =
-                new ZoneStateCompoundPacket(pl, npc);
-        byte[] b = npcBody(pkt.getDatagramPackets());
-
-        assertEquals("0x2d body must be 55 bytes", 55, b.length);
-
-        // Framing / sub-action / category — verbatim from retail.
-        assertEquals(0x2d, b[0] & 0xFF);
-        assertEquals(0xf4, b[1] & 0xFF);          // sub-action
-        assertEquals(0x03, b[2] & 0xFF);          // category LE16
-        assertEquals(0x00, b[3] & 0xFF);
-        assertEquals(0x00, b[4] & 0xFF);
-        assertEquals(0x71, b[5] & 0xFF);          // entity desc const
-        assertEquals(0x20, b[6] & 0xFF);
-        assertEquals(0x9b, b[9] & 0xFF);
-        assertEquals(0x45, b[10] & 0xFF);
-        // 0xffffffff sentinel
-        for (int i = 11; i <= 14; i++) {
-            assertEquals("sentinel @" + i, 0xFF, b[i] & 0xFF);
-        }
-
-        // Per-NPC overlay: entity id LE16 at [7..8].
-        assertEquals(0x0137,
-                (b[7] & 0xFF) | ((b[8] & 0xFF) << 8));
-
-        // Five float32 slots = X, Y, Z, angle, Y.
-        assertEquals(Float.floatToIntBits(1234f), le32(b, 15));
-        assertEquals(Float.floatToIntBits(-567f), le32(b, 19));
-        assertEquals(Float.floatToIntBits(89f),   le32(b, 23));
-        assertEquals(Float.floatToIntBits(
-                (float) npc.getAngle()),          le32(b, 27));
-        assertEquals(Float.floatToIntBits(-567f), le32(b, 31));
-
-        // Trailer [35..54] (incl. the invariant block) byte-exact
-        // vs the retail template.
-        for (int i = 35; i < 55; i++) {
-            assertEquals("trailer @" + i,
-                    TPL[i] & 0xFF, b[i] & 0xFF);
-        }
-    }
-
-    @Test
-    public void framingMatchesTemplateExceptOverlay() {
-        Player pl = PacketTestFixture
-                .newPlayerWithFixedSessionKey((short) 0);
-        NPC npc = new NPC(0, 0, 0, 100, 0, 1, 0);
-        byte[] b = npcBody(
+        NPC npc = new NPC(1234, -567, 89, 100, 0, 20, 0x010A);
+        DatagramPacket[] dps =
                 new ZoneStateCompoundPacket(pl, npc)
-                        .getDatagramPackets());
-        // Every byte outside the overlay windows [7..8] and
-        // [15..34] must equal the retail template.
-        for (int i = 0; i < 55; i++) {
-            if (i == 7 || i == 8 || (i >= 15 && i <= 34)) continue;
-            assertEquals("template byte @" + i,
-                    TPL[i] & 0xFF, b[i] & 0xFF);
+                        .getDatagramPackets();
+
+        assertEquals("exactly 2 datagrams (0x28 + 0x2d, no 0x1b)",
+                2, dps.length);
+
+        // Every datagram is a reliable 0x13/0x03 frame.
+        for (DatagramPacket dp : dps) {
+            assertEquals("outer 0x13", 0x13, dp.getData()[0] & 0xFF);
+            assertEquals("reliable 0x03", 0x03, dp.getData()[7] & 0xFF);
         }
+
+        // Datagram 1 = WorldInfo 0x28; datagram 2 = NPCData 0x2d.
+        assertEquals("datagram 1 must be 0x28 WorldInfo",
+                0x28, subOp(dps[0]));
+        assertEquals("datagram 2 must be 0x2d NPCData",
+                0x2d, subOp(dps[1]));
+
+        // No datagram is a raw 0x1b broadcast — the spurious
+        // world-item registration that despawned the NPC.
+        for (DatagramPacket dp : dps) {
+            assertNotEquals("no raw 0x1b for a scripted NPC",
+                    0x1b, subOp(dp));
+        }
+    }
+
+    @Test
+    public void npcData2dIsRetail6ByteacPing() {
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        NPC npc = new NPC(1234, -567, 89, 100, 0, 20, 0x010A);
+        DatagramPacket[] dps =
+                new ZoneStateCompoundPacket(pl, npc)
+                        .getDatagramPackets();
+
+        byte[] tick = body(dps[1]);
+        // Retail entity 266 idle tick: 2d 0a01 0000 06
+        assertArrayEquals(
+                new byte[] { 0x2d, 0x0a, 0x01, 0x00, 0x00, 0x06 },
+                tick);
+    }
+
+    @Test
+    public void worldInfo28CarriesTheSameEntityIdAsThe2dPing() {
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        int id = 0x012B;   // retail "WCOP"
+        NPC npc = new NPC(10, 20, 30, 100, 0, 1, id);
+        DatagramPacket[] dps =
+                new ZoneStateCompoundPacket(pl, npc)
+                        .getDatagramPackets();
+
+        byte[] world = body(dps[0]);   // 28 0001 [id LE2] ...
+        byte[] tick  = body(dps[1]);   // 2d [id LE2] 0000 06
+
+        assertEquals(0x28, world[0] & 0xFF);
+        assertEquals("0x28 world-object id @[3..4]",
+                id, u16(world, 3));
+        assertEquals(0x2d, tick[0] & 0xFF);
+        assertEquals("0x2d entity id @[1..2]",
+                id, u16(tick, 1));
+        // The id the client creates the actor from (0x28) and the id
+        // the keep-alive ping refreshes (0x2d) MUST be the same, or
+        // the client ages out the actor it just created.
+        assertEquals(u16(world, 3), u16(tick, 1));
     }
 }

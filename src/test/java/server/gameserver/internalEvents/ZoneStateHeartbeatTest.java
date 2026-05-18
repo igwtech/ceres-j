@@ -17,10 +17,12 @@ import server.tools.PriorityList;
  * "Connection to worldserver failed" disconnect on zones that
  * have no NPCs registered.
  *
- * <p>Background: the modern client's WORLDCLIENT watchdog
- * needs periodic raw {@code 0x1b} position broadcasts (~7.7
- * Hz observed in retail). The original heartbeat round-robined
- * through {@code zone.getAllNPCs()}; on a zone with 0 NPCs
+ * <p>Background: the heartbeat round-robins through
+ * {@code zone.getAllNPCs()} sending one
+ * {@link server.gameserver.packets.server_udp.ZoneStateCompoundPacket}
+ * (reliable {@code 0x28} WorldInfo + reliable {@code 0x2d} 6-byte
+ * ping; NO raw {@code 0x1b} — byte-pinned task #178d) per NPC per
+ * tick. On a zone with 0 NPCs
  * (the current state of every zone since {@code NpcSpawnManager:
  * loaded 0 NPCs} for all 17), the heartbeat emitted nothing
  * and the watchdog timed out at 45s.
