@@ -43,8 +43,17 @@ public class GameServerTCPConnection extends Thread {
 		}
 	}
 	
+	/** Best-effort username for the parsed wire log (task #198). */
+	public String wireUser() {
+		return ua != null ? ua.getUsername() : null;
+	}
+
 	public void send(ServerTCPPacket packet) {
 		Debug.sendPacket(packet, this);
+		if (server.tools.Debug.isWireEnabled()) {
+			server.tools.WireLog.tcpOut(wireUser(),
+					packet.getData(), packet.size());
+		}
 		synchronized(socket){
 			try {
 				socket.getOutputStream().write(packet.getData(), 0, packet.size());

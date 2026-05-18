@@ -9,6 +9,14 @@ import server.interfaces.GameServerEvent;
 public final class GamePacketReaderUDP {
 
 	public static void readPacket(DatagramPacket dp, Player pl) {
+		// Parsed in/out wire log (task #198). Gated zero-overhead:
+		// isWireEnabled() short-circuits before any format work.
+		if (server.tools.Debug.isWireEnabled()) {
+			server.tools.WireLog.udpIn(
+				pl != null && pl.getAccount() != null
+					? pl.getAccount().getUsername() : null,
+				dp.getData(), dp.getOffset(), dp.getLength());
+		}
 		GamePacketDecoderUDP pd = new UnknownClientUDPPacket(dp);
 		if (pd.read() == 0x13) {
 			// Outer 0x13 header: [counter LE][counter+sessionkey LE] = 4 bytes.

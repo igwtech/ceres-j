@@ -20,6 +20,8 @@ public final class Debug {
 	private static boolean debugEvents;
         private static boolean debugReceivedPackets;
 	private static boolean debugSubPackets;
+	/** task #198: parsed in/out wire log (the {@code wire} token). */
+	private static boolean debugWire;
 
 	public static void init() throws StartupException {
 		debugUnknownPackets = Config.debugUnknownPackets;
@@ -27,7 +29,8 @@ public final class Debug {
 		debugEvents = Config.debugEvents;
                 debugReceivedPackets = Config.debugReceivedPackets;
 		debugSubPackets = Config.debugSubPackets;
-		if (debugUnknownPackets | debugEvents | debugSendingPackets | debugReceivedPackets | debugSubPackets) {
+		debugWire = Config.debugWire;
+		if (debugUnknownPackets | debugEvents | debugSendingPackets | debugReceivedPackets | debugSubPackets | debugWire) {
 			try {
 				Out.fw_debug = new FileWriter("log" + File.separatorChar + "debug.log", true);
 			} catch (IOException e) {
@@ -39,7 +42,7 @@ public final class Debug {
 	}
 
 	public static void stopServer() {
-		if (debugUnknownPackets | debugEvents | debugSendingPackets | debugReceivedPackets | debugSubPackets) {
+		if (debugUnknownPackets | debugEvents | debugSendingPackets | debugReceivedPackets | debugSubPackets | debugWire) {
 			try {
 				Out.fw_debug.close();
 			} catch (IOException e) {
@@ -74,6 +77,21 @@ public final class Debug {
 	/** Test seam: force the flag value (only used by unit tests). */
 	static void setSubPacketsEnabledForTest(boolean v) {
 		debugSubPackets = v;
+	}
+
+	/**
+	 * True when the operator opted into the parsed in/out wire log
+	 * (task #198, {@code Debug = wire}). {@link server.tools.WireLog}
+	 * checks this <em>before</em> any string-format work so the
+	 * feature is genuinely zero-overhead when off.
+	 */
+	public static boolean isWireEnabled() {
+		return debugWire;
+	}
+
+	/** Test seam: force the wire flag value (only unit tests). */
+	public static void setWireEnabledForTest(boolean v) {
+		debugWire = v;
 	}
 
 	public static void event(GameServerEvent e, Player p) {

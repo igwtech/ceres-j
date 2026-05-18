@@ -106,6 +106,16 @@ public class GameServerUDPConnection {
 				// See docs/PROTOCOL.md "UDP Wire Encryption" for details.
 				byte[] plain = dp[i].getData();
 				int plainLen = dp[i].getLength();
+				// Parsed S→C wire log (task #198): log the finalized
+				// plaintext BEFORE the LFSR cipher, so the block shows
+				// the same framing the client decrypts to. Gated
+				// zero-overhead via isWireEnabled().
+				if (server.tools.Debug.isWireEnabled()) {
+					server.tools.WireLog.udpOut(
+						player != null && player.getAccount() != null
+							? player.getAccount().getUsername() : null,
+						plain, 0, plainLen);
+				}
 				byte[] wire = server.networktools.WireEncrypt.encrypt(plain, 0, plainLen);
 				dp[i] = new DatagramPacket(wire, wire.length);
 				dp[i].setAddress(clientaddress);
