@@ -461,3 +461,137 @@ Divergence summary:
 | `00841dc0`/`008033d0` | single-packet CHARSYS handler → event 0x6e (the live parse) |
 | `007e87d0`/`007e8930`/`007e8a20` | HUD HP/PSI/STA ticks (local timer, no net input) |
 | `007e7c00` | timer×skill delta used by the ticks |
+
+---
+
+## 6. Current-pool (damage / heal / fall) S→C path — PINNED (task #201)
+
+User ground truth: combat damage lowers current HP and heal/cure raises
+it on the **same** PSI — the server *does* push current-pool changes;
+the §2.1 "current is local-only" note covered **only the local regen
+tick** (no socket). There is a separate server-driven apply path.
+
+Scripts `tools/ghidra/REStateSync{13..19}.java`, raw dumps
+`docs/re_state_sync_dump{13..19}.txt`.
+
+### 6.1 The live pool floats (exact offsets, dump13)
+
+`FUN_007e87d0` (HP) / `FUN_007e8930` (PSI) / `FUN_007e8a20` (STA):
+
+- **HP**: working current `charsys+0x42c`; regen-rate scratch `+0x41c`;
+  HP sub-pool **buckets** `+0x3f4`/`+0x3f8`/`+0x3fc`.
+- **PSI**: current `+0x430`; rate `+0x420`; display clamp `+0x410`.
+- **STA**: current `+0x434`; rate `+0x424`; display clamp `+0x414`.
+
+The HP tick keeps the invariant `+0x3f4 = cur*0.35`,
+`+0x3f8 = cur*0.45`, `+0x3fc = cur*0.20` (sum == current HP).
+
+### 6.2 The HUD HP widget driver — `FUN_0080c660` @ `0080c660`
+
+Reads `+0x42c` (anchor) + buckets `+0x3f4/+0x3f8/+0x3fc`, sets the
+**displayed** current HP `charsys+0x40c = (+0x3f4 + +0x3f8 + +0x3fc)`
+clamped to `+0x42c`, then `(*vt+0x28)(0xb7, 10, …)` = UI event **0xb7**
+(the HP HUD widget, 5×LE16: a/b/c/total/current). Called by every pool
+apply + by the recompute `FUN_0080b8b0`.
+
+### 6.3 The runtime damage/heal apply (dump14/15/17/18)
+
+All current-pool appliers converge on the **FULLCHARSYSTEM event
+dispatcher `FUN_00803cd0` @ `0080cd0`** (vftable slot @ `0x00a54788`,
+class method — invoked indirectly):
+
+- **`case 0x93`** → `FUN_007f0f30(param_3+1, param_3+4, *(param_3+0x13))`
+  — the **damage applier** (OneShotProtection, splits damage across
+  the 3 HP buckets, subtracts, calls `FUN_0080c660`). Signature
+  `(float dmgVec[3], byte typeMask[3], char applyFlag)`.
+- **`case 0x18` / `case 0x1a`** → `FUN_007e67b0` → `FUN_0080d790` →
+  `FUN_0080ce20` → **`FUN_007fcaf0(count, ptr, size)`** = the per-stat
+  delta wire parser: `count` × **7-byte records**
+  `[op:1B][value:f32 4B][target:u16 2B]` → `FUN_008009f0(op,value,
+  target)`. The op semantics are `FUN_007f94f0`: `op 1` =
+  `field −= value` (flag 0) / `+= value` (flag≠0); `op 2` = inverse;
+  `op 3` = `*`/`/`. For `target−2000 == 2` (HP): `delta = value −
+  current(+0x40c)`; **negative ⇒ `FUN_007f5770(delta)`** (damage,
+  subtract from buckets); positive ⇒ heal accumulator `+0x404`. For
+  the PSI/STA target: negative ⇒ `FUN_007f58d0(delta)` (`+0x410`).
+- `FUN_007f5770` is the **signed HP-delta add** (heal/regen-add to the
+  3 buckets, then `FUN_0080c660`).
+
+So the wire is a **signed-delta / op-coded** channel — **not** an
+absolute set — carried inside the FULLCHARSYSTEM message stream
+(`FUN_00803cd0`).
+
+### 6.4 The absolute current-HP set — CHARSYS section 2 (dump19)
+
+`FUN_00845820(param_1=sec2 body, param_2=len)` @ `00845820`:
+`bVar1=param_1[0]`(count=4), `uVar3=param_1[1]`(stride=4),
+`puVar5=param_1+2`. Loop ×4 with `param_1 = charsys+0x41c`:
+`param_1[-4]=puVar5[0]; *param_1=puVar5[1]; puVar5+=4; param_1+=1`
+⇒ iter0 `(+0x40c=curHP, +0x41c=maxHP)`, iter1 `(+0x410=curPSI,
++0x420=maxPSI)`, iter2 `(+0x414=curSTA, +0x424=maxSTA)`, iter3
+`(+0x418,+0x428)`. **Then the next three u16 →
+`+0x3f4`/`+0x3f8`/`+0x3fc`** (the HP buckets, set ABSOLUTELY), then
+`+0x448` (synaptic, /100 → `+0x440/+0x444`), `+0x454` (soullight
+= byte−128), `+0x404` (u16).
+
+This section is delivered by the §2.4 **`LC_RESTORECHAR` (wire type
+`0x12`)** path = the reliable **`0x03/0x2c` variant `0x02`** CharInfo
+single packet → `FUN_008033d0` → `FUN_008447d0` → `FUN_00845820` →
+`FUN_0080b8b0` (recompute, runs `FUN_007e87d0` + `FUN_0080c660`).
+
+### 6.5 The exact Ceres gap (root cause of "current never reaches client")
+
+1. **`CharInfo.java` section 2** emitted the three trailing LE16
+   fields as `getMaxHealth()/getMaxPsi()/getMaxStamina()` (the #194
+   "ceiling" hypothesis). But those fields are `+0x3f4/+0x3f8/+0x3fc`
+   = the HP **buckets**, and `FUN_0080c660` displays current HP as
+   their **sum**. Emitting 3×max made the HUD show a clamped 3*max and
+   **overwrite the cur field `+0x40c`** the iter0 loop had set — so
+   `.sethp`/`.setpsi` mutated the cur slot the client immediately
+   discarded. The HUD never reflected current HP.
+2. **`Player.applyDamage`** mutated `pc.getHealth()` then sent only
+   `PoolUpdate` (`0x1f/01/00/50`) + `PoolStatusBroadcast` — both
+   per-entity carriers that do **not** drive the local HUD (memory
+   `cash_and_falldamage_subops`, `hud_pool_path_confirmed`). It never
+   sent the `0x03/0x2c` CharInfo, so combat/fall damage never repainted.
+
+### 6.6 Fix (implemented)
+
+- `CharInfo.poolBucket(cur, share)` emits section-2 `+0x3f4/+0x3f8/
+  +0x3fc` = `round(curHP*0.35 / *0.45 / *0.20)` so the
+  `FUN_0080c660` bucket sum equals the server-authoritative current
+  HP. `.sethp/.setpsi/.setsta` already route through
+  `LiveCharInfoSync` (§4.1, #194); they now land.
+- `Player.applyDamage` now also sends `LiveCharInfoSync` after the HP
+  mutation — unifying combat damage, fall damage, `die()`, admin
+  damage, and (already) heal/cure onto the one Ghidra-pinned lever.
+
+### 6.7 Open / what a live capture would confirm
+
+The signed-delta op-coded channel (§6.3, event `0x93` /
+`FUN_007fcaf0` 7-byte records) is the *runtime retail* carrier, but
+its exact **outer S→C wire opcode** (which `FUN_00803cd0`-bearing
+message: a `0x03/0x1f` sub-tag vs a CHARSYS sub-block) is **not yet
+byte-pinned** — `FUN_00803cd0` is a class vtable method with no static
+caller chain to the socket. A **retail take-damage + heal pcap**
+(decode the `0x03/0x2c` v0x02 CharInfo before/after a known HP delta,
+and capture the mid-combat S→C burst) would: (a) confirm the
+`0.35/0.45/0.20` section-2 bucket constants byte-for-byte, and
+(b) pin the runtime damage/heal opcode so it can be emitted directly
+(lower latency than a full CharInfo resync). The CharInfo-resync fix
+is correct and self-contained meanwhile (the same `FUN_008447d0` +
+`FUN_0080b8b0` parse the runtime channel feeds).
+
+### 6.8 Address index (additions)
+
+| addr | role |
+|------|------|
+| `0080c660` | HP HUD widget driver: `+0x40c = Σbuckets` clamp `+0x42c`, UI 0xb7 |
+| `007f0f30` | damage applier (FULLCHARSYSTEM event 0x93); buckets −= dmg |
+| `007f5770` | signed HP-delta add (heal/regen-add to the 3 buckets) |
+| `007f58d0` | PSI/STA `+0x410` signed-delta add |
+| `007fcaf0` | per-stat delta wire parser: N×7B `[op][f32 value][u16 target]` |
+| `008009f0` | per-stat apply: target/op → bucket or `FUN_007f5770/58d0` |
+| `007f94f0` | op table: 1=∓ 2=±(flag) 3=×/÷ (set-vs-delta semantics) |
+| `00845820` | CHARSYS section 2: cur/max loop + ABSOLUTE HP buckets +0x3f4.. |
+| `00803cd0` | FULLCHARSYSTEM dispatcher; case 0x93=damage, 0x18/0x1a=delta |

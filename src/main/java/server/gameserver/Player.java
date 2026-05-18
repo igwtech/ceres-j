@@ -321,7 +321,21 @@ public class Player extends Thread {
 				this, damage, attackerId, 0x0a));
 		} catch (Exception e) { /* ignore */ }
 
-		// 3. If dead, send death packet and schedule respawn
+		// 4. Live-CHARSYS resync (task #201). PoolUpdate (the per-entity
+		// 0x1f/01/00/50 signed delta sent above) does NOT move the local
+		// player's HUD — Ghidra-pinned: the HUD HP widget is driven by
+		// the CHARSYS section-2 bucket sum charsys+0x3f4/+0x3f8/+0x3fc
+		// via FUN_0080c660, repainted only when the CHARSYS buffer is
+		// re-parsed (FUN_00845820). The single-packet 0x03/0x2c v0x02
+		// CharInfo (LiveCharInfoSync, #194) is the only lever that runs
+		// that parse with no zone reload. Without this, combat / fall /
+		// admin damage changed pc HP server-side but the client HUD
+		// never reflected it (user-confirmed). Same lever .sethp uses.
+		try {
+			send(server.gameserver.packets.server_udp.LiveCharInfoSync.of(this));
+		} catch (Exception e) { /* ignore */ }
+
+		// 5. If dead, send death packet and schedule respawn
 		if (newHp <= 0) {
 			try {
 				send(new server.gameserver.packets.server_udp.PlayerDeath(this, attackerId));
