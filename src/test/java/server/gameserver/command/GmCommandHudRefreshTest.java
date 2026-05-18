@@ -14,7 +14,7 @@ import server.gameserver.CapturingTCPConnection;
 import server.gameserver.Player;
 import server.gameserver.command.commands.CommandPack;
 import server.gameserver.packets.server_udp.CashUpdate;
-import server.gameserver.packets.server_udp.ForcedZoning;
+import server.gameserver.packets.server_udp.CharInfo;
 import server.gameserver.packets.server_udp.PacketTestFixture;
 import server.gameserver.packets.server_udp.PoolStatusBroadcast;
 import server.gameserver.packets.server_udp.PoolUpdate;
@@ -34,9 +34,10 @@ import server.testtools.CapturingUDPConnection;
  *       ({@code 0x03/0x1f → 0x25 0x13 → 0x04}, byte-pinned by
  *       {@code CashUpdateByteIdentityTest}).</li>
  *   <li><b>changeskill</b> (registry, alias of legacy {@code !setsub})
- *       → {@link ForcedZoning} — the canonical CharInfo-redelivery
- *       lever so the client recomputes HUD pool maxes from CharInfo
- *       Section 4 (project memory {@code hud_pool_path_confirmed}).</li>
+ *       → live-CHARSYS resync ({@link CharInfo} via the pinned
+ *       {@code 0x03/0x2c} single-packet handler) so the client
+ *       re-parses Section 4 + runs FUN_0080b8b0 and recomputes HUD
+ *       pool maxes with no zone reload (task #194).</li>
  *   <li><b>.heal</b> / <b>.god</b> (legacy switch) — were the actual
  *       #186 regression: they mutated HP/PSI/STA but emitted NOTHING.
  *       Now push {@link PoolUpdate} signed deltas + a
@@ -84,10 +85,14 @@ public class GmCommandHudRefreshTest {
                 + "(before #186 audit this was the only state cmd "
                 + "wired; guard against regression)",
                 anyOfType(sent, CashUpdate.class));
+        assertTrue("givemoney must also emit the live-CHARSYS resync "
+                + "so the CASH widget repaints (Section 8 reparse, "
+                + "task #194)",
+                anyOfType(sent, CharInfo.class));
     }
 
     @Test
-    public void changeskillEmitsForcedZoning() {
+    public void changeskillEmitsLiveCharsysResync() {
         CapturingUDPConnection[] cap = new CapturingUDPConnection[1];
         Player pl = gmPlayer(Account.GM_GAMEMASTER, cap);
 
@@ -97,9 +102,11 @@ public class GmCommandHudRefreshTest {
         assertEquals(175, pl.getCharacter()
                 .getSubskillLVL(PlayerCharacter.SUBSKILL_HLT));
 
-        assertTrue("changeskill must ForcedZoning so the client "
-                + "re-requests CharInfo and recomputes HUD pools",
-                anyOfType(cap[0].received(), ForcedZoning.class));
+        assertTrue("changeskill must emit the live-CHARSYS resync "
+                + "(CharInfo via the pinned 0x03/0x2c single-packet "
+                + "handler) so the client re-parses Section 4 and "
+                + "recomputes HUD pools with no zone reload (task #194)",
+                anyOfType(cap[0].received(), CharInfo.class));
     }
 
     // ── Legacy switch commands — the actual #186 fix ─────────────────
@@ -139,6 +146,8 @@ public class GmCommandHudRefreshTest {
                 3, poolUpdates);
         assertTrue("plus a PoolStatusBroadcast snapshot",
                 anyOfType(sent, PoolStatusBroadcast.class));
+        assertTrue("plus the live-CHARSYS resync (task #194)",
+                anyOfType(sent, CharInfo.class));
     }
 
     @Test
@@ -156,5 +165,7 @@ public class GmCommandHudRefreshTest {
                 + "silent before #186)",
                 anyOfType(sent, PoolUpdate.class));
         assertTrue(anyOfType(sent, PoolStatusBroadcast.class));
+        assertTrue("plus the live-CHARSYS resync (task #194)",
+                anyOfType(sent, CharInfo.class));
     }
 }

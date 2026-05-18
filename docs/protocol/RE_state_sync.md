@@ -315,6 +315,46 @@ reach the client".
 
 ---
 
+### 2.4 The single-packet CHARSYS wire opcode — PINNED (task #194)
+
+Backward trace from `FUN_00841dc0`/`FUN_008033d0` to the wire
+(scripts `tools/ghidra/REStateSync{7..12}.java`, raw dumps
+`docs/re_state_sync_dump{7..12}.txt`):
+
+- `FUN_00841dc0` is **not** a free function reached by a UI event — it
+  is **slot 3 (offset +0xC) of the `LC_RESTORECHAR` C++ vtable @
+  `0x00a5d874`**. Siblings: slot0 `FUN_008408e0` (dtor-ish), slot1
+  `FUN_008437b0` (**serialize**: writes `*buf = 0x12` then `[len LE2]`),
+  slot2 `FUN_00842680` (**deserialize**: reads `[len LE2]` @ `buf+1`,
+  `malloc`, `memcpy(buf+3, len)` into `obj+0x18`, len → `obj+0x14`),
+  slot3 `FUN_00841dc0` (**apply**: `obj+0x18`/`obj+0x14` →
+  `FUN_008033d0` → `FUN_007ef260` + `FUN_008447d0` TLV parse + log
+  `"CHARSYS : Buffer loaded, buffer size: %i"` + `FUN_0080b8b0`
+  recompute). Ctors: `FUN_0083fde0` (`*obj = LC_RESTORECHAR::vftable`),
+  `FUN_0083fe30` (same + buffer copy).
+- The LC message factory **`FUN_00840ee0` @ `00840ee0`** switches on
+  `iVar4 = *(byte*)(wire+1) - 1`. **`case 0x11` ⇒ wire type byte
+  `0x12` ⇒ `operator_new(0x1c)` + `thunk_FUN_0083fde0` (LC_RESTORECHAR
+  ctor)**, then `(**(*obj+8))(wire+1, len-2, …)` = slot2 deserialize.
+- The LC stream is parsed by **`FUN_008420f0` @ `008420f0`** (loop:
+  `FUN_00840ee0` until buffer drained), invoked from the FULLCHARSYSTEM
+  dispatcher **`FUN_00803cd0` case `0xb4`** (length-prefixed sub-block
+  loop).
+
+**Conclusion:** the dedicated single-packet CHARSYS message is the
+**`LC_RESTORECHAR` link-control message, wire type byte `0x12`**. On
+the Ceres wire it is delivered as the reliable **`0x03/0x2c` variant
+`0x02`** CharInfo single packet (`02 01 <sections>`, body ≤ ~900 B; see
+`docs/protocol/packets/udp_s2c_03_2c.md` — 37 retail observations
+across all 17 captures, incl. mid-session `IN_WORLD`). Its apply slot
+runs the **same `FUN_008447d0` + `FUN_0080b8b0` pipeline as UI event
+`0x6e`** (§2.2) with **no zone reload** and no UI-event gating. This is
+exactly the path the user empirically confirmed (cash updates on zone
+cross = a `0x03/0x2c` CharInfo redelivery). The server lever is
+therefore: **mutate `PlayerCharacter`, then re-emit `CharInfo`**
+(`server.gameserver.packets.server_udp.LiveCharInfoSync`), no
+`ForcedZoning` splash required.
+
 ## 3. Cash
 
 Section 8 (`FUN_00846470` @ `00846470`) consumes, after a
@@ -345,13 +385,16 @@ it as `0x03/0x07` multipart with **discriminator `0x02`**
 - The disc `0x01` + 72-byte filler trick (`prependCharInfoFiller`)
   reaches event `0x13ef`, which is **not** the CHARSYS parser either —
   it is consumed as an opaque blob. Also a dead end.
-- **Fix lever (from disassembly):** deliver the CHARSYS TLV through the
-  single-packet CHARSYS handler that fires event **`0x6e`**
-  (`FUN_00841dc0`/`FUN_008033d0` chain), OR satisfy the `0xb3` gate
-  (`in_ECX[5][10] != 0`). Until then, the *only* working runtime lever
-  is the established one: mutate subskills server-side and force a full
-  CharInfo re-delivery at zone-load (`hud_pool_path_confirmed`).
-  HP/PSI/STA maxima are never directly settable at runtime (§2.1).
+- **Fix lever (PINNED, task #194 — see §2.4):** the single-packet
+  CHARSYS handler is the `LC_RESTORECHAR` message (wire type byte
+  `0x12`), delivered on the reliable `0x03/0x2c` variant `0x02`
+  CharInfo single packet. Its apply slot (`FUN_00841dc0` →
+  `FUN_008033d0`) runs `FUN_008447d0` + `FUN_0080b8b0` — the same
+  parse+recompute as event `0x6e`, with no zone reload and no gating.
+  **Server lever: mutate `PlayerCharacter` then re-emit `CharInfo`**
+  via `LiveCharInfoSync` — NOT `CharsysOnly` (disc 0x02) and NOT a
+  `ForcedZoning` splash. This supersedes the earlier "no pinned
+  server-side opcode" / `hud_pool_path_confirmed` zone-load-only note.
 
 ### 4.2 Scripted NPC create — `WorldNPCInfo.java` (Type-15 / "Corrupted")
 

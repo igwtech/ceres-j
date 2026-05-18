@@ -1,0 +1,154 @@
+======================================================
+FUNCTION FUN_008420f0 @ 008420f0
+======================================================
+
+uint FUN_008420f0(int param_1,uint param_2)
+
+{
+  short sVar1;
+  ushort uVar2;
+  undefined4 *in_ECX;
+  short sVar3;
+  uint uVar4;
+  
+  sVar1 = (short)param_2;
+  uVar4 = param_2;
+  sVar3 = sVar1;
+  while( true ) {
+    if (sVar3 == 0) {
+      thunk_FUN_00841fe0();
+      return (uint)(ushort)(sVar1 - (short)uVar4);
+    }
+    uVar2 = thunk_FUN_00840ee0(*in_ECX,param_1,uVar4,&param_2);
+    if (uVar2 == 0) break;
+    uVar4 = uVar4 - uVar2;
+    param_1 = param_1 + (uint)uVar2;
+    if (param_2 != 0) {
+      thunk_FUN_00840bf0(param_2);
+    }
+    sVar3 = (short)uVar4;
+  }
+  return uVar4 & 0xffff;
+}
+
+
+
+#### REFS TO 008420f0 ####
+  from=00412e04 UNCONDITIONAL_JUMP in thunk_FUN_008420f0@00412e04
+     via-thunk from=00806889 in FUN_00803cd0@00803cd0
+     via-thunk from=008001b7
+
+======================================================
+FUNCTION `scalar_deleting_destructor' @ 00840880
+======================================================
+
+/* Library Function - Single Match
+    public: virtual void * __thiscall MemMapReadOnly::`scalar deleting destructor'(unsigned int)
+   
+   Libraries: Visual Studio 2017 Release, Visual Studio 2019 Release */
+
+void * __thiscall MemMapReadOnly::_scalar_deleting_destructor_(MemMapReadOnly *this,uint param_1)
+
+{
+  thunk_FUN_00445560();
+  if ((param_1 & 1) != 0) {
+    thunk_FUN_009ac142(this,0x20);
+  }
+  return this;
+}
+
+
+
+#### REFS TO 008408a0 ####
+
+======================================================
+FUNCTION `scalar_deleting_destructor' @ 00840a30
+======================================================
+
+/* Library Function - Single Match
+    public: virtual void * __thiscall MemMapReadOnly::`scalar deleting destructor'(unsigned int)
+   
+   Libraries: Visual Studio 2017 Release, Visual Studio 2019 Release */
+
+void * __thiscall MemMapReadOnly::_scalar_deleting_destructor_(MemMapReadOnly *this,uint param_1)
+
+{
+  thunk_FUN_00445560();
+  if ((param_1 & 1) != 0) {
+    thunk_FUN_009ac142(this,0x20);
+  }
+  return this;
+}
+
+
+
+#### REFS TO 00840a40 ####
+
+======================================================
+FUNCTION FUN_00840bc0 @ 00840bc0
+======================================================
+
+void FUN_00840bc0(undefined4 param_1)
+
+{
+  int *in_ECX;
+  
+  if (*(char *)(*in_ECX + 0x28) != '\0') {
+    thunk_FUN_004455c0(param_1);
+    *(undefined1 *)((int)in_ECX + 0x32) = 1;
+  }
+  return;
+}
+
+
+
+#### REFS TO 00840bc0 ####
+  from=0040ff3d UNCONDITIONAL_JUMP in thunk_FUN_00840bc0@0040ff3d
+     via-thunk from=00842f5d in FUN_00842ef0@00842ef0
+     via-thunk from=00841a3b in FUN_008419d0@008419d0
+     via-thunk from=00840cae in FUN_00840c40@00840c40
+     via-thunk from=00842d75 in FUN_00842d10@00842d10
+     via-thunk from=00841aee in FUN_00841a80@00841a80
+     via-thunk from=00840b7f in FUN_00840b20@00840b20
+     via-thunk from=00842a35 in FUN_008429d0@008429d0
+     via-thunk from=00842cd5 in FUN_00842c70@00842c70
+     via-thunk from=00841995 in FUN_00841930@00841930
+     via-thunk from=00841838 in FUN_008417d0@008417d0
+     via-thunk from=00840d60 in FUN_00840cf0@00840cf0
+     via-thunk from=0084178d in FUN_00841720@00841720
+     via-thunk from=00842e18 in FUN_00842db0@00842db0
+     via-thunk from=00841632 in FUN_008415d0@008415d0
+     via-thunk from=00840e9f in FUN_00840e40@00840e40
+     via-thunk from=0084309b in FUN_00843030@00843030
+     via-thunk from=0084314e in FUN_008430e0@008430e0
+     via-thunk from=008416de in FUN_00841670@00841670
+     via-thunk from=00842c2a in FUN_00842bc0@00842bc0
+     via-thunk from=00842eaf in FUN_00842e50@00842e50
+     via-thunk from=008418f8 in FUN_00841890@00841890
+     via-thunk from=00842b85 in FUN_00842b20@00842b20
+     via-thunk from=00840e08 in FUN_00840da0@00840da0
+     via-thunk from=00842ae2 in FUN_00842a80@00842a80
+     via-thunk from=00842ffc in FUN_00842fa0@00842fa0
+
+======================================================
+FUNCTION FUN_0083f720 @ 0083f720
+======================================================
+
+void FUN_0083f720(undefined2 param_1,undefined1 param_2)
+
+{
+  undefined4 *in_ECX;
+  
+  thunk_FUN_00445530(0);
+  *(undefined2 *)(in_ECX + 4) = param_1;
+  *(undefined1 *)(in_ECX + 5) = param_2;
+  *in_ECX = LC_COMMANDACTION::vftable;
+  return;
+}
+
+
+
+#### REFS TO 0083f720 ####
+  from=0040fe66 UNCONDITIONAL_JUMP in thunk_FUN_0083f720@0040fe66
+     via-thunk from=00840e8c in FUN_00840e40@00840e40
+

@@ -9,8 +9,8 @@ import org.junit.Test;
 import server.database.accounts.Account;
 import server.database.playerCharacters.PlayerCharacter;
 import server.gameserver.packets.server_udp.CashUpdate;
+import server.gameserver.packets.server_udp.CharInfo;
 import server.gameserver.packets.server_udp.CharsysOnly;
-import server.gameserver.packets.server_udp.ForcedZoning;
 import server.gameserver.packets.server_udp.PacketTestFixture;
 import server.gameserver.packets.server_udp.PoolStatusBroadcast;
 import server.gameserver.packets.server_udp.PoolUpdate;
@@ -19,27 +19,32 @@ import server.interfaces.ServerUDPPacket;
 import server.testtools.CapturingUDPConnection;
 
 /**
- * Task #191 — every user-visible state-changing GM command must
- * exercise a client-<em>applying</em> S→C path so the mutation actually
- * reflects on the in-game HUD.
+ * Task #194 — every user-visible state-changing GM command must emit a
+ * <b>live-CHARSYS resync</b> ({@link CharInfo} via the Ghidra-pinned
+ * {@code 0x03/0x2c} variant-{@code 0x02} single-packet handler) carrying
+ * the just-mutated values, so the change repaints the in-game HUD with
+ * <b>no zone reload</b>.
  *
- * <p>The applying paths (no single-packet {@code 0x6e} CHARSYS opcode is
- * pinned in any available spec; case {@code 0xb3} is dead — project
- * memory {@code charsys_dead_code} — so the proven verified-carrier /
- * {@link ForcedZoning} fallbacks endorsed by project memory
- * {@code hud_pool_path_confirmed} and {@code cash_and_falldamage_subops}
- * are the levers):
- * <ul>
- *   <li>HP/PSI/STA → {@link PoolUpdate} + {@link PoolStatusBroadcast}</li>
- *   <li>Soullight → {@link SoullightUpdate}</li>
- *   <li>Subskill / max-HP → {@link ForcedZoning} CharInfo redelivery</li>
- *   <li>Cash → {@link CashUpdate}</li>
- * </ul>
+ * <p>Wire path pinned in {@code docs/protocol/RE_state_sync.md} +
+ * {@code docs/re_state_sync_dump{7..12}.txt}: the {@code 0x03/0x2c}
+ * v{@code 0x02} CharInfo packet is the LC message factory
+ * ({@code FUN_00840ee0}) {@code case 0x11} (wire sub-type byte
+ * {@code 0x12} = {@code LC_RESTORECHAR}, vftable @ {@code 0x00a5d874});
+ * its apply slot {@code FUN_00841dc0} → {@code FUN_008033d0} runs
+ * {@code FUN_008447d0} (CHARSYS TLV parse) + {@code FUN_0080b8b0} (HUD
+ * recompute) — byte-for-byte the same pipeline as FULLCHARSYSTEM UI
+ * event {@code 0x6e}. Empirically confirmed by the user: CharInfo
+ * redelivery is the only lever that moves the HUD mid-session (observed
+ * on zone cross, which re-sends exactly this packet).
+ *
+ * <p>The verified per-entity carriers ({@link PoolUpdate} /
+ * {@link PoolStatusBroadcast}, {@link CashUpdate},
+ * {@link SoullightUpdate}) are retained alongside (nearby-observer
+ * sync + soullight, which is TCP-only and not in any CHARSYS section).
  *
  * <p>The dead {@code 0x03/0x07} disc-{@code 0x02} multipart
- * ({@link CharsysOnly}, client UI event {@code 0xa8} = no-op QUERY) must
- * NEVER be emitted by any of these commands — that was the root cause of
- * GM commands not reaching the client.
+ * ({@link CharsysOnly}, client UI event {@code 0xa8} = no-op QUERY)
+ * must NEVER be emitted by any of these commands.
  */
 public class StateCommandApplyPathTest {
 
@@ -59,16 +64,29 @@ public class StateCommandApplyPathTest {
         return p.stream().filter(t::isInstance).count();
     }
 
+    /**
+     * Every state command must emit the live-CHARSYS resync — a
+     * {@link CharInfo} routed through the pinned single-packet handler.
+     */
+    private static void assertLiveCharsysResync(List<ServerUDPPacket> p,
+            String cmd) {
+        assertTrue(cmd + " must emit a live-CHARSYS resync (CharInfo via "
+                + "the pinned 0x03/0x2c single-packet handler that runs "
+                + "FUN_008447d0 + FUN_0080b8b0 and repaints the HUD with "
+                + "no zone reload) — task #194",
+                anyOfType(p, CharInfo.class));
+    }
+
     /** No state command may ever emit the dead disc-0x02 CHARSYS path. */
     private static void assertNoDeadCharsysPath(List<ServerUDPPacket> p) {
         assertFalse("a state command emitted the dead 0x03/0x07 "
                 + "disc-0x02 CharsysOnly path (client event 0xa8 = "
-                + "no-op QUERY, never applies) — task #191 regression",
+                + "no-op QUERY, never applies)",
                 anyOfType(p, CharsysOnly.class));
     }
 
     @Test
-    public void setHpEmitsPoolUpdateNotDeadCharsys() {
+    public void setHpEmitsLiveCharsysAndPoolUpdate() {
         CapturingUDPConnection[] cap = new CapturingUDPConnection[1];
         Player pl = gmPlayer(cap);
         PlayerCharacter pc = pl.getCharacter();
@@ -78,15 +96,16 @@ public class StateCommandApplyPathTest {
         assertEquals(25, pc.getHealth());
 
         List<ServerUDPPacket> sent = cap[0].received();
-        assertTrue(".sethp must push a PoolUpdate (retail-verified "
-                + "0x1f 01 00 50 signed delta)",
+        assertLiveCharsysResync(sent, ".sethp");
+        assertTrue(".sethp keeps the PoolUpdate carrier for observers",
                 anyOfType(sent, PoolUpdate.class));
         assertTrue(anyOfType(sent, PoolStatusBroadcast.class));
         assertNoDeadCharsysPath(sent);
+        assertCharInfoCarriesHp(sent, pl, 25);
     }
 
     @Test
-    public void setPsiEmitsPoolUpdate() {
+    public void setPsiEmitsLiveCharsys() {
         CapturingUDPConnection[] cap = new CapturingUDPConnection[1];
         Player pl = gmPlayer(cap);
 
@@ -94,13 +113,13 @@ public class StateCommandApplyPathTest {
         assertEquals(12, pl.getCharacter().getPsi());
 
         List<ServerUDPPacket> sent = cap[0].received();
+        assertLiveCharsysResync(sent, ".setpsi");
         assertTrue(anyOfType(sent, PoolUpdate.class));
-        assertTrue(anyOfType(sent, PoolStatusBroadcast.class));
         assertNoDeadCharsysPath(sent);
     }
 
     @Test
-    public void setStaEmitsPoolUpdate() {
+    public void setStaEmitsLiveCharsys() {
         CapturingUDPConnection[] cap = new CapturingUDPConnection[1];
         Player pl = gmPlayer(cap);
 
@@ -108,27 +127,31 @@ public class StateCommandApplyPathTest {
         assertEquals(33, pl.getCharacter().getStamina());
 
         List<ServerUDPPacket> sent = cap[0].received();
+        assertLiveCharsysResync(sent, ".setsta");
         assertTrue(anyOfType(sent, PoolUpdate.class));
-        assertTrue(anyOfType(sent, PoolStatusBroadcast.class));
         assertNoDeadCharsysPath(sent);
     }
 
     @Test
-    public void setSoullightEmitsSoullightUpdate() {
+    public void setSoullightEmitsSoullightUpdateAndResync() {
         CapturingUDPConnection[] cap = new CapturingUDPConnection[1];
         Player pl = gmPlayer(cap);
 
         assertTrue(AdminCommandHandler.handle(pl, ".setsl 50"));
 
         List<ServerUDPPacket> sent = cap[0].received();
+        // Soullight is TCP-only (not in any CHARSYS section), so the
+        // dedicated carrier remains the actual lever; the resync is
+        // still emitted so co-mutated state repaints.
         assertTrue(".setsl must push the verified SoullightUpdate "
                 + "carrier (0x02/0x1f → 0x25 0x1f float)",
                 anyOfType(sent, SoullightUpdate.class));
+        assertLiveCharsysResync(sent, ".setsl");
         assertNoDeadCharsysPath(sent);
     }
 
     @Test
-    public void setSubskillEmitsForcedZoning() {
+    public void setSubskillEmitsLiveCharsysNoZoneReload() {
         CapturingUDPConnection[] cap = new CapturingUDPConnection[1];
         Player pl = gmPlayer(cap);
 
@@ -138,15 +161,14 @@ public class StateCommandApplyPathTest {
                 .getSubskillLVL(PlayerCharacter.SUBSKILL_HLT));
 
         List<ServerUDPPacket> sent = cap[0].received();
-        assertTrue("!setsub must ForcedZoning so the client "
-                + "re-reads a full CharInfo and recomputes HUD pools "
-                + "(project memory hud_pool_path_confirmed)",
-                anyOfType(sent, ForcedZoning.class));
+        assertLiveCharsysResync(sent, "!setsub");
         assertNoDeadCharsysPath(sent);
+        assertCharInfoCarriesSubskill(sent, pl,
+                PlayerCharacter.SUBSKILL_HLT, 175);
     }
 
     @Test
-    public void setMaxHpEmitsForcedZoning() {
+    public void setMaxHpEmitsLiveCharsys() {
         CapturingUDPConnection[] cap = new CapturingUDPConnection[1];
         Player pl = gmPlayer(cap);
 
@@ -155,12 +177,14 @@ public class StateCommandApplyPathTest {
                 .getSubskillLVL(PlayerCharacter.SUBSKILL_HLT));
 
         List<ServerUDPPacket> sent = cap[0].received();
-        assertTrue(anyOfType(sent, ForcedZoning.class));
+        assertLiveCharsysResync(sent, "!setmaxhp");
         assertNoDeadCharsysPath(sent);
+        assertCharInfoCarriesSubskill(sent, pl,
+                PlayerCharacter.SUBSKILL_HLT, 200);
     }
 
     @Test
-    public void setCashEmitsCashUpdate() {
+    public void setCashEmitsCashUpdateAndResync() {
         CapturingUDPConnection[] cap = new CapturingUDPConnection[1];
         Player pl = gmPlayer(cap);
 
@@ -168,14 +192,15 @@ public class StateCommandApplyPathTest {
         assertEquals(123456, pl.getCharacter().getCash());
 
         List<ServerUDPPacket> sent = cap[0].received();
-        assertTrue(".setcash must push the retail-verified CashUpdate "
-                + "carrier (0x03/0x1f → 0x25 0x13 → 0x04)",
+        assertTrue(".setcash keeps the retail-verified CashUpdate carrier",
                 anyOfType(sent, CashUpdate.class));
+        assertLiveCharsysResync(sent, ".setcash");
         assertNoDeadCharsysPath(sent);
+        assertCharInfoCarriesCash(sent, pl, 123456);
     }
 
     @Test
-    public void healEmitsThreePoolUpdates() {
+    public void healEmitsThreePoolUpdatesAndResync() {
         CapturingUDPConnection[] cap = new CapturingUDPConnection[1];
         Player pl = gmPlayer(cap);
         PlayerCharacter pc = pl.getCharacter();
@@ -190,11 +215,12 @@ public class StateCommandApplyPathTest {
         assertEquals("one PoolUpdate per pool (HP/PSI/STA)",
                 3, countOfType(sent, PoolUpdate.class));
         assertTrue(anyOfType(sent, PoolStatusBroadcast.class));
+        assertLiveCharsysResync(sent, ".heal");
         assertNoDeadCharsysPath(sent);
     }
 
     @Test
-    public void godEmitsHpRefresh() {
+    public void godEmitsHpRefreshAndResync() {
         CapturingUDPConnection[] cap = new CapturingUDPConnection[1];
         Player pl = gmPlayer(cap);
         pl.getCharacter().setHealth(1);
@@ -206,6 +232,83 @@ public class StateCommandApplyPathTest {
         List<ServerUDPPacket> sent = cap[0].received();
         assertTrue(anyOfType(sent, PoolUpdate.class));
         assertTrue(anyOfType(sent, PoolStatusBroadcast.class));
+        assertLiveCharsysResync(sent, ".god");
         assertNoDeadCharsysPath(sent);
+    }
+
+    // ---------- byte-identity: the resync carries the mutated value ----
+
+    private static CharInfo firstCharInfo(List<ServerUDPPacket> p) {
+        return (CharInfo) p.stream()
+                .filter(CharInfo.class::isInstance)
+                .findFirst().orElseThrow(() ->
+                        new AssertionError("no CharInfo resync emitted"));
+    }
+
+    private static int readShortLE(byte[] a, int off) {
+        return (a[off] & 0xff) | ((a[off + 1] & 0xff) << 8);
+    }
+
+    private static int readIntLE(byte[] a, int off) {
+        return (a[off] & 0xff) | ((a[off + 1] & 0xff) << 8)
+                | ((a[off + 2] & 0xff) << 16) | ((a[off + 3] & 0xff) << 24);
+    }
+
+    /**
+     * Reflectively split the rebuilt CharInfo TLV body into section
+     * payloads — the same model {@code CharInfoContentTest} uses.
+     */
+    private static java.util.Map<Integer, byte[]> sections(CharInfo ci) {
+        try {
+            ci.newSection(0);
+            java.lang.reflect.Field cf = server.networktools
+                    .PacketBuilderUDP130307.class
+                    .getDeclaredField("complete");
+            cf.setAccessible(true);
+            byte[] data = ((java.io.ByteArrayOutputStream) cf.get(ci))
+                    .toByteArray();
+            java.util.Map<Integer, byte[]> out = new java.util.HashMap<>();
+            int pos = 3; // skip prelude 0x22 0x02 0x01
+            while (pos < data.length) {
+                int id = data[pos] & 0xff;
+                int len = (data[pos + 1] & 0xff)
+                        | ((data[pos + 2] & 0xff) << 8);
+                byte[] body = new byte[len];
+                System.arraycopy(data, pos + 3, body, 0, len);
+                out.put(id, body);
+                pos += 3 + len;
+            }
+            return out;
+        } catch (Exception e) {
+            throw new AssertionError("section split failed", e);
+        }
+    }
+
+    private static void assertCharInfoCarriesHp(List<ServerUDPPacket> p,
+            Player pl, int expectHp) {
+        byte[] sec2 = sections(firstCharInfo(p)).get(2);
+        assertNotNull("CharInfo section 2 (pools) must exist", sec2);
+        assertEquals("live-CHARSYS resync must carry the mutated HP",
+                expectHp, readShortLE(sec2, 2));
+    }
+
+    private static void assertCharInfoCarriesCash(List<ServerUDPPacket> p,
+            Player pl, int expectCash) {
+        byte[] sec8 = sections(firstCharInfo(p)).get(8);
+        assertNotNull("CharInfo section 8 (wallet) must exist", sec8);
+        // Section 8 layout: [0]=0x0a marker, [1..4]=cash LE32.
+        assertEquals("live-CHARSYS resync must carry the mutated cash",
+                expectCash, readIntLE(sec8, 1));
+    }
+
+    private static void assertCharInfoCarriesSubskill(
+            List<ServerUDPPacket> p, Player pl, int idx, int expectLvl) {
+        byte[] sec4 = sections(firstCharInfo(p)).get(4);
+        assertNotNull("CharInfo section 4 (subskills) must exist", sec4);
+        // Section 4: 4-byte header + 45 entries × (val u8, rank u8);
+        // slot index is 1-based, so entry N is at 4 + (N-1)*2.
+        int valOff = 4 + (idx - 1) * 2;
+        assertEquals("live-CHARSYS resync must carry the mutated subskill",
+                expectLvl & 0xff, sec4[valOff] & 0xff);
     }
 }
