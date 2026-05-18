@@ -17,8 +17,12 @@ import server.database.playerCharacters.PlayerCharacter;
 import server.gameserver.Player;
 import server.gameserver.Zone;
 import server.gameserver.ZoneManager;
+import server.gameserver.CapturingTCPConnection;
+import server.gameserver.packets.server_tcp.Location;
+import server.gameserver.packets.server_tcp.Packet830D;
 import server.gameserver.packets.server_udp.ChangeLocation;
 import server.gameserver.packets.server_udp.PacketTestFixture;
+import server.interfaces.ServerTCPPacket;
 import server.interfaces.ServerUDPPacket;
 import server.testtools.CapturingUDPConnection;
 
@@ -160,6 +164,74 @@ public class UseItemPortalTest {
         assertArrayEquals(
                 "pepper_p3 sewer-entrance ChangeLocation bytes",
                 expected, body);
+    }
+
+    /**
+     * FIX B (RE_tcp_confirm.md §2/§2.1/§7.3): the portal zone-change
+     * is a world change and MUST emit the TCP confirm pair
+     * {@code 0x83/0x0d} (loading UI begin) THEN {@code 0x83/0x0c}
+     * (Location: destination BSP) — in that order — or the client
+     * never runs the world-load state machine
+     * ({@code FUN_0055aa30 case '\r'/'\f' → FUN_00558950}). The
+     * retail ground truth (pcap
+     * {@code RETAIL_LIVE_p1p3_sit_npc_20260517.pcap}) is
+     * {@code t=238.352 S→C 0x83/0x0d → t=238.847 S→C 0x83/0x0c}.
+     */
+    @Test
+    public void portalZoneChangeEmits830DThen830CInOrder()
+            throws Exception {
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        installPepperP3Zone(pl);
+        CapturingUDPConnection.replaceOn(pl);
+        CapturingTCPConnection tcp = new CapturingTCPConnection();
+        pl.setTcpConnection(tcp);
+
+        new UseItem(buildBody(98304)).execute(pl); // sewer entrance
+
+        // Zone committed to the appplaces ExitWorldID (946).
+        assertEquals(946, pl.getCharacter()
+                .getMisc(PlayerCharacter.MISC_LOCATION));
+
+        // Find the 0x83/0x0d and 0x83/0x0c packets and their order.
+        int idx830D = -1, idx830C = -1;
+        java.util.List<ServerTCPPacket> tcpSent = tcp.received();
+        for (int i = 0; i < tcpSent.size(); i++) {
+            ServerTCPPacket p = tcpSent.get(i);
+            if (p instanceof Packet830D && idx830D < 0) idx830D = i;
+            if (p instanceof Location   && idx830C < 0) idx830C = i;
+        }
+        assertTrue("portal zone-change must emit 0x83/0x0d "
+                + "(Packet830D)", idx830D >= 0);
+        assertTrue("portal zone-change must emit 0x83/0x0c "
+                + "(Location)", idx830C >= 0);
+        assertTrue("0x83/0x0d MUST be sent BEFORE 0x83/0x0c "
+                + "(retail t=238.352 → t=238.847)",
+                idx830D < idx830C);
+
+        // Byte-pin the 0x83/0x0d frame: fe 04 00 83 0d 00 00
+        Packet830D begin = (Packet830D) tcpSent.get(idx830D);
+        byte[] bd = begin.getData();
+        assertEquals(0xfe, bd[0] & 0xFF);
+        assertEquals(0x04, bd[1] & 0xFF);   // len lo = 4
+        assertEquals(0x00, bd[2] & 0xFF);   // len hi
+        assertEquals(0x83, bd[3] & 0xFF);
+        assertEquals(0x0d, bd[4] & 0xFF);
+        assertEquals(0x00, bd[5] & 0xFF);
+        assertEquals(0x00, bd[6] & 0xFF);
+
+        // Byte-pin the 0x83/0x0c Location header + destination zone:
+        //   fe <len> 83 0c [zoneId LE32]=946 [LE32 0] [LE32 0] name…
+        Location loc = (Location) tcpSent.get(idx830C);
+        byte[] lc = loc.getData();
+        assertEquals(0xfe, lc[0] & 0xFF);
+        assertEquals(0x83, lc[3] & 0xFF);
+        assertEquals(0x0c, lc[4] & 0xFF);
+        // zoneId LE32 == 946 (the committed MISC_LOCATION)
+        int zoneId = (lc[5] & 0xFF) | ((lc[6] & 0xFF) << 8)
+                | ((lc[7] & 0xFF) << 16) | ((lc[8] & 0xFF) << 24);
+        assertEquals("0x83/0x0c zoneId must be the committed "
+                + "destination worldId", 946, zoneId);
     }
 
     @Test
