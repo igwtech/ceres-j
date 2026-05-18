@@ -140,14 +140,15 @@ public class CharInfoContentTest {
         // 4th-pool sentinels: 255, 255 (offsets 14..17)
         assertEquals(255, readShortLE(sec2, 14));
         assertEquals(255, readShortLE(sec2, 16));
-        // HP bar zone markers (verified retail 2026-05-01): HP_max split
-        // into 35%/45%/20% for HUD bar rendering. With max_health=300:
-        //   green = 300*7/20 = 105
-        //   yellow = 300*9/20 = 135
-        //   red    = 300*4/20 = 60
-        assertEquals(105, readShortLE(sec2, 18));
-        assertEquals(135, readShortLE(sec2, 20));
-        assertEquals(60,  readShortLE(sec2, 22));
+        // HUD pool ceilings — HP / PSI / STA (NOT HP-fraction bar
+        // colours). CHARSYS section-2 parser FUN_00845820 writes these
+        // three trailing LE16 fields to charsys+0x3f4/+0x3f8/+0x3fc,
+        // the live ceilings the HP/PSI/STA tick functions clamp the
+        // displayed pool toward (RE_state_sync.md §2.1/§2.3). With
+        // max 300/200/120:
+        assertEquals(300, readShortLE(sec2, 18));  // HP ceiling
+        assertEquals(200, readShortLE(sec2, 20));  // PSI ceiling
+        assertEquals(120, readShortLE(sec2, 22));  // STA ceiling
 
         // Synaptic byte at offset 24
         assertEquals(42, sec2[24] & 0xff);

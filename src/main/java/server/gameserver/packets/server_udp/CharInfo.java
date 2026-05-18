@@ -45,14 +45,29 @@ public class CharInfo extends PacketBuilderUDP130307 {
 		writeShort(pc.getMaxStamina()); //max stamina
 		writeShort(255); // 4th pool cur (sentinel "uncapped")
 		writeShort(255); // 4th pool max (sentinel "uncapped")
-		// HP bar zone markers (verified 2026-05-01 via 6-char differential
-		// including Dr.Stone fresh char): HP_max split into 35%/45%/20%
-		// for HUD bar rendering (green/yellow/red zones). Damaged-state
-		// formula deflates the latter two; full-HP login uses simple ratios.
-		int hpMax = pc.getMaxHealth();
-		writeShort(hpMax * 7 / 20);  // green-zone boundary (35%)
-		writeShort(hpMax * 9 / 20);  // yellow-zone boundary (45%)
-		writeShort(hpMax * 4 / 20);  // red-zone boundary (20%)
+		// HUD pool ceilings — HP / PSI / STA, in that order.
+		//
+		// These three trailing LE16 fields are NOT "HP bar colour
+		// zones": the CHARSYS section-2 parser FUN_00845820
+		// (docs/charsys_section_handlers.txt, RE_state_sync.md §2.3)
+		// reads them *after* the cur/max pair loop and writes them to
+		// charsys+0x3f4 / +0x3f8 / +0x3fc respectively — the live HUD
+		// pool ceilings that the per-frame tick functions
+		// FUN_007e87d0 (HP) / FUN_007e8930 (PSI) / FUN_007e8a20 (STA)
+		// clamp the displayed pool toward (RE_state_sync.md §2.1).
+		//
+		// Emitting fractions of HP-max here meant .sethp / .setpsi
+		// never landed on the value the HUD actually reads (the
+		// ceiling), while .setmaxhp / .setsta did — the observed
+		// asymmetry. Emitting each pool's true maximum makes the
+		// re-parsed CharInfo (LiveCharInfoSync, #194) carry a ceiling
+		// the tick converges the displayed HP/PSI/STA toward, so an
+		// admin pool change repaints with no zone reload. The cur
+		// value seeded just above (charsys+0x40c/+0x410/+0x414) is
+		// the convergence target within that ceiling.
+		writeShort(pc.getMaxHealth());   // -> charsys+0x3f4  HP ceiling
+		writeShort(pc.getMaxPsi());      // -> charsys+0x3f8  PSI ceiling
+		writeShort(pc.getMaxStamina());  // -> charsys+0x3fc  STA ceiling
 		write(pc.getSynaptic()); // synaptic impairment cap (= 100 normally)
 		write(128); // unknown constant — possibly runspeed cap
 		write(0);
