@@ -45,29 +45,44 @@ public class CharInfo extends PacketBuilderUDP130307 {
 		writeShort(pc.getMaxStamina()); //max stamina
 		writeShort(255); // 4th pool cur (sentinel "uncapped")
 		writeShort(255); // 4th pool max (sentinel "uncapped")
-		// HUD pool ceilings — HP / PSI / STA, in that order.
+		// HUD CURRENT-HP bucket split (task #201, Ghidra-pinned).
 		//
-		// These three trailing LE16 fields are NOT "HP bar colour
-		// zones": the CHARSYS section-2 parser FUN_00845820
-		// (docs/charsys_section_handlers.txt, RE_state_sync.md §2.3)
-		// reads them *after* the cur/max pair loop and writes them to
-		// charsys+0x3f4 / +0x3f8 / +0x3fc respectively — the live HUD
-		// pool ceilings that the per-frame tick functions
-		// FUN_007e87d0 (HP) / FUN_007e8930 (PSI) / FUN_007e8a20 (STA)
-		// clamp the displayed pool toward (RE_state_sync.md §2.1).
+		// RE_state_sync.md section 6, docs/re_state_sync_dump{13,14,19}.
+		// The CHARSYS section-2 parser FUN_00845820 @ 0x00845820 reads
+		// these three trailing LE16 fields after the cur/max pair loop
+		// and writes them to charsys+0x3f4 / +0x3f8 / +0x3fc. Those
+		// three floats are the HP sub-pool BUCKETS, NOT pool ceilings.
+		// The HUD HP widget is repainted by FUN_0080c660 @ 0x0080c660,
+		// which sets the displayed current HP charsys+0x40c =
+		// (+0x3f4 + +0x3f8 + +0x3fc) clamped to the regen anchor
+		// charsys+0x42c, then emits UI event 0xb7. The local HP regen
+		// tick FUN_007e87d0 @ 0x007e87d0 keeps the same invariant:
+		// +0x3f4=cur*0.35, +0x3f8=cur*0.45, +0x3fc=cur*0.20 (sum=cur).
 		//
-		// Emitting fractions of HP-max here meant .sethp / .setpsi
-		// never landed on the value the HUD actually reads (the
-		// ceiling), while .setmaxhp / .setsta did — the observed
-		// asymmetry. Emitting each pool's true maximum makes the
-		// re-parsed CharInfo (LiveCharInfoSync, #194) carry a ceiling
-		// the tick converges the displayed HP/PSI/STA toward, so an
-		// admin pool change repaints with no zone reload. The cur
-		// value seeded just above (charsys+0x40c/+0x410/+0x414) is
-		// the convergence target within that ceiling.
-		writeShort(pc.getMaxHealth());   // -> charsys+0x3f4  HP ceiling
-		writeShort(pc.getMaxPsi());      // -> charsys+0x3f8  PSI ceiling
-		writeShort(pc.getMaxStamina());  // -> charsys+0x3fc  STA ceiling
+		// The prior #194 code emitted each pool MAXIMUM here, so
+		// FUN_0080c660 summed 3*max and the HUD never reflected
+		// .sethp / damage / heal / fall-damage current-HP changes
+		// (the cur field at +0x40c is overwritten by the bucket sum
+		// in the recompute). Emitting the server-authoritative current
+		// HP split 0.35/0.45/0.20 makes the re-parsed CharInfo
+		// (LiveCharInfoSync, #194) carry a bucket sum == current HP,
+		// so the HUD repaints with no zone reload. This is the same
+		// charsys+0x3f4/+0x3f8/+0x3fc that the runtime damage applier
+		// FULLCHARSYSTEM event 0x93 (FUN_007f0f30 @ 0x007f0f30) and
+		// the per-stat signed-delta channel FUN_007fcaf0/FUN_008009f0
+		// (7-byte records [op:1][value:f32][target:u16], op semantics
+		// FUN_007f94f0) mutate at runtime.
+		//
+		// LIMITATION (documented, not guessed): PSI and STA have their
+		// own bucket layout the RE has not yet fully split; the client
+		// reads only the HP triple here (FUN_00845820 writes exactly
+		// +0x3f4/+0x3f8/+0x3fc). PSI/STA current still ride the cur/max
+		// loop above (+0x410/+0x414). A retail take-damage + heal pcap
+		// (0x03/0x2c v0x02 before/after a known HP delta) would confirm
+		// the exact 0.35/0.45/0.20 retail constants byte-for-byte.
+		writeShort(poolBucket(pc.getHealth(),  0.35f)); // -> charsys+0x3f4
+		writeShort(poolBucket(pc.getHealth(),  0.45f)); // -> charsys+0x3f8
+		writeShort(poolBucket(pc.getHealth(),  0.20f)); // -> charsys+0x3fc
 		write(pc.getSynaptic()); // synaptic impairment cap (= 100 normally)
 		write(128); // unknown constant — possibly runspeed cap
 		write(0);
@@ -218,5 +233,36 @@ public class CharInfo extends PacketBuilderUDP130307 {
 		write(0);
 		write(0);
 		writeInt(pc.getMisc(pc.MISC_ID)); // UID LE32 — same as S1
+	}
+
+	/**
+	 * One CHARSYS section-2 HP sub-pool bucket (task #201).
+	 *
+	 * <p>The client parser {@code FUN_00845820} reads three trailing
+	 * LE16 fields into {@code charsys+0x3f4/+0x3f8/+0x3fc}, and the HUD
+	 * recompute {@code FUN_0080c660} displays current HP as their sum
+	 * (clamped to the regen anchor). To make the HUD show {@code cur}
+	 * the three buckets must sum to {@code cur}; the engine maintains
+	 * the split 0.35/0.45/0.20 (see the HP regen tick
+	 * {@code FUN_007e87d0}). {@code Math.round} keeps the rounded sum
+	 * equal to {@code cur} for typical values; any rounding residue is
+	 * absorbed by the {@code 0.45} bucket being the largest term.
+	 *
+	 * @param cur   current pool value (already server-authoritative)
+	 * @param share bucket fraction (0.35f, 0.45f or 0.20f)
+	 * @return clamped LE16 bucket value (0..65535)
+	 */
+	static int poolBucket(int cur, float share) {
+		if (cur <= 0) {
+			return 0;
+		}
+		int v = Math.round(cur * share);
+		if (v < 0) {
+			v = 0;
+		}
+		if (v > 0xFFFF) {
+			v = 0xFFFF;
+		}
+		return v;
 	}
 }

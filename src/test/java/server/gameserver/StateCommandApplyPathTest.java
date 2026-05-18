@@ -286,18 +286,20 @@ public class StateCommandApplyPathTest {
         }
     }
 
-    // CHARSYS section-2 parser FUN_00845820 (RE_state_sync.md §2.3):
+    // CHARSYS section-2 parser FUN_00845820 (RE_state_sync.md
+    // sections 2.3 + 6, task #201):
     //   cur/max pairs:  HP @2/4, PSI @6/8, STA @10/12
-    //   trailing HUD pool CEILINGS: HP @18, PSI @20, STA @22
-    //     -> charsys+0x3f4 / +0x3f8 / +0x3fc, the values the HP/PSI/STA
-    //        tick functions (FUN_007e87d0/8930/8a20, §2.1) clamp the
-    //        displayed pool toward. This is the slot the client
-    //        actually reads for the pool — the .sethp/.setpsi-vs-.setsta
-    //        asymmetry was that the ceilings were emitted as fractions
-    //        of HP-max, never the mutated pool value.
-    private static final int SEC2_HP_CUR = 2,  SEC2_HP_CEIL = 18;
-    private static final int SEC2_PSI_CUR = 6, SEC2_PSI_CEIL = 20;
-    private static final int SEC2_STA_CUR = 10, SEC2_STA_CEIL = 22;
+    //   trailing HP BUCKET triple @18/20/22 -> charsys+0x3f4/+0x3f8/
+    //     +0x3fc. FUN_0080c660 shows current HP as the SUM of these
+    //     three, clamped to the regen anchor charsys+0x42c. They are
+    //     the current-HP split 0.35/0.45/0.20 (the HP regen tick
+    //     FUN_007e87d0 maintains the same invariant) -- NOT pool
+    //     ceilings. The earlier #194 "ceiling = max" model is
+    //     superseded; emitting max made the HUD sum 3*max and never
+    //     reflect .sethp / damage / heal.
+    private static final int SEC2_HP_CUR = 2,  SEC2_HP_B0 = 18;
+    private static final int SEC2_PSI_CUR = 6, SEC2_HP_B1 = 20;
+    private static final int SEC2_STA_CUR = 10, SEC2_HP_B2 = 22;
 
     private static void assertCharInfoCarriesHp(List<ServerUDPPacket> p,
             Player pl, int expectHp) {
@@ -306,13 +308,17 @@ public class StateCommandApplyPathTest {
         assertEquals("live-CHARSYS resync must carry the mutated HP "
                 + "as the section-2 cur field",
                 expectHp, readShortLE(sec2, SEC2_HP_CUR));
-        // The HUD reads the ceiling (charsys+0x3f4) for the HP pool;
-        // it must be the true max, not a fraction of HP-max, so the
-        // tick clamps toward a real maximum (RE_state_sync §2.1/§2.3).
-        assertEquals("HP ceiling slot must carry max HP, not an "
-                + "HP-fraction (the .sethp asymmetry root cause)",
-                pl.getCharacter().getMaxHealth(),
-                readShortLE(sec2, SEC2_HP_CEIL));
+        // The HUD HP widget (FUN_0080c660) shows the SUM of the
+        // three section-2 buckets @18/20/22 (charsys+0x3f4/+0x3f8/
+        // +0x3fc). They must sum to the mutated current HP so .sethp
+        // / damage / heal actually repaint the HUD (task #201).
+        int hpSum = readShortLE(sec2, SEC2_HP_B0)
+                + readShortLE(sec2, SEC2_HP_B1)
+                + readShortLE(sec2, SEC2_HP_B2);
+        org.junit.Assert.assertTrue("section-2 HP bucket sum (" + hpSum
+                + ") must equal the mutated current HP (" + expectHp
+                + ") -- the .sethp/damage/heal HUD lever, task #201",
+                Math.abs(hpSum - expectHp) <= 2);
     }
 
     private static void assertCharInfoCarriesPsi(List<ServerUDPPacket> p,
@@ -321,10 +327,9 @@ public class StateCommandApplyPathTest {
         assertNotNull("CharInfo section 2 (pools) must exist", sec2);
         assertEquals("live-CHARSYS resync must carry the mutated PSI",
                 expectPsi, readShortLE(sec2, SEC2_PSI_CUR));
-        assertEquals("PSI ceiling slot (charsys+0x3f8) must carry max "
-                + "PSI, not an HP-fraction",
-                pl.getCharacter().getMaxPsi(),
-                readShortLE(sec2, SEC2_PSI_CEIL));
+        // PSI current rides the cur/max loop slot (charsys+0x410);
+        // the client parser FUN_00845820 writes only the HP triple to
+        // the @18/20/22 buckets, so PSI is asserted via its cur field.
     }
 
     private static void assertCharInfoCarriesSta(List<ServerUDPPacket> p,
@@ -333,10 +338,9 @@ public class StateCommandApplyPathTest {
         assertNotNull("CharInfo section 2 (pools) must exist", sec2);
         assertEquals("live-CHARSYS resync must carry the mutated STA",
                 expectSta, readShortLE(sec2, SEC2_STA_CUR));
-        assertEquals("STA ceiling slot (charsys+0x3fc) must carry max "
-                + "STA, not an HP-fraction",
-                pl.getCharacter().getMaxStamina(),
-                readShortLE(sec2, SEC2_STA_CEIL));
+        // STA current rides the cur/max loop slot (charsys+0x414);
+        // FUN_00845820 writes only the HP triple to @18/20/22, so STA
+        // is asserted via its cur field.
     }
 
     private static void assertCharInfoCarriesCash(List<ServerUDPPacket> p,

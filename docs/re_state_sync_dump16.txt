@@ -1,0 +1,6 @@
+#### ALL refs to FUN_00803cd0 (incl data = vtable slot) ####
+ from=0040d418 UNCONDITIONAL_JUMP in thunk_FUN_00803cd0@0040d418
+
+#### data-ref addresses (vftable slots) — dump 0x20 bytes around each ####
+
+#### non-thunk caller functions of FUN_00803cd0 ####

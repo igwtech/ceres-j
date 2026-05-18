@@ -140,15 +140,17 @@ public class CharInfoContentTest {
         // 4th-pool sentinels: 255, 255 (offsets 14..17)
         assertEquals(255, readShortLE(sec2, 14));
         assertEquals(255, readShortLE(sec2, 16));
-        // HUD pool ceilings — HP / PSI / STA (NOT HP-fraction bar
-        // colours). CHARSYS section-2 parser FUN_00845820 writes these
-        // three trailing LE16 fields to charsys+0x3f4/+0x3f8/+0x3fc,
-        // the live ceilings the HP/PSI/STA tick functions clamp the
-        // displayed pool toward (RE_state_sync.md §2.1/§2.3). With
-        // max 300/200/120:
-        assertEquals(300, readShortLE(sec2, 18));  // HP ceiling
-        assertEquals(200, readShortLE(sec2, 20));  // PSI ceiling
-        assertEquals(120, readShortLE(sec2, 22));  // STA ceiling
+        // HUD CURRENT-HP bucket split (task #201). CHARSYS section-2
+        // parser FUN_00845820 writes these three trailing LE16 fields
+        // to charsys+0x3f4/+0x3f8/+0x3fc; FUN_0080c660 displays current
+        // HP as their SUM (RE_state_sync.md section 6). They must
+        // therefore carry the current-HP split 0.35/0.45/0.20, not the
+        // maxima. With cur HP = 250: round(250*0.35)=88,
+        // round(250*0.45)=113, round(250*0.20)=50 (sum 251; rounding
+        // residue documented in CharInfo.poolBucket).
+        assertEquals(88,  readShortLE(sec2, 18));  // -> charsys+0x3f4
+        assertEquals(113, readShortLE(sec2, 20));  // -> charsys+0x3f8
+        assertEquals(50,  readShortLE(sec2, 22));  // -> charsys+0x3fc
 
         // Synaptic byte at offset 24
         assertEquals(42, sec2[24] & 0xff);
@@ -321,4 +323,104 @@ public class CharInfoContentTest {
         byte[] sec9 = sections.get(9);
         assertEquals(1234.5f, readFloatLE(sec9, 5 + 7 * 4), 0.0f);
     }
+
+    // ---------- task #201: current-pool HUD bucket split ----------
+
+    /**
+     * Functional: .sethp-style mutation flows into the section-2 HP
+     * bucket triple. The HUD HP widget (FUN_0080c660) shows the bucket
+     * SUM, so a server-set current HP of N must produce buckets summing
+     * to ~N. Verifies the gap fixed in task #201 (previously the triple
+     * carried max, so the HUD never reflected current HP changes).
+     */
+    @Test
+    public void testSetHpFlowsIntoSection2Buckets() throws Exception {
+        PlayerCharacter pc = newCharacter();
+        pc.setMaxHealth(800);
+        pc.setHealth(640);   // server-authoritative current (e.g. .sethp 640)
+
+        Player p = buildPlayer(pc);
+        Map<Integer, byte[]> sections = extractSections(new CharInfo(p));
+        byte[] sec2 = sections.get(2);
+
+        int b0 = readShortLE(sec2, 18);
+        int b1 = readShortLE(sec2, 20);
+        int b2 = readShortLE(sec2, 22);
+        // exact split constants 0.35 / 0.45 / 0.20
+        assertEquals(Math.round(640 * 0.35f), b0);
+        assertEquals(Math.round(640 * 0.45f), b1);
+        assertEquals(Math.round(640 * 0.20f), b2);
+        // HUD-visible value (FUN_0080c660 sum) approximates current HP
+        assertEquals(640, b0 + b1 + b2, 2);
+        // and is NOT the old (broken) 3*max behaviour
+        org.junit.Assert.assertNotEquals(800, b0);
+        org.junit.Assert.assertNotEquals(800 * 3, b0 + b1 + b2);
+    }
+
+    /**
+     * Functional: lowering current HP (combat/fall damage) lowers the
+     * bucket sum; raising it (heal/cure) raises it. Same emitter, same
+     * section-2 triple — the unified lever of task #201.
+     */
+    @Test
+    public void testDamageThenHealMovesBucketSum() throws Exception {
+        PlayerCharacter pc = newCharacter();
+        pc.setMaxHealth(500);
+
+        pc.setHealth(500);
+        byte[] full = extractSections(new CharInfo(buildPlayer(pc))).get(2);
+        int sumFull = readShortLE(full,18)+readShortLE(full,20)+readShortLE(full,22);
+
+        pc.setHealth(120);  // took 380 damage
+        byte[] hurt = extractSections(new CharInfo(buildPlayer(pc))).get(2);
+        int sumHurt = readShortLE(hurt,18)+readShortLE(hurt,20)+readShortLE(hurt,22);
+
+        pc.setHealth(300);  // healed back up
+        byte[] healed = extractSections(new CharInfo(buildPlayer(pc))).get(2);
+        int sumHeal = readShortLE(healed,18)+readShortLE(healed,20)+readShortLE(healed,22);
+
+        org.junit.Assert.assertTrue("damage lowers HUD bucket sum", sumHurt < sumFull);
+        org.junit.Assert.assertTrue("heal raises HUD bucket sum",  sumHeal > sumHurt);
+        assertEquals(500, sumFull, 2);
+        assertEquals(120, sumHurt, 2);
+        assertEquals(300, sumHeal, 2);
+    }
+
+    /**
+     * Byte-identity: the section-2 trailing triple is exactly the
+     * 0.35/0.45/0.20 split of current HP, little-endian u16, at the
+     * fixed offsets 18/20/22 the client parser FUN_00845820 reads.
+     */
+    @Test
+    public void testSection2BucketByteIdentity() throws Exception {
+        PlayerCharacter pc = newCharacter();
+        pc.setMaxHealth(1000);
+        pc.setHealth(733);
+
+        Player p = buildPlayer(pc);
+        byte[] sec2 = extractSections(new CharInfo(p)).get(2);
+
+        int e0 = Math.round(733 * 0.35f);
+        int e1 = Math.round(733 * 0.45f);
+        int e2 = Math.round(733 * 0.20f);
+        assertEquals(e0 & 0xff, sec2[18] & 0xff);
+        assertEquals((e0 >> 8) & 0xff, sec2[19] & 0xff);
+        assertEquals(e1 & 0xff, sec2[20] & 0xff);
+        assertEquals((e1 >> 8) & 0xff, sec2[21] & 0xff);
+        assertEquals(e2 & 0xff, sec2[22] & 0xff);
+        assertEquals((e2 >> 8) & 0xff, sec2[23] & 0xff);
+    }
+
+    /** poolBucket helper edge cases (clamp, zero, rounding). */
+    @Test
+    public void testPoolBucketHelper() {
+        assertEquals(0,   CharInfo.poolBucket(0,    0.35f));
+        assertEquals(0,   CharInfo.poolBucket(-50,  0.45f));
+        assertEquals(35,  CharInfo.poolBucket(100,  0.35f));
+        assertEquals(45,  CharInfo.poolBucket(100,  0.45f));
+        assertEquals(20,  CharInfo.poolBucket(100,  0.20f));
+        // clamp to u16 max
+        assertEquals(0xFFFF, CharInfo.poolBucket(1_000_000, 0.35f));
+    }
+
 }
