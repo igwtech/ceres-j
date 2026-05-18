@@ -59,6 +59,76 @@ The dispatch loop (`FUN_004b8fb0` @ `004b8fb0`, `FUN_00558950` @
 while (FUN_004b8cd0(&desc)) FUN_00541f20(&desc);
 ```
 
+### 0.3 The full framing chain — pinned end to end (task #190)
+
+The receive→enqueue→dequeue chain is now disassembly-complete
+(dumps `docs/re_framing_dump{,2,3}.txt`):
+
+1. **`FUN_0055f5a0` @ `0055f5a0`** (WINSOCKMGR receive). After
+   `FUN_0055f260`/`FUN_0055ff30` decrypt the datagram into one
+   contiguous plaintext of length `iVar2`, it calls
+   `FUN_0055ec10(station, addr, idx, param_4=&plain[0],
+   param_5=iVar2, …)`. **`param_4` = the whole datagram,
+   `param_5` = its total decrypted length.**
+2. **`FUN_0055ec10` @ `0055ec10`** `switch(*param_4)`. The
+   in-game gamedata datagram's byte 0 is `0x13` (`> 0x0E`) →
+   `default:` → builds the 12-byte descriptor
+   `{ [0]=param_5, [1]=param_4, [2]=channel }`, applies
+   `*param_4 -= 0x0F`, and calls `(*(in_ECX+0x1060))` →
+   `FUN_004b8f00`.
+3. **`FUN_004b8f00` @ `004b8f00`** calls a vtable pre-handler
+   `(*(in_ECX-0x10)+0x10)(chan,desc)` — **the 0x13 sub-splitter**
+   (a C++ virtual call; statically unresolvable, but its output
+   contract is fully fixed by the two endpoints below). If it
+   handles the datagram it returns non-zero; otherwise the raw
+   datagram is enqueued via `FUN_004b7190`.
+4. **`FUN_004b7190` @ `004b7190`** (ClientNetBuffer enqueue):
+   `_Size=param_1[0]`, `_Src=param_1[1]`; writes
+   `[_Size LE4][channel 1B][_Src, _Size bytes]` then a trailing
+   `0` sentinel.
+5. **`FUN_004b8cd0`** dequeues exactly that and
+   **`FUN_00541f20`** does `switch(body[0])`, printing
+   `Corrupted Message Type:%i, Size:%i` (= `body[0]`, `_Size`)
+   in `default:`.
+
+**The wire→message contract (retail ground truth,
+`docs/retail_decoded_burst.txt` + the canonical reference parser
+`tools/npc-lifecycle.py`, both verified 2026-05-17):**
+
+```
+13 [octr LE2] [octr+sk LE2]
+( [subLen LE2] [0x03] [seq LE2] [op] [data] )+
+   subLen == len([0x03][seq LE2][op][data])  (= 3 + 1 + len(data))
+```
+
+The splitter strips the reliable `[0x03][seq LE2]`; the enqueued
+application message is **`body = [op][data]`, `_Size = subLen - 3`,
+`body[0] = op`**. This is exactly what the catalog records as a
+packet's "inner data" (e.g. `udp_s2c_03_28` samples begin with the
+`0x28` sub-op).
+
+**Off-by-N verdict (the strong lead, RESOLVED):** the hypothesis
+that Ceres' `_Size` is 3 bytes too long because it "includes
+`[0x03][seq]`" is **disproven**. `PacketBuilderUDP13.subLen =
+tmp_count - sizeposition - 2` counts precisely
+`[0x03][seq LE2][op][data]`, and the client derives the message
+size as `subLen - 3` — i.e. Ceres' `subLen` *must* include the
+3-byte reliable header (so the splitter knows the sub's span), and
+the client correctly excludes it from `_Size`. Ceres' single-sub,
+multi-sub, and `0x03/0x07` multipart wire is **byte-identical to
+retail framing**, proven by `ClientFrameDecoderTest` (a byte-exact
+model of steps 3–5 run against the real Ceres builders): every
+dequeued message has `size == body.length` and `body[0] == the
+intended opcode`, including a deliberately-buried interior `0x0F`
+that is correctly read as *data*, never as a Type.
+
+**Consequence for "Corrupted Message Type:15":** it is **not** a
+generic frame-length defect in the reliable/multipart builders.
+Per §1/§4.2 it is a *body-content* problem (the WWORLDMGR Type
+byte the server places at `body[0]`, or a per-record length inside
+a Type-0x1E/0x28 body), not the `subLen`/`[0x03][seq]`/multipart
+framing — that layer is now pinned correct and regression-locked.
+
 ---
 
 ## 1. WWORLDMGR message dispatcher — `FUN_00541f20` @ `00541f20`
