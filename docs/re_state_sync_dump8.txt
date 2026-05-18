@@ -1,0 +1,467 @@
+######################################################
+# REFS TO thunk 00411c9d
+######################################################
+  from=00a5d880 type=DATA block=.rdata inFunc=<data>
+    --- ptr-table window around 00a5d880 ---
+    slot[-40] 00a5d7e0 -> 00ac52e8 
+    slot[-39] 00a5d7e4 -> 004129c2 thunk_FUN_00840760
+    slot[-38] 00a5d7e8 -> 0040c9a0 thunk_FUN_00843b10
+    slot[-37] 00a5d7ec -> 004068cf thunk_FUN_00842330
+    slot[-36] 00a5d7f0 -> 004137ff thunk_FUN_00841c00
+    slot[-35] 00a5d7f4 -> 00000000 
+    slot[-34] 00a5d7f8 -> 00ac5354 
+    slot[-33] 00a5d7fc -> 00407c7f thunk_FUN_00840820
+    slot[-32] 00a5d800 -> 004117a2 thunk_FUN_00843620
+    slot[-31] 00a5d804 -> 0040436d thunk_FUN_00842510
+    slot[-30] 00a5d808 -> 0040bc62 thunk_FUN_00841ce0
+    slot[-29] 00a5d80c -> 00000000 
+    slot[-28] 00a5d810 -> 00ac53b8 
+    slot[-27] 00a5d814 -> 0040a29f thunk_FUN_008406a0
+    slot[-26] 00a5d818 -> 00405123 thunk_FUN_00843380
+    slot[-25] 00a5d81c -> 00415c53 thunk_FUN_00842270
+    slot[-24] 00a5d820 -> 0040b3a2 thunk_FUN_00841b90
+    slot[-23] 00a5d824 -> 00000000 
+    slot[-22] 00a5d828 -> 00ac541c 
+    slot[-21] 00a5d82c -> 0040630c thunk_FUN_008409d0
+    slot[-20] 00a5d830 -> 0040d391 thunk_FUN_00843940
+    slot[-19] 00a5d834 -> 0041488f thunk_FUN_00842820
+    slot[-18] 00a5d838 -> 0040b8a7 thunk_FUN_00841eb0
+    slot[-17] 00a5d83c -> 00000000 
+    slot[-16] 00a5d840 -> 00ac5480 
+    slot[-15] 00a5d844 -> 00402725 thunk_FUN_008406d0
+    slot[-14] 00a5d848 -> 0040d40e thunk_FUN_008433d0
+    slot[-13] 00a5d84c -> 0040b8ed thunk_FUN_008422c0
+    slot[-12] 00a5d850 -> 00414614 thunk_FUN_00841bc0
+    slot[-11] 00a5d854 -> 00000000 
+    slot[-10] 00a5d858 -> 00ac54e4 
+    slot[ -9] 00a5d85c -> 0041442a thunk_FUN_008407c0
+    slot[ -8] 00a5d860 -> 004049b7 thunk_FUN_00843540
+    slot[ -7] 00a5d864 -> 0040b88e thunk_FUN_00842420
+    slot[ -6] 00a5d868 -> 0040d5cb thunk_FUN_00841c80
+    slot[ -5] 00a5d86c -> 00000000 
+    slot[ -4] 00a5d870 -> 00ac5548 
+    slot[ -3] 00a5d874 -> 0041159a thunk_FUN_008408e0
+    slot[ -2] 00a5d878 -> 0040164a thunk_FUN_008437b0
+    slot[ -1] 00a5d87c -> 00406cd0 thunk_FUN_00842680
+    slot[ +0] 00a5d880 -> 00411c9d thunk_FUN_00841dc0  <== thunk_FUN_00841dc0 HERE
+    slot[ +1] 00a5d884 -> 00000000 
+    slot[ +2] 00a5d888 -> 00ac55ac 
+    slot[ +3] 00a5d88c -> 00415947 thunk_FUN_00840940
+    slot[ +4] 00a5d890 -> 004102bc thunk_FUN_00843860
+    slot[ +5] 00a5d894 -> 0040afba thunk_FUN_00842740
+    slot[ +6] 00a5d898 -> 004150be thunk_FUN_00841e20
+    slot[ +7] 00a5d89c -> 00000000 
+    slot[ +8] 00a5d8a0 -> 00ac5610 
+    slot[ +9] 00a5d8a4 -> 0040416f thunk_FUN_008407f0
+    slot[+10] 00a5d8a8 -> 0041270b thunk_FUN_00843590
+    slot[+11] 00a5d8ac -> 004093a9 thunk_FUN_00842470
+    slot[+12] 00a5d8b0 -> 0040da8a thunk_FUN_00841cb0
+    slot[+13] 00a5d8b4 -> 00000000 
+    slot[+14] 00a5d8b8 -> 435f5343 
+    slot[+15] 00a5d8bc -> 204c444d 
+    slot[+16] 00a5d8c0 -> 7277203a 
+    slot[+17] 00a5d8c4 -> 20676e6f 
+    slot[+18] 00a5d8c8 -> 20646d63 
+    slot[+19] 00a5d8cc -> 25206469 
+    slot[+20] 00a5d8d0 -> 65202c69 
+    slot[+21] 00a5d8d4 -> 63657078 
+    slot[+22] 00a5d8d8 -> 20646574 
+    slot[+23] 00a5d8dc -> 00006925 
+    slot[+24] 00a5d8e0 -> 00000000 
+    slot[+25] 00a5d8e4 -> 00000000 
+    slot[+26] 00a5d8e8 -> 435f5343 
+    slot[+27] 00a5d8ec -> 204c444d 
+    slot[+28] 00a5d8f0 -> 6c6f203a 
+    slot[+29] 00a5d8f4 -> 20726564 
+    slot[+30] 00a5d8f8 -> 20646d63 
+    slot[+31] 00a5d8fc -> 20646928 
+    slot[+32] 00a5d900 -> 20296925 
+    slot[+33] 00a5d904 -> 656c6564 
+    slot[+34] 00a5d908 -> 00646574 (code)
+    slot[+35] 00a5d90c -> 00000000 
+    slot[+36] 00a5d910 -> 00000000 
+    slot[+37] 00a5d914 -> 00ac5674 
+    slot[+38] 00a5d918 -> 0040f795 thunk_FUN_00843e10
+    slot[+39] 00a5d91c -> 00000000 
+    slot[+40] 00a5d920 -> 545f5343 
+    => inferred vtable base = 00a5d874 ; thunk at slot index 3
+
+######################################################
+# REFS TO vtable base 00a5d874
+######################################################
+  from=0083fe01 type=DATA inFunc=FUN_0083fde0@0083fde0
+  from=0083fe78 type=DATA inFunc=FUN_0083fe30@0083fe30
+  from=008405d6 type=DATA inFunc=FUN_008405d0@008405d0
+======================================================
+FUNCTION FUN_004b8f00 @ 004b8f00
+======================================================
+
+undefined4 FUN_004b8f00(undefined4 param_1,undefined4 param_2)
+
+{
+  char cVar1;
+  int in_ECX;
+  
+  cVar1 = (**(code **)(*(int *)(in_ECX + -0x10) + 0x10))(param_1,param_2);
+  if (cVar1 != '\0') {
+    return 1;
+  }
+  thunk_FUN_004b7190(param_2);
+  return 0;
+}
+
+
+
+======================================================
+FUNCTION FUN_00558950 @ 00558950
+======================================================
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4 FUN_00558950(void)
+
+{
+  int *piVar1;
+  char cVar2;
+  undefined2 uVar3;
+  undefined4 uVar4;
+  int iVar5;
+  int iVar6;
+  int in_ECX;
+  undefined4 local_27c;
+  undefined1 *local_278;
+  int local_274;
+  undefined4 local_270;
+  undefined1 *local_26c;
+  undefined1 local_264;
+  undefined2 local_263;
+  undefined4 local_261;
+  undefined1 uStack_25d;
+  char cStack_25c;
+  undefined2 uStack_25b;
+  undefined4 uStack_259;
+  undefined4 uStack_255;
+  undefined1 local_1fc [500];
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  if (*(char *)(in_ECX + 0x145) == '\0') {
+    if (*(char *)(in_ECX + 0x164) != '\0') {
+      local_264 = 0x18;
+      local_263 = 0xd;
+      local_261._1_3_ = (undefined3)*(undefined4 *)(in_ECX + 0x2b4);
+      local_261 = CONCAT31(local_261._1_3_,*(undefined1 *)(in_ECX + 0x2dc));
+      uStack_25d = (undefined1)((uint)*(undefined4 *)(in_ECX + 0x2b4) >> 0x18);
+      uStack_259 = *(undefined4 *)(in_ECX + 0x150);
+      uStack_255 = *(undefined4 *)(in_ECX + 0x15c);
+      cStack_25c = *(char *)(in_ECX + 0x149);
+      if (cStack_25c == '\0') {
+        iVar6 = *(int *)(in_ECX + 0x160);
+        piVar1 = *(int **)(in_ECX + 0x48);
+        if (iVar6 == -1) {
+          uStack_25b = 0xffff;
+          (**(code **)(*piVar1 + 8))(piVar1,"Change Entity not available, Respawn Change");
+        }
+        else {
+          uStack_25b = (undefined2)iVar6;
+          (**(code **)(*piVar1 + 8))(piVar1,"Change Entity %i",iVar6);
+        }
+      }
+      else if ((((cStack_25c == '\x01') || (cStack_25c == '\x02')) || (cStack_25c == '\x03')) ||
+              (cStack_25c == '\x04')) {
+        uStack_255 = *(undefined4 *)(in_ECX + 0x14c);
+      }
+      local_278 = &local_264;
+      local_27c = 0x13;
+      (**(code **)(**(int **)(in_ECX + 0x3c) + 0x28))(0xff,&local_27c,0xff,6);
+      *(undefined1 *)(in_ECX + 0x164) = 0;
+      uVar4 = thunk_FUN_004c1190();
+      *(undefined4 *)(in_ECX + 0x2a4) = uVar4;
+    }
+    if (*(char *)(in_ECX + 0x146) == '\0') {
+      if (*(int *)(in_ECX + 0x2ec) == -1) {
+        iVar6 = *(int *)(in_ECX + 0x2a4);
+        iVar5 = thunk_FUN_004c1190();
+        if (2000 < (uint)(iVar5 - iVar6)) {
+          (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                    (*(int **)(in_ECX + 0x48),"Request Command ID %i %s",
+                     *(undefined1 *)(in_ECX + 0x2dc),*(undefined4 *)(in_ECX + 0x270));
+          *(undefined1 *)(in_ECX + 0x164) = 1;
+          uVar4 = thunk_FUN_004c1190();
+          *(short *)(in_ECX + 0x2aa) = *(short *)(in_ECX + 0x2aa) + 1;
+          *(undefined4 *)(in_ECX + 0x2a4) = uVar4;
+          if (6 < *(ushort *)(in_ECX + 0x2aa)) {
+            (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                      (*(int **)(in_ECX + 0x48),"CommandID Request failed %i, %s",
+                       *(undefined1 *)(in_ECX + 0x2dc),*(undefined4 *)(in_ECX + 0x270));
+            thunk_FUN_00559050();
+            return 1;
+          }
+        }
+      }
+      else {
+        local_274 = 0;
+        local_278 = (undefined1 *)CONCAT22(local_278._2_2_,0xb0);
+        (**(code **)(**(int **)(in_ECX + 0x10c) + 8))(0x6c,8,&local_278);
+        if (local_274 == *(int *)(in_ECX + 0x2ec)) {
+          *(undefined1 *)(in_ECX + 0x146) = 1;
+          *(undefined4 *)(in_ECX + 0x2ec) = 0xffffffff;
+          uVar4 = thunk_FUN_004c1190();
+          *(undefined4 *)(in_ECX + 0x2a0) = uVar4;
+          *(undefined2 *)(in_ECX + 0x2aa) = 0;
+        }
+        else {
+          (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                    (*(int **)(in_ECX + 0x48),"wrong commandID from change %i %i",
+                     *(int *)(in_ECX + 0x2ec),local_274);
+        }
+        thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\WorldClient.cpp"
+                           ,0x79b);
+        cVar2 = thunk_FUN_004b8cd0(&local_270);
+        while (cVar2 != '\0') {
+          thunk_FUN_00541f20(&local_270);
+          cVar2 = thunk_FUN_004b8cd0(&local_270);
+        }
+        thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\WorldClient.cpp"
+                           ,0x7a2);
+        (**(code **)(**(int **)(in_ECX + 0x3c) + 0x2c))();
+        iVar6 = thunk_FUN_004c1190();
+        if (12000 < (uint)(iVar6 - *(int *)(in_ECX + 0x2a0))) {
+          (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                    (*(int **)(in_ECX + 0x48),"Wait for last command failed - connection reset");
+          thunk_FUN_00559050();
+          return 1;
+        }
+      }
+    }
+    else {
+      *(undefined4 *)(in_ECX + 0x2ec) = 0xffffffff;
+      local_263 = 3;
+      cStack_25c = '\0';
+      uStack_25b = 0;
+      uStack_259 = 0;
+      uStack_255 = 0;
+      local_261._1_3_ = (undefined3)*(undefined4 *)(in_ECX + 0x2b4);
+      local_261 = CONCAT31(local_261._1_3_,*(undefined1 *)(in_ECX + 0x2dc));
+      uStack_25d = (undefined1)((uint)*(undefined4 *)(in_ECX + 0x2b4) >> 0x18);
+      local_26c = &local_264;
+      local_264 = 0x18;
+      local_270 = 0x13;
+      (**(code **)(**(int **)(in_ECX + 0x3c) + 0x28))(0xff,&local_270,0xff,6);
+      (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+                (*(int **)(in_ECX + 0x48),"WORLDCLIENT : Client up to date %i",
+                 *(undefined4 *)(in_ECX + 0x2b0));
+      *(undefined1 *)(in_ECX + 0x145) = 1;
+      *(undefined2 *)(in_ECX + 0x2ac) = 7;
+      thunk_FUN_0055ce20(0,0);
+    }
+  }
+  if (*(char *)(in_ECX + 0x147) != '\0') {
+    (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+              (*(int **)(in_ECX + 0x48),"WORLDCLIENT : info rcv %i",*(undefined4 *)(in_ECX + 0x2b0))
+    ;
+    cVar2 = (**(code **)(**(int **)(in_ECX + 0x3c) + 0x18))(0xff);
+    if (cVar2 == '\0') {
+      (**(code **)(**(int **)(in_ECX + 0x48) + 4))("WORLDCLIENT : shutdownconnection failed");
+      thunk_FUN_004471c0("WORLDCLIENT : shutdownconnection failed");
+    }
+    cVar2 = thunk_FUN_004b8cd0(&local_270);
+    while (cVar2 != '\0') {
+      thunk_FUN_00541f20(&local_270);
+      cVar2 = thunk_FUN_004b8cd0(&local_270);
+    }
+    thunk_FUN_00559040();
+    *(undefined1 *)(in_ECX + 0x144) = 0;
+    *(undefined1 *)(in_ECX + 0x147) = 0;
+    thunk_FUN_00559040();
+    (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+              (*(int **)(in_ECX + 0x48),"WORLDCLIENT : session closed %i",
+               *(undefined4 *)(in_ECX + 0x2b0));
+  }
+  if ((*(char *)(in_ECX + 0x145) != '\0') && (*(char *)(in_ECX + 0x144) == '\0')) {
+    cVar2 = thunk_FUN_00558400(*(undefined4 *)(in_ECX + 0x2c0));
+    *(bool *)(in_ECX + 0x2c4) = cVar2 == '\0';
+    (**(code **)(**(int **)(in_ECX + 0x48) + 8))
+              (*(int **)(in_ECX + 0x48),"WORLDCLIENT : Load World %s",
+               *(undefined4 *)(in_ECX + 0x2c0));
+    if (*(int *)(in_ECX + 0x30) == 0) {
+      thunk_FUN_00447e80(local_1fc,500,"WORLDCLIENT : World load failed : %s",
+                         *(undefined4 *)(in_ECX + 0x2c0));
+                    /* WARNING: Subroutine does not return */
+      thunk_FUN_00559250(local_1fc);
+    }
+    thunk_FUN_004b9b20();
+    uVar4 = thunk_FUN_004c1190();
+    *(undefined4 *)(in_ECX + 0xd0) = uVar4;
+    uVar4 = thunk_FUN_004c1190();
+    *(undefined4 *)(in_ECX + 0xd4) = uVar4;
+    if (*(char *)(in_ECX + 0x4e) != '\0') {
+      iVar6 = thunk_FUN_004c1190();
+      thunk_FUN_004ba3f0(iVar6 + 1);
+    }
+    uVar4 = thunk_FUN_004c1190();
+    *(undefined4 *)(in_ECX + 0xd0) = uVar4;
+    uVar4 = thunk_FUN_004c1190();
+    *(undefined4 *)(in_ECX + 0xd4) = uVar4;
+    *(undefined4 *)(in_ECX + 0xc0) = 0;
+    *(undefined4 *)(in_ECX + 0x50) = 0;
+    *(undefined4 *)(in_ECX + 0xe0) = 0;
+    thunk_FUN_00545120(0);
+    *(undefined2 *)(in_ECX + 0x145) = 0;
+    *(undefined2 *)(in_ECX + 0x2aa) = 0;
+    uVar3 = 6;
+    *(undefined4 *)(in_ECX + 0x2ec) = 0xffffffff;
+    if (*(char *)(in_ECX + 0x2e5) == '\0') {
+      uVar3 = 5;
+    }
+    *(undefined2 *)(in_ECX + 0x2ac) = uVar3;
+  }
+  return 1;
+}
+
+
+
+======================================================
+FUNCTION FUN_00541800 @ 00541800
+======================================================
+
+void FUN_00541800(int param_1)
+
+{
+  int iVar1;
+  undefined4 uVar2;
+  
+  if (param_1 != 0) {
+    iVar1 = *(int *)(param_1 + 0xc);
+    while (iVar1 != 0) {
+      uVar2 = *(undefined4 *)(iVar1 + 4);
+      thunk_FUN_00541f20(uVar2);
+      thunk_FUN_009ac142(uVar2,0xc);
+      if (*(undefined4 **)(param_1 + 0xc) != (undefined4 *)0x0) {
+        (**(code **)**(undefined4 **)(param_1 + 0xc))(1);
+      }
+      iVar1 = *(int *)(param_1 + 0xc);
+    }
+  }
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_004b8fb0 @ 004b8fb0
+======================================================
+
+void FUN_004b8fb0(int param_1)
+
+{
+  char cVar1;
+  undefined4 uVar2;
+  int iVar3;
+  uint uVar4;
+  int in_ECX;
+  uint uVar5;
+  uint uVar6;
+  undefined1 local_14 [12];
+  int local_8;
+  
+  thunk_FUN_004b9620();
+  if ((*(int *)(in_ECX + 0xb8) < 1) || (*(int *)(in_ECX + 0x1ac) <= *(int *)(in_ECX + 0xb8))) {
+    local_8 = thunk_FUN_004c1190();
+    param_1 = param_1 - *(int *)(in_ECX + 0xd0);
+    uVar4 = *(uint *)(in_ECX + 0xdc);
+    uVar5 = (uint)(param_1 * 100) / 1000;
+    uVar6 = uVar5;
+    if (((int)uVar4 <= (int)uVar5) && (uVar6 = uVar4, (int)uVar4 < (int)-uVar5)) {
+      uVar6 = -uVar5;
+    }
+    *(uint *)(in_ECX + 0xdc) = uVar4 - uVar6;
+    uVar2 = thunk_FUN_00555340(*(undefined4 *)(in_ECX + 0xc0),uVar6 + param_1);
+    *(int *)(in_ECX + 0xd0) = *(int *)(in_ECX + 0xd0) + param_1;
+    *(undefined4 *)(in_ECX + 0xc0) = uVar2;
+    thunk_FUN_004e17e0("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\Client.cpp",
+                       899);
+    cVar1 = thunk_FUN_004b8cd0(local_14);
+    while (cVar1 != '\0') {
+      thunk_FUN_00541f20(local_14);
+      cVar1 = thunk_FUN_004b8cd0(local_14);
+    }
+    thunk_FUN_00555bf0();
+    thunk_FUN_00541900(*(int *)(in_ECX + 0xc0));
+    thunk_FUN_004e1800("F:\\AZURE\\agent_1\\_work\\36\\s\\src\\nclib\\nclib\\neocron\\Client.cpp",
+                       0x38e);
+    iVar3 = thunk_FUN_004c1190();
+    uVar4 = iVar3 - *(int *)(in_ECX + 0x108);
+    uVar6 = (int)uVar4 >> 0x1f;
+    if (0x32 < (int)((uVar4 ^ uVar6) - uVar6)) {
+      *(int *)(in_ECX + 0x108) = iVar3;
+      (**(code **)(**(int **)(in_ECX + 0x3c) + 0x2c))();
+    }
+    iVar3 = *(int *)(in_ECX + 0xc0);
+    *(float *)(in_ECX + 0x50) =
+         (float)((double)iVar3 + (double)(&DAT_00a0bd40)[-(iVar3 >> 0x1f)]) / 1000.0;
+    thunk_FUN_0053ce90();
+    iVar3 = thunk_FUN_004c1190();
+    DAT_00bf6210 = iVar3 - local_8;
+    *(int *)(in_ECX + 0x1ac) = *(int *)(in_ECX + 0x1ac) + 1;
+  }
+  return;
+}
+
+
+
+======================================================
+FUNCTION FUN_0055f5a0 @ 0055f5a0
+======================================================
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+
+undefined4 FUN_0055f5a0(undefined4 param_1,undefined4 param_2)
+
+{
+  undefined1 *puVar1;
+  int iVar2;
+  uint uVar3;
+  int iVar4;
+  int in_ECX;
+  char *pcVar5;
+  int local_20;
+  undefined4 local_1c;
+  undefined1 local_18 [2];
+  undefined2 uStack_16;
+  undefined2 local_14;
+  undefined2 uStack_12;
+  uint local_8;
+  
+  local_8 = DAT_00b13e00 ^ (uint)&stack0xfffffffc;
+  puVar1 = (undefined1 *)(in_ECX + 0x50);
+  iVar2 = thunk_FUN_0055f260(puVar1,0x1000,local_18,1,&local_20);
+  if (iVar2 == -1) {
+    iVar2 = Ordinal_111();
+    if (iVar2 == 0x2733) {
+      return 0;
+    }
+    thunk_FUN_0055e840(iVar2);
+    pcVar5 = "WINSOCKMGR : Receive from failed";
+  }
+  else {
+    if (0 < iVar2) {
+      local_1c = CONCAT22(uStack_12,local_14);
+      uVar3 = Ordinal_15(CONCAT22(local_14,uStack_16));
+      local_20 = (uVar3 & 0xffff) - 1;
+      iVar4 = thunk_FUN_0055e2f0(local_1c,local_20);
+      if (iVar4 != 0) {
+        thunk_FUN_0055ec10(iVar4,local_1c,local_20,puVar1,iVar2,param_1,param_2);
+        return 1;
+      }
+      thunk_FUN_004471c0("WINSOCKMGR : Message received for unknown station, %i",*puVar1);
+      return 1;
+    }
+    pcVar5 = "WINSOCKMGR : Receive 0 Buffer";
+  }
+  thunk_FUN_004471c0(pcVar5);
+  return 0;
+}
+
+
+

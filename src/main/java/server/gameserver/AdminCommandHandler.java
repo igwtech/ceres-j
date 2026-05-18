@@ -5,6 +5,7 @@ import server.gameserver.packets.server_tcp.Location;
 import server.gameserver.packets.server_tcp.Packet830D;
 import server.gameserver.packets.server_tcp.Chat8317;
 import server.gameserver.packets.server_udp.ForcedZoning;
+import server.gameserver.packets.server_udp.LiveCharInfoSync;
 import server.gameserver.packets.server_udp.PoolStatusBroadcast;
 import server.gameserver.packets.server_udp.PoolUpdate;
 import server.gameserver.packets.server_udp.SoullightUpdate;
@@ -356,6 +357,7 @@ public class AdminCommandHandler {
         pl.send(new PoolUpdate(pl, PoolUpdate.POOL_PSI, psiDelta, pc.getMaxPsi()));
         pl.send(new PoolUpdate(pl, PoolUpdate.POOL_STA, staDelta, pc.getMaxStamina()));
         pl.send(new PoolStatusBroadcast(pl));
+        pl.send(LiveCharInfoSync.of(pl));
         reply(pl, "Healed to full.");
     }
 
@@ -371,9 +373,11 @@ public class AdminCommandHandler {
         int hpDelta = pc.getMaxHealth() - pc.getHealth();
         pc.setHealth(pc.getMaxHealth());
         // Refresh the HUD HP bar immediately (signed-delta PoolUpdate
-        // + status snapshot, same lever as cmdSetHp / cmdHeal).
+        // + status snapshot, same lever as cmdSetHp / cmdHeal) plus the
+        // live-CHARSYS resync that actually repaints the HUD.
         pl.send(new PoolUpdate(pl, PoolUpdate.POOL_HP, hpDelta, pc.getMaxHealth()));
         pl.send(new PoolStatusBroadcast(pl));
+        pl.send(LiveCharInfoSync.of(pl));
         reply(pl, "God mode: healed to full (toggle not yet implemented).");
     }
 
@@ -754,8 +758,13 @@ public class AdminCommandHandler {
             PlayerCharacter pc = pl.getCharacter();
             int delta = target - pc.getHealth();
             pc.setHealth(target);
+            // Live-CHARSYS resync is the only lever that actually moves
+            // the HUD mid-session (task #194, Ghidra-pinned 0x03/0x2c
+            // single-packet CHARSYS parse). PoolUpdate/PoolStatusBroadcast
+            // kept as the per-entity carrier for nearby observers.
             pl.send(new PoolUpdate(pl, PoolUpdate.POOL_HP, delta, pc.getMaxHealth()));
             pl.send(new PoolStatusBroadcast(pl));
+            pl.send(LiveCharInfoSync.of(pl));
             reply(pl, "HP -> " + target + " (delta=" + delta + ", max=" + pc.getMaxHealth() + ")");
         } catch (NumberFormatException e) {
             reply(pl, "Invalid HP value: " + args);
@@ -771,6 +780,7 @@ public class AdminCommandHandler {
             pc.setPsi(target);
             pl.send(new PoolUpdate(pl, PoolUpdate.POOL_PSI, delta, pc.getMaxPsi()));
             pl.send(new PoolStatusBroadcast(pl));
+            pl.send(LiveCharInfoSync.of(pl));
             reply(pl, "PSI -> " + target + " (delta=" + delta + ", max=" + pc.getMaxPsi() + ")");
         } catch (NumberFormatException e) {
             reply(pl, "Invalid PSI value: " + args);
@@ -786,6 +796,7 @@ public class AdminCommandHandler {
             pc.setStamina(target);
             pl.send(new PoolUpdate(pl, PoolUpdate.POOL_STA, delta, pc.getMaxStamina()));
             pl.send(new PoolStatusBroadcast(pl));
+            pl.send(LiveCharInfoSync.of(pl));
             reply(pl, "STA -> " + target + " (delta=" + delta + ", max=" + pc.getMaxStamina() + ")");
         } catch (NumberFormatException e) {
             reply(pl, "Invalid STA value: " + args);
@@ -796,7 +807,14 @@ public class AdminCommandHandler {
         if (args.isEmpty()) { reply(pl, "Usage: !setsl <float 0..100>"); return; }
         try {
             float v = Float.parseFloat(args.split("\\s+")[0]);
+            // Soullight is NOT carried in CharInfo / any UDP CHARSYS
+            // section (project memory charinfo_field_positions: "soullight
+            // not in CharInfo nor any UDP packet — must be on TCP"), so
+            // the live-CHARSYS resync cannot apply it. The dedicated
+            // SoullightUpdate carrier remains the lever; a CHARSYS resync
+            // is still emitted so any other just-mutated state repaints.
             pl.send(new SoullightUpdate(pl, v));
+            pl.send(LiveCharInfoSync.of(pl));
             reply(pl, "Soullight -> " + v + " (0x02->0x1f->0x25 0x1f path)");
         } catch (NumberFormatException e) {
             reply(pl, "Invalid Soullight value: " + args);
@@ -820,7 +838,13 @@ public class AdminCommandHandler {
             // Confirmed against retail packets where the LE32 value
             // exactly matched the new HUD CASH readout.
             pl.send(new CashUpdate(pl, target));
-            reply(pl, "Cash -> " + target + " (0x03→0x1f→25 13 reliable).");
+            // The CASH widget only repaints when CHARSYS Section 8 is
+            // re-parsed (RE_state_sync.md §3) — this is exactly what the
+            // user observed on zone cross. Resend the full CharInfo via
+            // the pinned 0x03/0x2c single-packet path so the wallet
+            // updates with NO zone reload.
+            pl.send(LiveCharInfoSync.of(pl));
+            reply(pl, "Cash -> " + target + " (0x03→0x1f→25 13 + live CHARSYS resync).");
         } catch (NumberFormatException e) {
             reply(pl, "Invalid cash value: " + args);
         }
@@ -873,10 +897,14 @@ public class AdminCommandHandler {
             int pts = Integer.parseInt(p[2]);
             PlayerCharacter pc = pl.getCharacter();
             pc.setSubskillLVL(idx, lvl);
-            // setSubskillPtsPerLvl getter exists; setter would need to be added.
-            // For now, log + warp to force CharInfo redelivery.
-            reply(pl, "Subskill[" + idx + "] = (" + lvl + ", " + pts + "). Re-zone for HUD update.");
-            pl.send(new ForcedZoning(pl, pl.getMapID()));
+            // setSubskillPtsPerLvl getter exists; setter would need to be
+            // added. Live-CHARSYS resync re-parses Section 4 (subskills)
+            // and runs FUN_0080b8b0 which re-derives the HUD pool ceilings
+            // — same effect as the old ForcedZoning redelivery but with
+            // NO splash screen / BSP reload (task #194).
+            pl.send(LiveCharInfoSync.of(pl));
+            reply(pl, "Subskill[" + idx + "] = (" + lvl + ", " + pts
+                    + "). HUD resynced (live CHARSYS, no re-zone).");
         } catch (NumberFormatException e) {
             reply(pl, "Invalid args: " + args);
         }
@@ -893,8 +921,11 @@ public class AdminCommandHandler {
             int lvl = Math.max(0, Math.min(200, Integer.parseInt(args.split("\\s+")[0])));
             PlayerCharacter pc = pl.getCharacter();
             pc.setSubskillLVL(PlayerCharacter.SUBSKILL_HLT, lvl);
-            reply(pl, "HLT subskill -> " + lvl + ". Re-zoning to apply.");
-            pl.send(new ForcedZoning(pl, pl.getMapID()));
+            // Live-CHARSYS resync: Section 4 reparse + FUN_0080b8b0
+            // recompute re-derives displayed max HP with no re-zone
+            // (task #194).
+            pl.send(LiveCharInfoSync.of(pl));
+            reply(pl, "HLT subskill -> " + lvl + ". HUD resynced (live CHARSYS).");
         } catch (NumberFormatException e) {
             reply(pl, "Invalid lvl: " + args);
         }

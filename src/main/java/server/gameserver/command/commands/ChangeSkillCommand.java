@@ -6,17 +6,20 @@ import server.gameserver.Player;
 import server.gameserver.command.CommandContext;
 import server.gameserver.command.CommandResult;
 import server.gameserver.command.GmCommand;
-import server.gameserver.packets.server_udp.ForcedZoning;
+import server.gameserver.packets.server_udp.LiveCharInfoSync;
 
 /**
  * {@code !changeskill <subskillIndex> <level>} — set a subskill level
- * and force CharInfo redelivery via {@link ForcedZoning}.
+ * and resync the HUD via {@link LiveCharInfoSync}.
  *
  * <p>This is the project-canonical lever for changing HUD pool maxes:
  * HLT (27), ATL (20), END (21), PSU (32) derive HLT/STA/PSI pool
  * maxima client-side from CharInfo Section 4 (see project memory
- * {@code hud_pool_path_confirmed}). Mutating the subskill and
- * re-zoning forces the client to recompute. Equivalent to the legacy
+ * {@code hud_pool_path_confirmed}). Mutating the subskill then
+ * re-emitting the full CharInfo through the Ghidra-pinned
+ * {@code 0x03/0x2c} single-packet CHARSYS handler forces the client
+ * to re-parse Section 4 and run {@code FUN_0080b8b0} (HUD recompute)
+ * with <b>no zone reload</b> (task #194). Equivalent to the legacy
  * {@code !setsub} / {@code !setmaxhp} chat commands, now first-class.
  */
 public final class ChangeSkillCommand implements GmCommand {
@@ -43,7 +46,7 @@ public final class ChangeSkillCommand implements GmCommand {
 
     @Override
     public String description() {
-        return "Set a subskill level (re-zones to refresh HUD pools).";
+        return "Set a subskill level (live CHARSYS resync, no re-zone).";
     }
 
     @Override
@@ -61,8 +64,8 @@ public final class ChangeSkillCommand implements GmCommand {
         }
         level = Math.max(0, Math.min(200, level));
         pc.setSubskillLVL(idx, level);
-        pl.send(new ForcedZoning(pl, pl.getMapID()));
+        pl.send(LiveCharInfoSync.of(pl));
         return CommandResult.ok("Subskill[" + idx + "] = " + level
-                + ". Re-zoning to refresh HUD.");
+                + ". HUD resynced (live CHARSYS, no re-zone).");
     }
 }
