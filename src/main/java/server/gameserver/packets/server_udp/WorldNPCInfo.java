@@ -40,17 +40,41 @@ import server.networktools.PacketBuilderUDP1303;
  *   [13-14]  Y LE16
  *   [15-16]  Z LE16
  *   [17-18]  X LE16
- *   [19-33]  15-byte state/attr     RETAIL: a state block whose exact
- *                                   sub-structure is an open question
- *                                   (PMAN = 00 ca 06 + 12x00; entity
- *                                   0149 = 00 0e 01 + 12x00). It is
- *                                   per-NPC runtime state we cannot
- *                                   reproduce; emitting all-zero is a
- *                                   retail-valid "no-state" instance
- *                                   (the trailing >=12 bytes are zero
- *                                   in every sample) and avoids
- *                                   inventing unverified bytes.
- *   [34+]    script_name\0          ASCII per-NPC AI script token —
+ *   [19-35]  17-byte state/attr     RETAIL: a state block whose exact
+ *                                   sub-structure is an open question.
+ *                                   Machine-decoded from the task #178
+ *                                   live retail pcap
+ *                                   strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap
+ *                                   (server 157.90.195.74) for the
+ *                                   EXACT failing scripted-city-NPC
+ *                                   class (Type 15 / SCRIPTEDPLAYER):
+ *                                   entities 266/299/325 ("WSK"/"WCOP"/
+ *                                   "PATROL_COPBOT6") all carry a
+ *                                   **17-byte** block here, e.g. WSK
+ *                                   00 bc030000 00 0c0b 07 0909 05 0000
+ *                                   00 0000; WCOP/PATROL
+ *                                   00 cf3d0000 00 bbbb 00 c6c6 0000
+ *                                   00 0000. The leading ~11 bytes are
+ *                                   per-NPC runtime state with no
+ *                                   reproducible derivation (same
+ *                                   category as the [7-10] handle); the
+ *                                   trailing 6 bytes are zero in every
+ *                                   sample. We emit 17 zero bytes — a
+ *                                   retail-valid "no-state" instance —
+ *                                   inventing no unverified values. The
+ *                                   PRE-#178c value was 15 bytes: the
+ *                                   doc's hand-transcribed AUGUSTO PMAN
+ *                                   (a NON-scripted NPC) showed 15, but
+ *                                   the machine-decoded live pcap of the
+ *                                   actual failing scripted class is
+ *                                   unambiguously 17 across all three
+ *                                   samples. 15 left every field from
+ *                                   the script name on 2 bytes early, so
+ *                                   the client Type-15 parser read a
+ *                                   malformed record ("@WWORLDMGR :
+ *                                   Corrupted Message Type:15, Size:21"
+ *                                   + truncated names like 'ader_pa').
+ *   [36+]    script_name\0          ASCII per-NPC AI script token —
  *                                   the world-.dat actorName the client
  *                                   SCRIPTEDPLAYER ctor resolves (e.g.
  *                                   "PMAN", "WSK", "WCOP",
@@ -136,14 +160,23 @@ public class WorldNPCInfo extends PacketBuilderUDP1303 {
 		b.writeShort(npc.getZpos());
 		// [17-18] X
 		b.writeShort(npc.getXpos());
-		// [19-33] 15-byte state/attr block. Retail sub-structure is an
-		// open question; all-zero is a retail-valid no-state instance
-		// (>=12 trailing bytes zero in every sample). Emitting any
-		// non-zero guess here would be unbacked by retail evidence.
-		for (int i = 0; i < 15; i++) {
+		// [19-35] 17-byte state/attr block. Length byte-pinned 2026-05-17
+		// (task #178c) from the live retail pcap
+		// strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap for the exact
+		// failing scripted-city-NPC class: entities 266/299/325
+		// ("WSK"/"WCOP"/"PATROL_COPBOT6") each carry a 17-byte block
+		// before the script name (script name starts at doc [36], not
+		// [34]). The leading bytes are unreproducible per-NPC runtime
+		// state (same category as the [7-10] handle); trailing 6 bytes
+		// are zero in every sample. All-zero is a retail-valid no-state
+		// instance. Emitting 15 (the pre-#178c value, from the doc's
+		// hand-decoded NON-scripted PMAN) shifted every byte from the
+		// script name on 2 bytes early -> client logged "@WWORLDMGR :
+		// Corrupted Message Type:15, Size:21" and the NPC never spawned.
+		for (int i = 0; i < 17; i++) {
 			b.write(0x00);
 		}
-		// [34..] script_name\0 orientation\0
+		// [36..] script_name\0 orientation\0
 		//
 		// The trailing token is the per-NPC AI **script name** the
 		// client SCRIPTEDPLAYER ctor reads to look the spawn up in its
