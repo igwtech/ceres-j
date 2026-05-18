@@ -50,8 +50,26 @@ import server.networktools.PacketBuilderUDP1303;
  *                                   (the trailing >=12 bytes are zero
  *                                   in every sample) and avoids
  *                                   inventing unverified bytes.
- *   [34+]    type_name\0            ASCII NPC type token (e.g. "PMAN")
+ *   [34+]    script_name\0          ASCII per-NPC AI script token —
+ *                                   the world-.dat actorName the client
+ *                                   SCRIPTEDPLAYER ctor resolves (e.g.
+ *                                   "PMAN", "WSK", "WCOP",
+ *                                   "PATROL_COPBOT6"). Proven against
+ *                                   the retail live pcap 2026-05-17
+ *                                   (task #178): empty/wrong here =>
+ *                                   "Unable to find script" => NPC
+ *                                   never instantiates.
  *   [+]      orientation\0          ASCII signed decimal (e.g. "1")
+ *   [+]      (scripted NPCs only)   retail copbots/walkers append a
+ *                                   third NUL-terminated token (a small
+ *                                   per-NPC runtime index, e.g. "9" /
+ *                                   "0" / "/"); like the [19+] state
+ *                                   block it is per-NPC live state with
+ *                                   no reproducible derivation, and the
+ *                                   byte-pinned AUGUSTO "PMAN" reference
+ *                                   has only the two tokens, so we emit
+ *                                   the two-token form (retail-valid:
+ *                                   PMAN renders with exactly this).
  * </pre>
  *
  * <p>What #178 corrected vs the pre-#178 implementation:
@@ -65,8 +83,17 @@ import server.networktools.PacketBuilderUDP1303;
  *       byte and a 16-byte filler between X and the strings, landing
  *       the strings one byte late. Retail has exactly a 15-byte block
  *       there. Now 15 bytes.</li>
- *   <li>The trailing strings were {@code scriptName\0 modelName\0};
- *       retail is {@code type_name\0 orientation\0}. Now corrected.</li>
+ *   <li>The trailing strings were {@code scriptName\0 modelName\0}
+ *       written from the wrong source; retail is
+ *       {@code script_name\0 orientation\0} where the first token is
+ *       the world-.dat NPC actorName. The pre-#178 bulk world_npcs
+ *       bridge passed {@code script_name=""} and the body wrote the
+ *       display name, so scripted NPCs got an empty/wrong script token
+ *       and never instantiated. Now the resolved script name (curated
+ *       AI script, or world_npcs.actor_name) is written, falling back
+ *       to the display name only when no script is set. Verified
+ *       2026-05-17 against the retail live pcap (entities 266/299/325
+ *       => "WSK"/"WCOP"/"PATROL_COPBOT6").</li>
  * </ul>
  *
  * <p>An earlier (unvalidated) #178 WIP attempt wrote {@code [18]=00}
@@ -116,8 +143,33 @@ public class WorldNPCInfo extends PacketBuilderUDP1303 {
 		for (int i = 0; i < 15; i++) {
 			b.write(0x00);
 		}
-		// [34..] type_name\0 orientation\0
-		b.write(npc.getName().getBytes(StandardCharsets.US_ASCII));
+		// [34..] script_name\0 orientation\0
+		//
+		// The trailing token is the per-NPC AI **script name** the
+		// client SCRIPTEDPLAYER ctor reads to look the spawn up in its
+		// script-factory map (PROTOCOL.md ~1287; client FUN_0069a580 ->
+		// FUN_0081e310). Proven 2026-05-17 against the retail live pcap
+		// strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap (server
+		// 157.90.195.74, p1/p3 sit-near-NPC capture): retail entities
+		// 266/299/325 carry "WSK"/"WCOP"/"PATROL_COPBOT6" here — the
+		// world-.dat NPC actorName (cf. WorldDatParser.NpcEntry.actorName,
+		// e.g. reaktor's "STATIC"). An empty or display-only string makes
+		// the client log "Unable to find script" and the NPC never
+		// instantiates — the task #178 "NPCs don't render" symptom.
+		//
+		// Source priority: the resolved script_name (curated npc_spawns
+		// AI script, or the world_npcs.actor_name bridged into it); fall
+		// back to the display name only if no script is set so a curated
+		// spawn missing its script column still emits a non-empty token
+		// rather than a zero-length string the client rejects.
+		String script = npc.getScriptName();
+		if (script == null || script.isEmpty()) {
+			script = npc.getName();
+		}
+		if (script == null) {
+			script = "";
+		}
+		b.write(script.getBytes(StandardCharsets.US_ASCII));
 		b.write(0x00);
 		b.write(Integer.toString(npc.getAngle())
 				.getBytes(StandardCharsets.US_ASCII));
