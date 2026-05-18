@@ -21,11 +21,35 @@ import server.tools.Out;
  *
  * <p>Commands start with {@code .} (MaNGOS-style) or the legacy
  * {@code !} prefix and are consumed before broadcasting to the
- * zone. The {@code /} prefix is deliberately NOT accepted: the
- * Neocron client intercepts {@code /}-prefixed input locally
- * (like the WoW client), so those lines never reach the server.
+ * zone. This is a <b>Ceres admin extension</b> and is kept as-is.
  * All players can use basic commands; GM-level commands are gated
  * by the account GM level.
+ *
+ * <p><b>Why {@code /} is not handled here.</b> The retail Neocron
+ * client intercepts {@code /}-prefixed input locally (like the WoW
+ * client). The <i>documented</i> retail commands
+ * (wiki.techhaven.org/Set_Commands) never arrive as a chat string —
+ * the client parses them itself:
+ * <ul>
+ *   <li>Most {@code /set <key> <val>} are pure client config
+ *       (mouse / gfx / sound / camera) — they NEVER hit the wire and
+ *       cannot be server-implemented.</li>
+ *   <li>{@code /set reset_position 1} is also <b>client-local</b>:
+ *       {@code FUN_0065d710} just sets a local 120.0 s float +
+ *       state byte; no packet is sent (the client does the position
+ *       reset itself).</li>
+ *   <li>{@code /set kill_self 1} requests suicide — handled by
+ *       {@link server.gameserver.packets.client_udp.KillSelfRequest}
+ *       on the {@code 0x03/0x1f/.../0x3d} app-action channel
+ *       (sub-byte {@code 0x10}).</li>
+ *   <li>{@code /emote <keyword>} resolves the keyword to a numeric
+ *       anim id <i>client-side</i> and sends it via the chat-send
+ *       helper {@code FUN_006f9680}; see
+ *       {@code docs/protocol/DOCUMENTED_COMMANDS.md} for the
+ *       capture-gated status.</li>
+ * </ul>
+ * See {@code docs/protocol/DOCUMENTED_COMMANDS.md} for the full
+ * client-local-vs-wired mapping.
  *
  * <p>Available commands (examples):
  * <ul>
@@ -55,10 +79,14 @@ public class AdminCommandHandler {
         // includes everything after offset 7 including null terminators.
         message = message.replace("\0", "").trim();
         if (message.isEmpty()) return false;
-        // MaNGOS-style '.' prefix is the canonical one; legacy '!'
-        // kept for backward compat (!setmaxhp / !setsub). '/' is
-        // intentionally rejected — the client swallows /-input
-        // locally so it never reaches the server.
+        // MaNGOS-style '.' prefix is the canonical one for the Ceres
+        // admin extension; legacy '!' kept for backward compat
+        // (!setmaxhp / !setsub). '/' is intentionally NOT handled
+        // here: the retail client never forwards /-input as chat —
+        // documented /-commands are parsed client-side and (when
+        // they hit the wire at all) arrive on their own binary
+        // sub-packets, decoded elsewhere (e.g. KillSelfRequest on
+        // 0x1f/0x3d/0x10). See class javadoc + DOCUMENTED_COMMANDS.md.
         char prefix = message.charAt(0);
         if (prefix != '.' && prefix != '!') return false;
         String cmdLine = message.substring(1).trim();

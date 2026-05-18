@@ -212,18 +212,32 @@ public final class GamePacketReaderUDP {
 					return new GlobalChat(subPacket);
 				}
 				case 0x3d:
-					// In-flight client heartbeat / ACK burst for
-					// server-pushed reliables. 88K observations across
-					// the corpus, ~90/sec during gameplay. Sub-tags
-					// observed: 0x11 (vast majority — fixed body
-					// `00 00 3d 11 00 00 00 00`), 0x32 (occasional —
-					// status snapshot), 0x0c/0x0d/0x03 (rare). Server
-					// has nothing to do here — just recognise so the
-					// log doesn't drown in "Unknown UDP13 Packet"
-					// lines. Reliable-layer ACK still fires at the
-					// outer switch above, so the client's own retry
-					// timer stays satisfied.
-					return null;
+					// 0x1f/<localId>/0x3d is the client app-action
+					// channel. The next byte selects the action:
+					//
+					//   0x11  in-flight heartbeat / ACK burst for
+					//         server-pushed reliables (vast majority,
+					//         ~90/sec; fixed body 00 00 00 00).
+					//   0x32  occasional status snapshot.
+					//   0x0c/0x0d/0x03  rare.
+					//   0x10  /set kill_self — instant suicide
+					//         (documented retail command; wire form
+					//         binary-pinned from FUN_0065d710 /
+					//         FUN_006576f0, capture-gated — see
+					//         KillSelfRequest javadoc).
+					//
+					// Heartbeats have nothing to do server-side — just
+					// recognise so the log doesn't drown in "Unknown
+					// UDP13 Packet" lines. Reliable-layer ACK still
+					// fires at the outer switch above, so the client's
+					// own retry timer stays satisfied.
+					switch (pd.read()) {
+					case 0x10:
+						return new server.gameserver.packets
+								.client_udp.KillSelfRequest(subPacket);
+					default:
+						return null;
+					}
 				case 0x4c:
 					return new ChangedChannels(subPacket);
 				default:
