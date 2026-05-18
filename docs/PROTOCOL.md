@@ -1260,32 +1260,48 @@ had different post-cash bytes. Padded to 67 bytes 2026-04-26.
 
 NPC world-state packet. Sent proactively by the server at ~2 Hz per NPC to
 keep the client's world model populated. Also sent in response to client
-`0x27 RequestWorldInfo`. Inner payload layout confirmed from retail
-`pepper_p3` pcap (21 NPCs, all verified):
+`0x27 RequestWorldInfo`. Layout **byte-pinned 2026-05-17 (task #178c)**
+from the live retail pcap
+`strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap` (server 157.90.195.74)
+for the scripted-city-NPC class the client treats as **Type 15
+(`@WWORLDMGR` / `SCRIPTEDPLAYER`)** — entities 266 ("WSK"), 299
+("WCOP"), 325 ("PATROL_COPBOT6"), all three byte-consistent.
 
-| Inner offset | Size | Description |
-|-------------|------|-------------|
-| 0-1   | 2 | `00 01` (constant) |
-| 2-3   | 2 | world-object ID (LE16) — must match `0x1b` broadcast ID |
-| 4-5   | 2 | `00 00` (padding) |
-| 6-9   | 4 | world-instance reference (LE32, `0x008897A7` = 8958887) |
-| 10-11 | 2 | NPC type ID (LE16) — index into client's `pak_npc.def` |
-| 12-13 | 2 | Y position (LE16) |
-| 14-15 | 2 | Z position (LE16) |
-| 16-17 | 2 | X position (LE16) |
-| 18    | 1 | `0x00` (padding) |
-| 19    | 1 | variable byte (unknown, session-related) |
-| 20    | 1 | zone sub-sector byte (`0x22` or `0x23` observed) |
-| 21-23 | 3 | `00 00 00` (padding) |
-| 24-28 | 5 | NPC stats (unknown encoding; zero-safe) |
-| 29    | 1 | combat class |
-| 30-34 | 5 | `00 00 00 00 00` (padding) |
-| 35+   | N | `script_name\0` (from `pak_npc.def` column 22) |
-| +     | M | `model_name\0` (from `pak_npc.def` column 23) |
+Offsets below are **doc-relative**: doc `[0]` is the `0x28` sub-op, so
+doc `[N]` = the N-th byte of the inner body including the sub-op.
 
-The client (`SCRIPTEDPLAYER` subsystem) reads inner[10-11] to look up the
-NPC type in its local `pak_npc.def`, then reads inner[35+] as the script
-name to spawn the NPC's AI script.
+| Doc offset | Size | Description |
+|-----------|------|-------------|
+| 0     | 1 | `0x28` sub-op |
+| 1-2   | 2 | `00 01` (constant) |
+| 3-4   | 2 | world-object ID (LE16) — must match `0x1b` broadcast ID |
+| 5-6   | 2 | `00 00` (padding) |
+| 7-10  | 4 | per-NPC instance handle (LE32) — server heap value; **never** the discredited constant `8958887`. Distinct per NPC (WSK `0x78ede310`, WCOP `0x78f7bb43`, PATROL `0x795aa5bb`) |
+| 11-12 | 2 | NPC class/type ID (LE16) |
+| 13-14 | 2 | Y position (LE16) |
+| 15-16 | 2 | Z position (LE16) |
+| 17-18 | 2 | X position (LE16) |
+| 19-35 | **17** | per-NPC runtime state block. Leading ~11 bytes vary per NPC (no reproducible derivation, same category as the handle); trailing 6 bytes `00` in every sample. Zero-safe ("no-state" instance). **WSK** `00 bc030000 00 0c0b 07 0909 05 0000 00 0000`; **WCOP/PATROL** `00 cf3d0000 00 bbbb 00 c6c6 0000 00 0000` |
+| 36+   | N | `script_name\0` — the world-.dat NPC actorName the client `SCRIPTEDPLAYER` ctor resolves (`WSK`, `WCOP`, `PATROL_COPBOT6`) |
+| +     | M | orientation token `\0` — ASCII signed decimal angle (`-178`, `45`) |
+
+The client (`SCRIPTEDPLAYER` subsystem) reads doc[11-12] to look up the
+NPC type, then reads doc[36+] as the script name to spawn the NPC's AI
+script.
+
+**Type-15 corruption (fixed #178c).** The pre-#178c emitter wrote a
+**15-byte** state block at doc[19..33] (derived from the doc's
+hand-transcribed AUGUSTO "PMAN", a *non-scripted* NPC), placing the
+`script_name` at doc[34] — **2 bytes early** for the scripted class.
+The client's Type-15 parser then framed the record wrong and logged
+`@WWORLDMGR : Corrupted Message Type:15, Size:21` with truncated
+script names (`'ader_pa'`), so `SCRIPTEDPLAYER` never instantiated the
+NPC. The machine-decoded live pcap of the actual failing class is
+unambiguously **17 bytes** here across all three samples; emitting 17
+restores correct framing. The trailing token after `script_name\0` is
+the orientation int (`-178`/`45`), not a `model_name` — the older
+"column 22/23" note was from the unverified `pak_npc.def` hypothesis
+and is superseded by the byte-pinned live decode.
 
 **Client-side spawn flow** (from Ghidra disassembly of neocronclient.exe):
 

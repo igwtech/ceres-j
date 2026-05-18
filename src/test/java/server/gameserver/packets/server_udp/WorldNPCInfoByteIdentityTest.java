@@ -14,17 +14,27 @@ import server.gameserver.Player;
  * Byte-identity test for {@link WorldNPCInfo}
  * (UDP S-&gt;C reliable {@code 0x03/0x28}, per-NPC WorldInfo).
  *
- * <p>Pinned 2026-05-16 against the verified retail decode in
- * {@code docs/protocol/packets/udp_s2c_03_28.md} (hand-decoded
- * AUGUSTO "PMAN", entity 0x0124) cross-checked against the three
- * raw {@code 0x03/0x28} samples preserved in
- * {@code docs/protocol/_data/packets.json} (entities 0x0149,
- * 0x013e, 0x0130).
+ * <p>Pinned 2026-05-17 (task #178c) against the machine-decoded
+ * live retail pcap
+ * {@code strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap} (server
+ * 157.90.195.74) for the EXACT failing scripted-city-NPC class
+ * (Type 15 / {@code SCRIPTEDPLAYER}): reliable {@code 0x03/0x28}
+ * records for entities 266 ("WSK"), 299 ("WCOP") and 325
+ * ("PATROL_COPBOT6"). All three carry a 17-byte state block at doc
+ * {@code [19..35]} with the script name starting at doc {@code [36]}.
  *
- * <p>Full retail AUGUSTO PMAN inner (41 B, incl. 0x28 sub-op):
+ * <p>The doc's hand-transcribed AUGUSTO "PMAN" (entity 0x0124) is a
+ * NON-scripted NPC and showed a 15-byte block; the machine-decoded
+ * live pcap of the actual failing scripted class is unambiguously
+ * 17 across all three samples and is the authoritative ground truth
+ * for the Type-15 create.
+ *
+ * <p>Full retail WSK (entity 266) inner (45 B, incl. 0x28 sub-op),
+ * machine-decoded from the live pcap:
  * <pre>
- *   28 0001 2401 0000 6a519a37 4f01 c877 007e 7f7c
- *   00 ca 06 00*12 504d414e00 3100
+ *   28 0001 0a01 0000 10e3ed78 4a0b a078 107f 708a
+ *   00 bc030000 00 0c0b 07 0909 05 0000 00 0000
+ *   57534b00 2d31373800
  * </pre>
  *
  * <p>Two regions cannot be byte-reproduced and are excluded from
@@ -34,25 +44,37 @@ import server.gameserver.Player;
  *       (every retail sample distinct; the discredited constant
  *       8958887 absent from all evidence). Asserted via the
  *       uniqueness/stability invariant the client enforces.</li>
- *   <li>doc {@code [19..33]} 15-byte state block — per-NPC runtime
- *       state (PMAN = {@code 00 ca 06} + 12x00) whose sub-structure
- *       is an open question. We emit the retail-valid all-zero
- *       no-state instance; not byte-pinned to PMAN's live state.</li>
+ *   <li>doc {@code [19..35]} 17-byte state block — per-NPC runtime
+ *       state whose leading bytes are unreproducible (same category
+ *       as the handle) and whose trailing 6 bytes are zero in every
+ *       sample. We emit the retail-valid all-zero no-state instance;
+ *       not byte-pinned to the live runtime state.</li>
  * </ul>
  * Every other byte (the constant framing, ids, class, coords and
- * the trailing ASCII strings) is asserted byte-identical.
+ * the trailing ASCII strings) is asserted byte-identical, and the
+ * total body length is asserted equal to the retail sample so a
+ * 15-vs-17 state-block off-by-2 (the Type-15 corruption) cannot
+ * regress.
  */
 public class WorldNPCInfoByteIdentityTest {
 
     /**
-     * Retail AUGUSTO PMAN, full 0x28 inner (incl. sub-op). Indices
-     * here are doc-relative ([0] = 0x28).
+     * Retail live-pcap WSK (entity 266), full 0x28 inner (incl.
+     * sub-op). Indices here are doc-relative ([0] = 0x28).
      */
-    private static final byte[] RETAIL_AUGUSTO_PMAN = hex(
-        "28" + "0001" + "2401" + "0000" + "6a519a37" + "4f01"
-      + "c877" + "007e" + "7f7c"
-      + "00ca06" + "000000000000000000000000"
-      + "504d414e00" + "3100");
+    private static final byte[] RETAIL_LIVE_WSK = hex(
+        "28" + "0001" + "0a01" + "0000" + "10e3ed78" + "4a0b"
+      + "a078" + "107f" + "708a"
+      + "00bc030000000c0b0709090500000000" + "00"
+      + "57534b00" + "2d31373800");
+
+    /** Retail live-pcap PATROL_COPBOT6 (entity 325), full 0x28
+     *  inner. 17-byte state block, longer script token. */
+    private static final byte[] RETAIL_LIVE_PATROL = hex(
+        "28" + "0001" + "4501" + "0000" + "bba55a79" + "e227"
+      + "b777" + "007f" + "0c8c"
+      + "00cb3d000000bbbb00c6c60000000000" + "00"
+      + "504154524f4c5f434f50424f543600" + "343500");
 
     private static byte[] hex(String s) {
         byte[] b = new byte[s.length() / 2];
@@ -88,43 +110,63 @@ public class WorldNPCInfoByteIdentityTest {
              | ((b[o + 2] & 0xFFL) << 16) | ((b[o + 3] & 0xFFL) << 24);
     }
 
-    @Test
-    public void matchesRetailAugustoPmanSampleStructure() {
+    /** doc [19..35] inclusive == 17-byte state block. */
+    private static final int STATE_LO = 19;
+    private static final int STATE_HI = 35;
+
+    private void assertMatchesRetailSample(byte[] retail, NPC npc) {
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
-        // RETAIL: ent=0x0124 (292), class=0x014f, X=31871 Y=30664
-        // Z=32256, name "PMAN", orientation "1".
-        NPC npc = new NPC(0x0124, 7, 0x014f, "PMAN",
-                31871, 30664, 32256, 1, 100, 0);
-
         // emitted body excludes the 0x28; retail sample includes it.
-        int innerLen = RETAIL_AUGUSTO_PMAN.length - 1;
+        int innerLen = retail.length - 1;
         byte[] body = extractInnerBody(
                 datagramBytes(new WorldNPCInfo(pl, npc)), innerLen);
 
-        for (int d = 1; d < RETAIL_AUGUSTO_PMAN.length; d++) {
+        for (int d = 1; d < retail.length; d++) {
             // doc [7..10] instance handle: server heap value; we use
             // the deterministic getWorldInstanceHandle(). Covered by
             // instanceHandleIsPerNpcUniqueAndStable.
             if (d >= 7 && d <= 10) continue;
-            // doc [19..33] state block: per-NPC runtime state we emit
+            // doc [19..35] state block: per-NPC runtime state we emit
             // as the retail-valid all-zero no-state instance.
-            if (d >= 19 && d <= 33) continue;
+            if (d >= STATE_LO && d <= STATE_HI) continue;
             assertEquals(
-                "doc byte @" + d + " must match retail AUGUSTO PMAN",
-                RETAIL_AUGUSTO_PMAN[d] & 0xFF, body[d - 1] & 0xFF);
+                "doc byte @" + d + " must match retail live sample",
+                retail[d] & 0xFF, body[d - 1] & 0xFF);
         }
 
-        // The 15-byte state block we emit is exactly all-zero.
-        for (int d = 19; d <= 33; d++) {
+        // The 17-byte state block we emit is exactly all-zero.
+        for (int d = STATE_LO; d <= STATE_HI; d++) {
             assertEquals("state block @" + d + " is zero",
                     0x00, body[d - 1] & 0xFF);
         }
-        // Total body length == retail sample minus the 0x28 byte
-        // (proves no off-by-N: 15-byte block, strings correctly
-        // located).
-        assertEquals("body length matches retail PMAN",
+        // Total body length == retail sample minus the 0x28 byte.
+        // This is the regression guard for the Type-15 corruption:
+        // a 15-byte state block (pre-#178c) makes this 2 bytes short
+        // and shifts the script name into the parser's framing,
+        // producing "@WWORLDMGR : Corrupted Message Type:15".
+        assertEquals("body length matches retail live sample",
                 innerLen, body.length);
+    }
+
+    @Test
+    public void matchesRetailLiveWskSampleStructure() {
+        // RETAIL live pcap entity 266: class=0x0b4a, X=35440
+        // Y=30880 Z=32528, script "WSK", orientation "-178".
+        NPC npc = new NPC(266, 7, 0x0b4a, "WSK",
+                35440, 30880, 32528, -178, 100, 0);
+        assertMatchesRetailSample(RETAIL_LIVE_WSK, npc);
+    }
+
+    @Test
+    public void matchesRetailLivePatrolCopbotSampleStructure() {
+        // RETAIL live pcap entity 325 (Type-15 scripted copbot):
+        // class=0x27e2, X=35852 Y=30647 Z=32512, script
+        // "PATROL_COPBOT6", orientation "45". Display name differs
+        // from the AI script (curated spawn path).
+        NPC npc = new NPC(325, 7, 0x27e2, "Copbot",
+                "PATROL_COPBOT6", "", 35852, 30647, 32512, 45, 100, 0);
+        assertMatchesRetailSample(RETAIL_LIVE_PATROL, npc);
     }
 
     @Test
@@ -167,9 +209,9 @@ public class WorldNPCInfoByteIdentityTest {
         byte[] full = new byte[dp.getLength()];
         System.arraycopy(dp.getData(), 0, full, 0, full.length);
         // body after the 0x28 sub-op starts at datagram[11]; the
-        // string region begins at doc [34] -> body[33] ->
-        // datagram[11+33].
-        int o = 11 + 33;
+        // string region begins at doc [36] (after the 17-byte state
+        // block) -> body[35] -> datagram[11+35].
+        int o = 11 + 35;
         byte[] name = "WSK".getBytes(StandardCharsets.US_ASCII);
         for (int i = 0; i < name.length; i++) {
             assertEquals("script byte " + i, name[i], full[o + i]);
@@ -185,7 +227,7 @@ public class WorldNPCInfoByteIdentityTest {
     /**
      * #178 functional: a scripted NPC (e.g. a copbot from the curated
      * {@code npc_spawns} path, where the display name differs from the
-     * AI script) must emit the <em>script name</em> at doc [34..], not
+     * AI script) must emit the <em>script name</em> at doc [36..], not
      * the display name. Cross-checked against the retail live pcap
      * {@code strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap}: entity 325
      * carries the script token {@code PATROL_COPBOT6}. An empty or
@@ -205,12 +247,12 @@ public class WorldNPCInfoByteIdentityTest {
                 .getDatagramPackets()[0];
         byte[] full = new byte[dp.getLength()];
         System.arraycopy(dp.getData(), 0, full, 0, full.length);
-        int o = 11 + 33;
+        int o = 11 + 35;
         byte[] script = "PATROL_COPBOT6"
                 .getBytes(StandardCharsets.US_ASCII);
         for (int i = 0; i < script.length; i++) {
             assertEquals(
-                "doc[34..] must be the AI script name, not display name",
+                "doc[36..] must be the AI script name, not display name",
                 script[i], full[o + i]);
         }
         assertEquals("script NUL", 0x00, full[o + script.length] & 0xFF);
@@ -243,7 +285,7 @@ public class WorldNPCInfoByteIdentityTest {
                 .getDatagramPackets()[0];
         byte[] full = new byte[dp.getLength()];
         System.arraycopy(dp.getData(), 0, full, 0, full.length);
-        int o = 11 + 33;
+        int o = 11 + 35;
         byte[] name = "Vendor".getBytes(StandardCharsets.US_ASCII);
         for (int i = 0; i < name.length; i++) {
             assertEquals("fallback display name byte " + i,
