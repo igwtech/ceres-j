@@ -52,9 +52,15 @@ public class PortalResolverTest {
             // → appplaces 818 → destWorld 1573, Entity 1.
             st.execute("INSERT INTO world_objects VALUES "
                     + "('worlds/plaza/pak_plaza_p1.dat', 818, 2018)");
-            // Non-portal furniture (a chair, ft 0): must NOT resolve.
+            // Non-portal furniture (a DOOR, ft 0): must NOT resolve.
             st.execute("INSERT INTO world_objects VALUES "
                     + "('worlds/pepper/pak_pepper_p3.dat', 70, 1)");
+            // A real chair: object 529 → worldmodel 10 ("CHAIR",
+            // UseFlags 10, ufChair bit set). objectId 529 ⇔ the
+            // rawObjectId 0x00084800 byte-pinned from the retail sit
+            // pcap ((529+1)*1024 = 542720 = 0x00084800).
+            st.execute("INSERT INTO world_objects VALUES "
+                    + "('worlds/plaza/pak_plaza_p1.dat', 529, 10)");
 
             st.execute("INSERT INTO client_defs VALUES "
                     + "('worldmodel', 380, '"
@@ -70,6 +76,15 @@ public class PortalResolverTest {
                     + "('worldmodel', 1, '"
                     + "{\"f0\":\"DOOR\",\"f1\":2,\"f2\":0,\"f3\":0,"
                     + "\"f4\":0,\"f5\":0,\"f6\":0,"
+                    + "\"directive\":\"setentry\"}')");
+            // worldmodel.def entry 10 "CHAIR": UseFlags (f1) = 10,
+            // which has the ufChair bit (8) set (10 & 8 = 8).
+            // Mirrors the live worldmodel.def line
+            //   setentry 10 "CHAIR" 10 0 0 0 0
+            st.execute("INSERT INTO client_defs VALUES "
+                    + "('worldmodel', 10, '"
+                    + "{\"f0\":\"CHAIR\",\"f1\":10,\"f2\":0,"
+                    + "\"f3\":0,\"f4\":0,\"f5\":0,\"f6\":0,"
                     + "\"directive\":\"setentry\"}')");
             st.execute("INSERT INTO client_defs VALUES "
                     + "('appplaces', 130, '"
@@ -140,6 +155,37 @@ public class PortalResolverTest {
         assertNull(PortalResolver.resolve(
                 "worlds/pepper/pak_pepper_p3.dat", 99999));
         assertNull(PortalResolver.resolve(null, 95));
+    }
+
+    @Test
+    public void chairWorldmodelIsDetectedByUseFlags() {
+        // plaza_p1 object 529 → worldmodel 10 "CHAIR" UseFlags 10
+        // (10 & 8 = ufChair). This is the exact object byte-pinned
+        // from RETAIL_LIVE_p1p3_sit_npc_20260517.pcap.
+        assertTrue("worldmodel 10 (UseFlags 10) is a chair",
+                PortalResolver.isChair(
+                        "worlds/plaza/pak_plaza_p1.dat", 529));
+    }
+
+    @Test
+    public void doorWorldmodelIsNotAChair() {
+        // worldmodel 1 "DOOR" UseFlags 2 (2 & 8 = 0) — not a chair.
+        assertFalse(PortalResolver.isChair(
+                "worlds/pepper/pak_pepper_p3.dat", 70));
+    }
+
+    @Test
+    public void portalWorldmodelIsNotAChair() {
+        // worldmodel 380 sewer entrance UseFlags 66 (66 & 8 = 0).
+        assertFalse(PortalResolver.isChair(
+                "worlds/pepper/pak_pepper_p3.dat", 95));
+    }
+
+    @Test
+    public void unknownObjectIsNotAChair() {
+        assertFalse(PortalResolver.isChair(
+                "worlds/pepper/pak_pepper_p3.dat", 99999));
+        assertFalse(PortalResolver.isChair(null, 529));
     }
 
     @Test

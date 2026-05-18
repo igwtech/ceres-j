@@ -181,6 +181,55 @@ public final class PortalResolver {
                 sewer == null ? 0 : sewer);
     }
 
+    /**
+     * {@code worldmodel.def} UseFlags bit marking a seatable chair.
+     * Matches NC1 TinNS {@code FurnitureTemplate.hxx:12 ufChair = 8}.
+     * The UseFlags column is parsed by TinNS
+     * {@code WorldModels.cxx:24} as field index 2 → stored by
+     * {@link server.database.importer.DefImporter} as JSON key
+     * {@code "f1"} (token order: directive, id, f0=name,
+     * f1=UseFlags, f2=functionType, f3=functionValue).
+     */
+    public static final int UF_CHAIR = 8;
+
+    /**
+     * True if the static furniture object at {@code objectId} in the
+     * zone whose {@code world_objects.world_path} is {@code worldPath}
+     * is a seatable chair — i.e. its {@code worldmodel.def} entry's
+     * UseFlags ({@code f1}) has the {@link #UF_CHAIR} bit set.
+     *
+     * <p>Verified against the live {@code worldmodel.def}: entry 10
+     * {@code "CHAIR"} UseFlags 10 (10 &amp; 8 = 8), entry 11
+     * {@code "WOODEN CHAIR"} 10, entry 12 {@code "BENCH"} 10, entry
+     * 113 {@code "chair with bounding box"} 74 (74 &amp; 8 = 8);
+     * entry 1 {@code "DOOR"} UseFlags 2 (2 &amp; 8 = 0).
+     *
+     * @return {@code true} if the object resolves to a chair
+     *         worldmodel; {@code false} if there is no such object,
+     *         no worldmodel.def entry, or the UseFlags bit is clear.
+     */
+    public static boolean isChair(String worldPath, int objectId) {
+        if (worldPath == null) {
+            return false;
+        }
+        Connection conn = SqliteDatabase.getConnection();
+        if (conn == null) {
+            return false;
+        }
+        Integer worldmodelId =
+                lookupWorldmodelId(conn, worldPath, objectId);
+        if (worldmodelId == null) {
+            return false;
+        }
+        JsonObject wm =
+                lookupDefFields(conn, "worldmodel", worldmodelId);
+        if (wm == null) {
+            return false;
+        }
+        Integer useFlags = jsonInt(wm, "f1");
+        return useFlags != null && (useFlags & UF_CHAIR) != 0;
+    }
+
     /** {@code SELECT worldmodel_id FROM world_objects
      *  WHERE world_path=? AND object_id=?}. */
     private static Integer lookupWorldmodelId(Connection conn,

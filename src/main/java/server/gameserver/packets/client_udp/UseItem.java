@@ -44,6 +44,38 @@ public class UseItem extends GamePacketDecoderUDP {
 			String worldname = (z == null) ? null : z.getWorldname();
 			String worldPath =
 				PortalResolver.worldnameToObjectPath(worldname);
+
+			// ── Chair (seatable furniture) ──────────────────────────
+			// A static furniture object whose worldmodel.def UseFlags
+			// (f1) has the ufChair bit (8) set is a chair. Clicking it
+			// sits the player; the server broadcasts the seated
+			// posture (0x03/0x1f/<localId>/0x21) to the whole zone and
+			// echoes the rawObjectId unchanged. Byte-pinned from
+			// strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap (C→S 0x17
+			// id 0x00084800 → S→C 1f 03 00 21 00 48 08 00 00). Chairs
+			// are NEVER portals, so this is checked before the
+			// portal-resolve fall-through. See PortalResolver#isChair
+			// and SitOnChair.
+			if (z != null
+					&& PortalResolver.isChair(worldPath, objectId)) {
+				boolean reseat = pl.getSeatedChairRawId() == id;
+				pl.setSeatedChairRawId(id);
+				// seatId 0 = real chair (1+ would be a subway cab; not
+				// derivable from worldmodel.def — retail sample is 0).
+				z.sendPlayerSit(pl, id, 0);
+				Out.writeln(Out.Info,
+					"UseItem: " + (reseat ? "re-seat" : "sit")
+					+ " on chair rawObjectId=" + id
+					+ " (objectId=" + objectId + ") in '"
+					+ worldname + "'");
+				// Same interaction-commit contract as the portal /
+				// door paths: 0x83 0x8f already sent above, then the
+				// transaction-ack PAIR after the state-change packet.
+				pl.send(new InteractionAck());
+				pl.send(new InteractionAck());
+				return;
+			}
+
 			PortalResolver.Portal portal =
 				PortalResolver.resolve(worldPath, objectId);
 			if (portal != null) {

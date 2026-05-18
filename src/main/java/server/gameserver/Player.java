@@ -439,4 +439,29 @@ public class Player extends Thread {
 	public void setNoclip(boolean enabled) {
 		this.noclip = enabled;
 	}
+
+	/**
+	 * rawObjectId of the chair this player is currently seated on, or
+	 * {@code 0} when not seated. Set by
+	 * {@link server.gameserver.packets.client_udp.UseItem} when a
+	 * chair world-object is clicked; cleared on the next movement or
+	 * an explicit exit-seat request. Transient session state (not
+	 * persisted) — same lifetime model as {@link #noclip}.
+	 */
+	private volatile int seatedChairRawId = 0;
+
+	/** rawObjectId of the chair this player is seated on, or 0. */
+	public int getSeatedChairRawId() {
+		return seatedChairRawId;
+	}
+
+	/** True if this player is currently seated on a chair. */
+	public boolean isSeated() {
+		return seatedChairRawId != 0;
+	}
+
+	/** Set the seated chair rawObjectId ({@code 0} = stand up). */
+	public void setSeatedChairRawId(int rawObjectId) {
+		this.seatedChairRawId = rawObjectId;
+	}
 }
