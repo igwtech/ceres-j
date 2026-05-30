@@ -66,6 +66,7 @@ def main():
         ok = sess.screenshot(os.path.join(run_dir, name), device)
         nar.say(f"screenshot {name}{(' — ' + why) if why else ''}"
                 f"{'' if ok else ' [FAILED]'}")
+        return ok
 
     def snapshot(name, label=""):
         if not sess.arm_state(secs=6):
@@ -98,17 +99,27 @@ def main():
         time.sleep(T_MENU_SETTLE)
         shot("00_menu.png", "main menu before login")
 
-        nar.say("Quick-resume login: username, password, Enter (selects RESUME). "
-                f"Expect world load + sustained UDP within ~{T_LOGIN_WAIT}s.")
+        nar.say("Long login (ENTER path: full server+char select, avoids "
+                "the LastChar resume dependency). Screenshotting each step.")
         sess.focus()
         sess.type_text('msn3wolf')
         sess.key(K.TAB)
-        sess.type_text('sprlnk2kk')        
-        sess.keys([K.TAB, K.ENTER])
-        time.sleep(3)
-        sess.keys([K.TAB, K.ENTER])
-        time.sleep(3)
+        sess.type_text('sprlnk2kk')
+        if not shot("login_1_creds.png", "username+password typed"):
+            raise Exception("D3D9 capture failed, please try again")            
+        # Buttons: RESUME ENTER OPTIONS CREDITS. RESUME is 1 Tab from the
+        # password field; ENTER is 1 more Tab to the right.
+        sess.keys([K.TAB, K.TAB])
+        shot("login_2_enter_selected.png", "ENTER button highlighted?")
         sess.key(K.ENTER)
+        time.sleep(3)
+        shot("login_3_after_enter.png", "after ENTER (server-select screen?)")
+        sess.keys([K.TAB, K.ENTER])           # confirm server (slot already set via INI)
+        time.sleep(3)
+        shot("login_4_charselect.png", "char-select screen (Krafteo slot 0?)")
+        sess.key(K.ENTER)            # enter world with selected char
+        time.sleep(3)
+        shot("login_5_entering.png", "entering world?")
         if not lc.wait_inworld(T_LOGIN_WAIT):
             nar.say("FATAL: never reached in-world (no sustained UDP)")
             return 1
@@ -120,7 +131,7 @@ def main():
         # ── STEP LIST — edit; keep IDENTICAL across servers ──────────
         nar.say(f"STEP 1: walk forward {T_STEP}s. Expect position to "
                 "advance; pools steady in a safe zone.")
-        sess.hold(K.W, T_STEP * 1000)
+        sess.hold(K.W, T_STEP * 800)
         time.sleep(T_SETTLE)
         shot("02_after_fwd.png", "after walk forward")
         snapshot("02_state.json", "after_fwd")
@@ -128,11 +139,17 @@ def main():
         nar.say("STEP 2: mouselook turn right (A/D strafe, so turning is "
                 "the mouse). Expect heading change; pools steady. If the "
                 "camera doesn't move, retry sess.look(400, hold_rmb=True).")
-        sess.look(400)            # +dx = turn right; tune to mouse sensitivity
+        sess.look(677)            # +dx = turn right; tune to mouse sensitivity
         time.sleep(T_SETTLE)
         shot("03_after_turn.png", "after mouselook turn")
         snapshot("03_state.json", "after_turn")
-
+        
+        sess.hold(K.W, T_STEP * 800)
+        sess.look(-677)            # +dx = turn right; tune to mouse sensitivity
+        time.sleep(T_SETTLE)
+        shot("03.1_after_turn.png", "after mouselook turn")
+        snapshot("03.1_state.json", "after_turn")
+        
         nar.say("STEP 3: open inventory (F2), screenshot, close (Esc).")
         sess.key(K.F2)
         time.sleep(T_SETTLE)

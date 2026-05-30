@@ -51,19 +51,21 @@ def robust_login(sess, lc, username, password, *,
         time.sleep(0.3)
         sess.type_text(password)
         sess.key(keys.TAB)
+        sess.key(keys.TAB)
         _shot(f"login_c_creds_{i}")   # password entered, on Resume button?
         sess.key(keys.ENTER)
         log(f"[login] credentials (RawInput) attempt {i + 1}/"
             f"{cred_attempts}; waiting {auth_timeout:g}s for GameServer auth")
-        if lc.wait_trace(auth_sig, auth_timeout):
+        # Server Select
+        sess.keys([keys.TAB,keys.ENTER])
+        #if lc.wait_trace(auth_sig, auth_timeout):
             authed = True
 
     if not authed:
         log("[login] FAILED: never connected to GameServer (auth)")
         return False
     log("[login] authenticated; entering world")
-    # Server Select
-    sess.keys([keys.TAB,keys.ENTER])
+    
     # Char-select -> world. Nudge Enter until sustained UDP appears.
     for n in range(spawn_nudges):
         if lc.wait_inworld(spawn_step, min_recv=inworld_recv):

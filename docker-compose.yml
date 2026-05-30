@@ -6,7 +6,9 @@ services:
       POSTGRES_DB: ceres
       POSTGRES_USER: ceres
       POSTGRES_PASSWORD: ceres
-    network_mode: host
+    networks:
+      ceresnet:
+        ipv4_address: 172.18.0.2
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
@@ -21,7 +23,15 @@ services:
     container_name: neocron-server
     stdin_open: true
     tty: true
-    network_mode: host
+    # Bridge network with a fixed IP (172.18.0.3) so the NC2 client
+    # (which reaches the container from the host-side bridge gateway
+    # 172.18.0.1) has a DISTINCT source IP from the server — letting
+    # pcap captures tell C->S from S->C by IP. ServerIPLocal in
+    # ceres.docker.cfg must match this IP (it is what the server
+    # advertises to the client for game UDP).
+    networks:
+      ceresnet:
+        ipv4_address: 172.18.0.3
     depends_on:
       postgres:
         condition: service_healthy
@@ -30,3 +40,11 @@ services:
       - ./data/database:/app/database
       - ${NC2_CLIENT_PATH:-/home/javier/Neocron2}:/client:ro
     restart: unless-stopped
+
+networks:
+  ceresnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+          gateway: 172.18.0.1
