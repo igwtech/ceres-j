@@ -73,16 +73,24 @@ class Session:
             self._frame = (msg["payload"], data)
 
     # ── Input ────────────────────────────────────────────────────────
+    def _in(self, method, *args):
+        """Call an input RPC; never raises (records last_error)."""
+        try:
+            return getattr(self.input.exports_sync, method)(*args)
+        except Exception as e:
+            self.last_error = f"{method}: {e}"
+            return None
+
     def focus(self):
-        hwnd = self.input.exports_sync.find_window(self.title)
+        hwnd = self._in("find_window", self.title)
         if hwnd:
-            self.input.exports_sync.focus(hwnd)
+            self._in("focus", hwnd)
             self._hwnd = hwnd
         return hwnd
 
     def key(self, vk: int, hold_ms: int = 60):
         """Tap (down+up) a single VK; hold_ms holds it that long."""
-        self.input.exports_sync.key_press(vk, hold_ms)
+        self._in("key_press", vk, hold_ms)
 
     def keys(self, seq, gap: float = 0.35):
         """Press a sequence of VKs with a gap between each."""
@@ -215,6 +223,33 @@ class Session:
 
     def dump_state(self, before: int = 64, after: int = 192):
         return self.state.exports_sync.dump(before, after)
+
+    # ── Memory scan (deterministic sentinel pinning) ─────────────────
+    @staticmethod
+    def _pat(value, kind):
+        import struct
+        if kind == "f32":
+            return " ".join(f"{b:02x}" for b in struct.pack("<f", float(value)))
+        if kind == "u16":
+            return " ".join(f"{b:02x}" for b in struct.pack("<H", int(value)))
+        return " ".join(f"{b:02x}" for b in struct.pack("<I", int(value)))
+
+    def scan(self, value, kind="u32", cap=40):
+        """Scan RW memory for `value` encoded as kind (u32/f32/u16).
+        Returns a list of hit addresses (hex strings)."""
+        try:
+            return self.state.exports_sync.scan(self._pat(value, kind), cap)
+        except Exception as e:
+            self.last_error = f"scan: {e}"
+            return []
+
+    def dump_at(self, addr, before=64, after=128):
+        """u32/f32 window around an address (offset-pinning)."""
+        try:
+            return self.state.exports_sync.dump_at(addr, before, after)
+        except Exception as e:
+            self.last_error = f"dump_at: {e}"
+            return None
 
     def close(self):
         try:

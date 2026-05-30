@@ -116,14 +116,39 @@ class Lifecycle:
 
     def wait_inworld(self, timeout=60, min_recv=40) -> bool:
         """In-world == sustained decrypted S->C UDP in the trace."""
+        return self.wait_trace('"ev":"udp_recv"', timeout, min_count=min_recv)
+
+    def wait_trace(self, substr, timeout, min_count=1) -> bool:
+        """Poll the trace until >= min_count lines contain `substr`."""
         end = time.time() + timeout
         while time.time() < end:
-            n = sum(1 for ln in self._trace_lines()
-                    if '"ev":"udp_recv"' in ln)
-            if n >= min_recv:
+            n = sum(1 for ln in self._trace_lines() if substr in ln)
+            if n >= min_count:
                 return True
             time.sleep(0.5)
         return False
+
+    def count_trace(self, substr) -> int:
+        return sum(1 for ln in self._trace_lines() if substr in ln)
+
+    # ── Reliable input via the orchestrator's RawInput injection ─────
+    # NC2's engine reads input via RawInput/DirectInput; SendInput/WM_CHAR
+    # are only ~50% reliable under Wine. The orchestrator's _agent.js
+    # exposes `ri <vk> <ms>` (RawInput keystroke), dispatched from the
+    # commands file it polls. We drive login/movement through that.
+    def send_cmd(self, line: str):
+        with open(self.cmds, "a") as f:
+            f.write(line.rstrip("\n") + "\n")
+            f.flush()
+
+    def ri_key(self, vk: int, ms: int = 60):
+        self.send_cmd(f"ri 0x{vk:02x} {ms}")
+
+    def ri_text(self, text: str, ms: int = 60, gap: float = 0.15):
+        for ch in text:
+            if ch.isalnum():
+                self.ri_key(ord(ch.upper()), ms)
+                time.sleep(gap)
 
     def teardown(self):
         self._log("teardown")

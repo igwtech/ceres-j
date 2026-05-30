@@ -78,6 +78,18 @@ rpc.exports={
  dump(before,after){ if(!globalThis.__BASE)return null; const p=globalThis.__BASE.sub(before); const n=before+after; const u=[],f=[];
   for(let i=0;i<n;i+=4){try{u.push(p.add(i).readU32());f.push(p.add(i).readFloat());}catch(e){u.push(null);f.push(null);}}
   return {start:'0x'+p.toString(16),before:before,u32:u,f32:f}; },
+ // Scan all RW regions for a 4-byte pattern (hex like 'aa bb cc dd').
+ // Used by the deterministic sentinel experiment: set a unique value
+ // in the DB, relog, then scan for it to PIN the field's address.
+ scan(patternHex,cap){ const hits=[];
+  for(const r of Process.enumerateRanges('rw-')){ try{
+   for(const m of Memory.scanSync(r.base,r.size,patternHex)){
+    hits.push('0x'+m.address.toString(16)); if(hits.length>=cap)return hits; }
+  }catch(e){} } return hits; },
+ // Read a window of u32/f32 around an arbitrary address (offset-pinning).
+ dumpAt(addrHex,before,after){ const p=ptr(addrHex).sub(before); const n=before+after; const u=[],f=[];
+  for(let i=0;i<n;i+=4){try{u.push(p.add(i).readU32());f.push(p.add(i).readFloat());}catch(e){u.push(null);f.push(null);}}
+  return {start:'0x'+p.toString(16),before:before,u32:u,f32:f}; },
 };
 send({ev:'ready'});
 """
