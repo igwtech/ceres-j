@@ -71,19 +71,27 @@ public class LocalChatMessageByteIdentityTest {
     }
 
     @Test
-    public void shortConstructorWritesZeroMapId() {
-        // The 2-arg constructor writes [0x00 0x00] for mapId
-        // (legacy behaviour). This test pins it so refactors
-        // that route the player's own mapId through don't
-        // surprise existing call sites.
+    public void shortConstructorDerivesMapIdFromPlayerZone() {
+        // Updated 2026-05-29: the 2-arg constructor now derives
+        // mapId from the player's zone via
+        // Zone.getDistrictMapId() instead of hardcoding 0,0.
+        // This matches retail behaviour (verified live in Viarosso
+        // 2026-05-29 iter 45 where Krafteo's chat carried mapId=5).
+        // Callers that need an explicit mapId override should use
+        // the 3-arg constructor.
+        //
+        // The fixture player has no zone resolved, so the safe
+        // fallback `2` (generic outdoor) is emitted. This pins the
+        // fallback path; a player WITH a Plaza zone would emit 1,
+        // Viarosso would emit 5 (see DistrictMapId test in Zone).
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
-        pl.setMapID(42);
+        pl.setMapID(42);  // legacy field, no longer used by LocalChat
 
         byte[] body = extractInnerBody(
                 datagramBytes(new LocalChatMessage(pl, "x")), 4);
-        assertEquals("mapId lo must be 0 (legacy)",
-                0x00, body[0] & 0xFF);
-        assertEquals("mapId hi must be 0 (legacy)",
+        assertEquals("mapId lo = fallback 2",
+                0x02, body[0] & 0xFF);
+        assertEquals("mapId hi = fallback 0",
                 0x00, body[1] & 0xFF);
         assertEquals("sub-tag 0x1b",
                 0x1b, body[2] & 0xFF);

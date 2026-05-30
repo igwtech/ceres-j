@@ -771,6 +771,16 @@ public class AdminCommandHandler {
         }
     }
 
+    // #207 evidence (task #247): CharInfo Section 2 + PoolStatusBroadcast
+    // emit PSI cur at offset 6..7 and STA cur at offset 8..9 — verified
+    // byte-correct via PoolStatusBroadcastByteIdentityTest. pc.setPsi()
+    // doesn't side-effect stamina. The user-reported "setpsi 0 also
+    // lowers STA" must therefore live in one of: PoolUpdate (POOL_PSI),
+    // the LiveCharInfoSync recompute chain (sec 4 subskills?), or
+    // client-side. Investigate by capturing the wire emitted by an
+    // actual cmdSetPsi(0) call (the bot via #213 A/B-bytediff harness
+    // is the cleanest path; nc2-bot can issue !setpsi over the wire
+    // and tcpdump the loopback).
     private static void cmdSetPsi(Player pl, String args) {
         if (args.isEmpty()) { reply(pl, "Usage: !setpsi <value>"); return; }
         try {

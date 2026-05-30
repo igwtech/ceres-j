@@ -175,6 +175,11 @@ public final class ListenerUDP extends Thread {
 			}
 		}
 		if (con == null || con.getPlayer() == null) return;
+		// Task #215: a real C→S packet just arrived — refresh the
+		// idle-timeout clock. Server-scheduled heartbeats no longer
+		// touch lastping (see Player.run), so this is the ONLY path
+		// that keeps an active session alive.
+		con.getPlayer().setLastping();
 		GamePacketReaderUDP.readPacket(dp, con.getPlayer());
 	}
 

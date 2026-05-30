@@ -87,6 +87,14 @@ public final class PlayerUdpListener extends Thread {
 					+ dp.getAddress().getHostAddress() + ":" + dp.getPort()
 					+ " header=0x" + String.format("%02x", decrypted[0] & 0xFF));
 
+				// Task #215: refresh the idle-session reaper clock
+				// ONLY on real client traffic. Server-scheduled
+				// heartbeats no longer touch lastping (see Player.run).
+				// Without this hook a Player would always time out,
+				// even on a live session; with it the reaper fires
+				// exactly when the client has gone silent for >30s.
+				player.setLastping();
+
 				handle(dp);
 			} catch (SocketTimeoutException e) {
 				// normal — tight loop so we can observe keeprunning

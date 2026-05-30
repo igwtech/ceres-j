@@ -112,4 +112,98 @@ public class TimeSyncByteIdentityTest {
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
         assertEquals(23, datagramBytes(new TimeSync(pl, 0)).length);
     }
+
+    // ─── task #231: server_time monotonic ms (not hardcoded 1) ─────
+
+    @org.junit.After
+    public void resetClock() {
+        TimeSync.resetClockForTesting();
+    }
+
+    @Test
+    public void serverTimeIsNoLongerHardcodedToOne() {
+        // Regression guard: pre-fix the code wrote `writeInt(1)`,
+        // so body[0..3] was always `01 00 00 00`. A future refactor
+        // that resurrects that must fail this test.
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
+
+        // Force a non-trivial server uptime so the byte pattern
+        // never collides with `01 00 00 00`.
+        TimeSync.setClockForTesting(0L, () -> 12_345_678L);
+
+        byte[] body = extractInnerBody(datagramBytes(new TimeSync(pl, 0)));
+        boolean isOldHardcoded =
+                (body[0] & 0xFF) == 0x01 &&
+                (body[1] & 0xFF) == 0x00 &&
+                (body[2] & 0xFF) == 0x00 &&
+                (body[3] & 0xFF) == 0x00;
+        assertFalse("server_time must not regress to hardcoded `01 00 00 00`",
+                isOldHardcoded);
+    }
+
+    @Test
+    public void serverTimeEncodesUptimeMsLittleEndian() {
+        // Inject a fake clock: boot at t=1000, current=1000 + 12345.
+        // Expected server_time = 12345 (=0x3039) encoded LE32 =
+        //   39 30 00 00
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
+        TimeSync.setClockForTesting(1000L, () -> 1000L + 12345L);
+
+        byte[] body = extractInnerBody(datagramBytes(new TimeSync(pl, 0)));
+        assertEquals(0x39, body[0] & 0xFF);
+        assertEquals(0x30, body[1] & 0xFF);
+        assertEquals(0x00, body[2] & 0xFF);
+        assertEquals(0x00, body[3] & 0xFF);
+    }
+
+    @Test
+    public void serverTimeAdvancesBetweenEmissions() {
+        // The point of the whole fix: two TimeSync packets emitted
+        // at different wall-clock moments must encode DIFFERENT
+        // server_time bytes. Without this the HUD clock stays
+        // frozen at the boot-time value.
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
+
+        long[] now = {1000L};
+        TimeSync.setClockForTesting(0L, () -> now[0]);
+
+        byte[] bodyA = extractInnerBody(datagramBytes(new TimeSync(pl, 0)));
+        now[0] = 5000L;
+        byte[] bodyB = extractInnerBody(datagramBytes(new TimeSync(pl, 0)));
+
+        // server_time bytes 0..3 MUST differ between A and B.
+        boolean differ = false;
+        for (int i = 0; i < 4; i++) {
+            if (bodyA[i] != bodyB[i]) { differ = true; break; }
+        }
+        assertTrue("server_time bytes must change between two "
+                + "emissions at different wall-clock times — without "
+                + "this the in-game HUD clock stays frozen", differ);
+    }
+
+    @Test
+    public void serverTimeClampsToZeroForNegativeDelta() {
+        // Defensive: if the test/NTP clock adjusts backwards
+        // (clock < bootMs), server_time must clamp to 0 instead of
+        // emitting a negative-as-uint32 (which would look like a
+        // huge bogus value to the client).
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
+        TimeSync.setClockForTesting(5000L, () -> 1000L);
+
+        byte[] body = extractInnerBody(datagramBytes(new TimeSync(pl, 0)));
+        // server_time = 0 → body[0..3] = 00 00 00 00.
+        for (int i = 0; i < 4; i++) {
+            assertEquals("server_time byte " + i + " must be 0 on"
+                    + " negative-delta clamp",
+                    0x00, body[i] & 0xFF);
+        }
+    }
+
+    @Test
+    public void serverTimeMsHelperIsExposedForReuse() {
+        // The static helper is what the periodic-push event will
+        // also call. Pin the contract.
+        TimeSync.setClockForTesting(100L, () -> 100L + 42L);
+        assertEquals(42, TimeSync.serverTimeMs());
+    }
 }

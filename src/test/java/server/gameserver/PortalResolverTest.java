@@ -198,4 +198,146 @@ public class PortalResolverTest {
         assertFalse(PortalResolver.isZoneChangeFunctionType(6));
         assertFalse(PortalResolver.isZoneChangeFunctionType(14));
     }
+
+    // ─── task #237: worldinfo.f2 alternate .dat override ──────────
+
+    @Test
+    public void normaliseDatFileHandlesRetailDungeonPaths()
+            throws Exception {
+        // The 3 real dungeon overrides from production worldinfo:
+        assertEquals("worlds/sewer/pak_sewer_p4_x1.dat",
+                PortalResolver.normaliseDatFile(
+                    ".\\worlds\\sewer\\sewer_p4_x1.dat"));
+        assertEquals("worlds/startmissions/pak_reaktor_nc.dat",
+                PortalResolver.normaliseDatFile(
+                    ".\\worlds\\startmissions\\reaktor_NC.dat"));
+        assertEquals("worlds/citysewer/pak_peppersewer_1b2.dat",
+                PortalResolver.normaliseDatFile(
+                    ".\\worlds\\citysewer\\peppersewer_1b2.dat"));
+    }
+
+    @Test
+    public void normaliseDatFileTreatsBlankSentinelAsNoOverride() {
+        // Retail worldinfo for non-dungeon zones (plaza/pepper) has
+        // f2=" " (a single space). Must be treated as no override.
+        assertNull(PortalResolver.normaliseDatFile(" "));
+        assertNull(PortalResolver.normaliseDatFile(""));
+        assertNull(PortalResolver.normaliseDatFile(null));
+    }
+
+    @Test
+    public void normaliseDatFileAcceptsForwardSlashesToo() {
+        // Defensive: future imports may store forward-slash paths.
+        assertEquals("worlds/sewer/pak_sewer_p4_x1.dat",
+                PortalResolver.normaliseDatFile(
+                    "./worlds/sewer/sewer_p4_x1.dat"));
+    }
+
+    @Test
+    public void normaliseDatFileRejectsMalformedShapes() {
+        // No .dat extension, no slash, just whitespace — return null.
+        assertNull(PortalResolver.normaliseDatFile("no-extension"));
+        assertNull(PortalResolver.normaliseDatFile("plain.txt"));
+        assertNull(PortalResolver.normaliseDatFile("nosls.dat"));
+    }
+
+    @Test
+    public void normaliseDatFilePreservesExistingPakPrefix() {
+        // Defensive: if the path already has pak_, don't double-prefix.
+        assertEquals("worlds/sewer/pak_already.dat",
+                PortalResolver.normaliseDatFile(
+                    ".\\worlds\\sewer\\pak_already.dat"));
+    }
+
+    @Test
+    public void worldIdToObjectPathPrefersF2OverrideOverDefault()
+            throws Exception {
+        // Seed worldinfo[1573] (Reactor Room) with the alternate .dat.
+        try (Statement st = conn.createStatement()) {
+            st.execute("INSERT INTO client_defs VALUES "
+                    + "('worldinfo', 1573, '"
+                    + "{\"f0\":\"Reactor Room\",\"f1\":5,"
+                    + "\"f2\":\".\\\\worlds\\\\startmissions\\\\reaktor_NC.dat\","
+                    + "\"f3\":1,\"f4\":4,\"directive\":\"setentry\"}')");
+        }
+        // Even with a fallback worldname pointing at the wrong .dat
+        // (default-naming would give pak_reaktor.dat), f2 wins.
+        String got = PortalResolver.worldIdToObjectPath(1573,
+                "startmissions/reaktor");
+        assertEquals(
+            "worldinfo.f2 must override the default pak_reaktor.dat — "
+            + "the real file in world_objects is pak_reaktor_nc.dat",
+            "worlds/startmissions/pak_reaktor_nc.dat", got);
+    }
+
+    @Test
+    public void worldIdToObjectPathFallsBackWhenF2Blank()
+            throws Exception {
+        // worldinfo[1] PLAZA SEC-1 has f2=" " (no override). Must fall
+        // through to the legacy worldnameToObjectPath using the
+        // fallback worldname.
+        try (Statement st = conn.createStatement()) {
+            st.execute("INSERT INTO client_defs VALUES "
+                    + "('worldinfo', 1, '"
+                    + "{\"f0\":\"PLAZA SEC-1\",\"f1\":1,\"f2\":\" \","
+                    + "\"f3\":16,\"f4\":1,\"directive\":\"setentry\"}')");
+        }
+        String got = PortalResolver.worldIdToObjectPath(1,
+                "plaza/plaza_p1");
+        assertEquals("worlds/plaza/pak_plaza_p1.dat", got);
+    }
+
+    @Test
+    public void worldIdToObjectPathFallsBackWhenNoWorldinfoRow()
+            throws Exception {
+        // Zone exists in WorldManager but has no worldinfo row at all
+        // (test fixture context). Should still fall back to default
+        // naming via the supplied fallback worldname.
+        String got = PortalResolver.worldIdToObjectPath(99999,
+                "plaza/plaza_p1");
+        assertEquals("worlds/plaza/pak_plaza_p1.dat", got);
+    }
+
+    @Test
+    public void worldIdToObjectPathReturnsNullWithNoFallback() {
+        // Completely unknown zone with no worldname provided — null.
+        assertNull(PortalResolver.worldIdToObjectPath(99998, null));
+    }
+
+    @Test
+    public void portalResolveUsesF2OverrideEndToEnd() throws Exception {
+        // End-to-end: a dungeon exit door in the sewer
+        // (worldinfo[1064].f2 = sewer_p4_x1.dat). Seed the
+        // world_objects row at the OVERRIDDEN path with a portal
+        // worldmodel, then assert resolve() finds it via the f2 path.
+        try (Statement st = conn.createStatement()) {
+            // The override path the f2 normaliser must produce.
+            st.execute("INSERT INTO world_objects VALUES "
+                    + "('worlds/sewer/pak_sewer_p4_x1.dat', 385, 228)");
+            st.execute("INSERT INTO client_defs VALUES "
+                    + "('worldmodel', 228, '"
+                    + "{\"f0\":\"EXIT TO PLAZA 1\",\"f1\":66,"
+                    + "\"f2\":20,\"f3\":739,\"directive\":\"setentry\"}')");
+            st.execute("INSERT INTO client_defs VALUES "
+                    + "('appplaces', 739, '"
+                    + "{\"f0\":\"plaza_p1 exit\",\"f1\":1,\"f2\":7,"
+                    + "\"f3\":0,\"directive\":\"setentry\"}')");
+            st.execute("INSERT INTO client_defs VALUES "
+                    + "('worldinfo', 1064, '"
+                    + "{\"f0\":\"ABANDONED CELLAR 2 EASY\",\"f1\":3,"
+                    + "\"f2\":\".\\\\worlds\\\\sewer\\\\sewer_p4_x1.dat\","
+                    + "\"directive\":\"setentry\"}')");
+        }
+        // 1) The worldIdToObjectPath helper must hit the override.
+        assertEquals("worlds/sewer/pak_sewer_p4_x1.dat",
+                PortalResolver.worldIdToObjectPath(1064, null));
+
+        // 2) Resolve via the OVERRIDDEN path must find the portal.
+        PortalResolver.Portal p = PortalResolver.resolve(
+                "worlds/sewer/pak_sewer_p4_x1.dat", 385);
+        assertNotNull("Resolver must find the sewer exit door at the "
+                + "override path", p);
+        assertEquals(228, p.worldmodelId);
+        assertEquals(1, p.exitWorldId);  // back to plaza_p1
+    }
 }

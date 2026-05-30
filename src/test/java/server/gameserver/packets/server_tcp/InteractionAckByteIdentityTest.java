@@ -61,23 +61,87 @@ public class InteractionAckByteIdentityTest {
         assertArrayEquals(a, b);
     }
 
+    // ────────────────────────── task #254 — retail 13B variant
+    //
+    // Live retail (2026-05-22 Braine, 2026-05-24 RETRY3 portal
+    // cross) consistently sends `0xa0/0x02` with an 8B trailer
+    // identical to SessionReady's payload: `15 00 00 00 00 00 80 3f`
+    // (LE32=21 + float32=1.0). Ceres-J emits 2B by default to
+    // preserve catalog parity with the 224 historic samples, but
+    // the 13B variant via `new InteractionAck(true)` is what the
+    // portal/chair/door interaction handlers must use.
+
+    @Test
+    public void retailPayloadVariantEmitsExpected13Bytes() {
+        InteractionAck pkt = new InteractionAck(true);
+        // 3-byte FE frame + 2-byte opcode + 8-byte payload = 13B.
+        assertEquals(13, pkt.size());
+        byte[] data = pkt.getData();
+        byte[] expected = {
+                (byte) 0xfe, 0x0a, 0x00,        // FE frame, len=10
+                (byte) 0xa0, 0x02,              // opcode
+                0x15, 0x00, 0x00, 0x00,         // LE32 = 21
+                0x00, 0x00, (byte) 0x80, 0x3f   // float32 LE = 1.0
+        };
+        byte[] actual = new byte[13];
+        System.arraycopy(data, 0, actual, 0, 13);
+        assertArrayEquals(
+                "task #254: 13B retail variant byte-identical",
+                expected, actual);
+    }
+
+    @Test
+    public void retailPayloadIsStableAcrossInstances() {
+        byte[] a = new InteractionAck(true).getData();
+        byte[] b = new InteractionAck(true).getData();
+        byte[] aSliced = new byte[13];
+        byte[] bSliced = new byte[13];
+        System.arraycopy(a, 0, aSliced, 0, 13);
+        System.arraycopy(b, 0, bSliced, 0, 13);
+        assertArrayEquals(aSliced, bSliced);
+    }
+
+    @Test
+    public void defaultConstructorStillEmits2BCatalogForm() {
+        // Backwards-compat: the 224-sample catalog parity test
+        // (`emitsRetailExactBytes` above) drives the 2B form. The
+        // no-arg ctor MUST continue to emit 2B for that to keep
+        // passing.
+        InteractionAck pkt = new InteractionAck();
+        assertEquals("no-arg ctor must remain 5B wire (2B body)",
+                5, pkt.size());
+    }
+
+    @Test
+    public void retailPayloadConstantMatchesSessionReady() {
+        // Both InteractionAck(true) and SessionReady use the SAME
+        // 8B retail payload. If a future retail capture proves
+        // they diverge, this pin will catch it and force an
+        // explicit constant split.
+        assertArrayEquals(
+                "InteractionAck retail payload must match "
+                        + "SessionReady payload",
+                SessionReady.RETAIL_BODY_PAYLOAD_2_5,
+                InteractionAck.RETAIL_PAYLOAD_2_5);
+    }
+
     @Test
     public void distinctFromSessionReadyByOneBit() {
         // InteractionAck (a0 02) and SessionReady (a0 01) share
-        // the a0 prefix but differ at the second byte. A future
-        // refactor that accidentally collapses them into one
-        // class will fail this test.
+        // the a0 prefix but differ at the second byte. SessionReady
+        // gained an 8-byte payload in May 2026 retail (so they now
+        // have DIFFERENT lengths). A future refactor that
+        // accidentally collapses them must fail this test.
         byte[] interaction = BytesIdenticalAssertion.sliceWire(
-                new InteractionAck());
+                new InteractionAck());  // 5B framed
         byte[] sessionReady = BytesIdenticalAssertion.sliceWire(
-                new SessionReady());
+                new SessionReady());    // 13B framed (10B body)
 
-        // Same length, same FE header, same first opcode byte.
-        assertEquals(interaction.length, sessionReady.length);
-        // Differ at the second opcode byte (last byte of body).
-        assertNotEquals("InteractionAck and SessionReady must "
-                + "stay distinct at the trailing byte",
-                interaction[interaction.length - 1],
-                sessionReady[sessionReady.length - 1]);
+        // Different opcode (second body byte 0x02 vs 0x01) — even
+        // if lengths drift back together someday, this byte must
+        // remain distinct.
+        assertNotEquals(
+                "InteractionAck and SessionReady must stay distinct at body[1]",
+                interaction[4], sessionReady[4]);
     }
 }

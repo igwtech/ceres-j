@@ -57,21 +57,42 @@ size — same opcode, different semantics:
 
 ### 10-byte handshake variant
 
-Sent by the client during the UDP 3-way handshake. Body bytes
-are CONSTANT across all retail captures:
+Sent by the client during the UDP 3-way handshake. **Bytes 1..8 are
+session-specific** — they carry the `session_id` from the just-received
+`UDPServerData` TCP packet, XOR-masked with `0x7f` per byte. This is
+how retail's UDP server binds the incoming datagram to the
+TCP-established game session.
 
 ```
-01 d1 84 21 e2 21 e2 11 a0 00
+Offset  Size  Description
+[0]     0x01                   sub-opcode (handshake)
+[1..8]  UDPServerData.session_id XOR 0x7f per byte
+[9]     interface_id (0x00 on first handshake)
 ```
 
-Wire layout (10 bytes total):
-```
-[0]      0x01                   sub-opcode
-[1..9]   handshake constant     `d1 84 21 e2 21 e2 11 a0 00`
-                                 — appears to be a hardcoded
-                                   client-build identifier or
-                                   protocol-version magic
-```
+**Verified live 2026-05-22**: 18/18 retail captures match the formula
+`plain[1..8] == sid ^ 0x7f` where `sid` is the 8-byte session_id at
+offset 20..27 of the immediately-preceding `0x83/0x05` UDPServerData.
+
+Examples (per capture):
+| capture       | session_id        | handshake plaintext      |
+|---------------|-------------------|--------------------------|
+| AUGUSTO       | `b15e6edc6fdc50b7` | `01 ce2111a310a32fc8 00` |
+| HANNIBAL      | `4e830b010c012abd` | `01 31fc747e737e55c2 00` |
+| DRSTONE       | `35b84f37503739d3` | `01 4ac730482f4846ac 00` |
+| PLAZA_TO_PEPPER | `aefb5e9d5e9d6edf` | `01 d18421e221e211a0 00` |
+
+**Bot impact** (`nc2bot`): the previous "constant body" assumption made
+the bot's UDP handshake match only ONE specific retail capture's
+session_id. For all OTHER sessions retail silently dropped the
+datagram. After encoding session_id^0x7f in bytes 1..8, the
+handshake datagram reaches retail's session-routing layer correctly.
+(Caveat: even with correct bytes, retail may still not respond if
+other state is wrong — see live observation log 2026-05-22.)
+
+Ceres-J's `HandshakeUDP.execute` `skip(9)`s past bytes 1..8 entirely
+(it doesn't validate them), which is why the original "constant"
+hypothesis worked for Ceres-J but not for live retail.
 
 ### 3-byte reliable-ack-request variant
 
@@ -113,12 +134,19 @@ opens a fresh UDP socket).
 
 ## Open questions
 
-- Body bytes `d1 84 21 e2 21 e2 11 a0 00` of the handshake variant
-  — these look like a UUID or 9-byte client identifier. Constant
-  across all retail captures regardless of account/character.
-  Likely embedded in the client binary as a hardcoded magic
-  ("client build hash" or "protocol version GUID"). Server doesn't
-  validate (Ceres-J accepts any 10 B 0x01 as handshake).
+- ~~Body bytes `d1 84 21 e2 21 e2 11 a0 00`~~ **RESOLVED 2026-05-22**:
+  these are the per-session `UDPServerData.session_id` XOR 0x7f per
+  byte. Not a hardcoded magic — they vary per session. Retail's UDP
+  router uses this as the session-binding key.
+- Even with the correct session_id-bound handshake, the bot's
+  retail UDP handshake against live retail still receives NO
+  `UDPAlive` reply (live test 2026-05-22, msn3wolf account, Krafteo
+  in Plaza1). Other state must be required. Hypotheses:
+  - Multi-handshake retransmission (real client sends 3 copies
+    within ~1ms — bot only sends 1)
+  - NAT/firewall blocking inbound UDP from a previously-unused
+    direction (UDP NAT mapping window)
+  - Anti-bot heuristic (TCP stage 3 → UDP gap timing)
 
 ## Server-side handler
 

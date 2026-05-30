@@ -94,28 +94,41 @@ public class ZoneStateCompoundPacket implements ServerUDPPacket {
     }
 
     /**
-     * Emit the two reliable datagrams (WorldInfo {@code 0x28} then the
-     * 6-byte NPC-data ping {@code 0x2d}). Each is a standalone
-     * {@link PacketBuilderUDP1303} so it consumes exactly one
-     * contiguous reliable seq and is recorded in the retransmit ring.
+     * Emit the WorldInfo {@code 0x28} + NpcData ping {@code 0x2d} as
+     * TWO sub-packets in ONE reliable {@code 0x13} datagram (each sub
+     * still gets its own contiguous seq + retransmit-ring entry).
+     *
+     * <p><strong>2026-05-30 bundling fix.</strong> Pre-fix this method
+     * built two separate {@link PacketBuilderUDP1303} instances and
+     * returned two {@link DatagramPacket}s — i.e. two UDP datagrams
+     * per NPC, each with its own LFSR seed + IP/UDP overhead. On
+     * world-entry the per-zone loop emits one of these per NPC, so a
+     * 5-NPC zone produced 10 distinct datagrams in rapid succession.
+     * The live wire log 2026-05-30 (msn3wolf chair-sit post-cross)
+     * showed the client NAK-storming (255-byte burst, 85+ NAKs)
+     * during exactly this density, dropping the in-flight sit
+     * packets and breaking #205/#232.
+     *
+     * <p>Bundling the two sub-packets into ONE datagram halves the
+     * datagram count for the NPC dump and is what
+     * {@link PacketBuilderUDP1303#newSubPacket()} was designed for —
+     * each sub still consumes its own seq, but the wrapper +
+     * encryption pass amortises across both.
      */
     @Override
     public DatagramPacket[] getDatagramPackets() {
-        // Datagram 1: reliable 0x03 -> 0x28 WorldInfo. Body built by
+        PacketBuilderUDP1303 b = new PacketBuilderUDP1303(owner);
+        // Sub 1: reliable 0x03/0x28 WorldInfo. Body built by
         // WorldNPCInfo.writeBody so the two 0x03/0x28 emitters share
-        // one retail-evidenced layout (byte-pinned #178c against the
-        // live pcap for entities 266/299/325).
-        PacketBuilderUDP1303 world = new PacketBuilderUDP1303(owner);
-        world.write(0x28);
-        WorldNPCInfo.writeBody(world, npc);
-        DatagramPacket worldDp = world.getDatagramPackets()[0];
-
-        // Datagram 2: reliable 0x03 -> 0x2d 6-byte NPC-data ping
-        // (2d [entityId LE2] 0000 06). Byte-pinned #178d from the live
-        // pcap; see NpcDataBroadcast for the field map.
-        DatagramPacket pingDp =
-                new NpcDataBroadcast(owner, npc).getDatagramPackets()[0];
-
-        return new DatagramPacket[] { worldDp, pingDp };
+        // one retail-evidenced layout (#178c).
+        b.write(0x28);
+        WorldNPCInfo.writeBody(b, npc);
+        // Sub 2: reliable 0x03/0x2d 6-byte NpcData ping
+        // (2d [entityId LE2] 0000 06). Body extracted to
+        // NpcDataBroadcast.writeBody so we don't double-construct
+        // a builder (#178d byte-spec preserved).
+        b.newSubPacket();
+        NpcDataBroadcast.writeBody(b, npc);
+        return b.getDatagramPackets();
     }
 }

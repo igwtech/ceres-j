@@ -5,7 +5,6 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 
 import server.gameserver.packets.client_udp.UseItem;
-import server.gameserver.packets.server_udp.LocalChatMessage;
 import server.gameserver.packets.server_udp.OpenDoor;
 
 /**
@@ -64,19 +63,20 @@ public class ReplayHarnessTest {
 
     @Test
     public void driveCapturesUseItemUdpEmissions() {
-        // On this branch UseItem emits a LocalChatMessage and an
-        // OpenDoor UDP packet (S→C). Both are routed via
-        // pl.send(udp) and captured by CapturingUDPConnection.
+        // On the door-fallthrough branch UseItem now emits ONLY an
+        // OpenDoor UDP packet (S→C). The chat-broadcast diagnostic
+        // was removed 2026-05-23 (task #234) — it was spamming the
+        // local chat with float-as-int32 mangled coords every time
+        // the player interacted with a door/bed/GoGu and printed
+        // misleading garbage. Diagnostic now lives in the server
+        // log only (Out.writeln, not pl.send).
         ReplayHarness h = new ReplayHarness();
         ReplayHarness.DriveResult r = h.drive(useItemBody(0xdeadbeef));
 
-        assertEquals("UseItem emits 2 S→C UDP packets",
-                2, r.udpEmittedThisStep.size());
-        assertTrue("first UDP must be LocalChatMessage",
-                r.udpEmittedThisStep.get(0)
-                        instanceof LocalChatMessage);
-        assertTrue("second UDP must be OpenDoor",
-                r.udpEmittedThisStep.get(1) instanceof OpenDoor);
+        assertEquals("UseItem emits 1 S→C UDP packet (OpenDoor)",
+                1, r.udpEmittedThisStep.size());
+        assertTrue("UDP emission must be OpenDoor",
+                r.udpEmittedThisStep.get(0) instanceof OpenDoor);
     }
 
     @Test
@@ -88,11 +88,11 @@ public class ReplayHarnessTest {
         h.driveAll(useItemBody(1), useItemBody(2));
 
         assertEquals("2 steps in history", 2, h.history().size());
-        assertEquals("each step emits 2 UDP packets",
-                2, h.history().get(0).udpEmittedThisStep.size());
-        assertEquals(2, h.history().get(1).udpEmittedThisStep.size());
+        assertEquals("each step emits 1 UDP packet",
+                1, h.history().get(0).udpEmittedThisStep.size());
+        assertEquals(1, h.history().get(1).udpEmittedThisStep.size());
         assertEquals("cumulative UDP capture",
-                4, h.udpEmitted().size());
+                2, h.udpEmitted().size());
     }
 
     @Test

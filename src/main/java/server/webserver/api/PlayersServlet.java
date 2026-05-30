@@ -17,6 +17,7 @@ import server.database.playerCharacters.PlayerCharacter;
 import server.gameserver.Player;
 import server.gameserver.PlayerManager;
 import server.gameserver.Zone;
+import server.gameserver.state.ClientStateMachine;
 
 /**
  * GET /api/players
@@ -53,11 +54,69 @@ public class PlayersServlet extends HttpServlet {
                 entry.put("zone", zone.getWorldname());
             }
 
+            // FSM diagnostics (task #244). Live view of the per-Player
+            // ClientStateMachine landed in #239: helps diagnose
+            // zone-cross hangs (task #172) and other in-flight
+            // transitions when a live client is attached. Cheap —
+            // snapshot is a defensive copy of a small ring (≤64).
+            entry.put("fsm", buildFsmSnapshot(player.getStateMachine()));
+
             result.add(entry);
         }
 
         resp.getWriter().write(gson.toJson(result));
     }
+
+    /**
+     * Build a serializable snapshot of a {@link ClientStateMachine}.
+     * Visible for unit tests. Returns:
+     * <pre>
+     *   {
+     *     "state": "IN_WORLD",
+     *     "timeInStateMs": 1234,
+     *     "lastConfirmedReliableSeq": 42,    // -1 if none yet
+     *     "transitions": [
+     *       {"from": "PRE_LOGIN", "to": "WORLDENTRY_BURST",
+     *        "reason": "WorldEntryEvent: begin", "atRealtimeMs": …},
+     *       …
+     *     ]
+     *   }
+     * </pre>
+     * The transition list is bounded to {@code MAX_TRANSITION_ENTRIES}
+     * to keep the payload reasonable when a long-running session has
+     * accumulated many transitions.
+     */
+    static Map<String, Object> buildFsmSnapshot(ClientStateMachine fsm) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        if (fsm == null) {
+            out.put("state", null);
+            return out;
+        }
+        out.put("state", fsm.getState().name());
+        out.put("timeInStateMs", fsm.timeInStateMs());
+        out.put("lastConfirmedReliableSeq",
+                fsm.lastConfirmedReliableSeq());
+        List<ClientStateMachine.Transition> log = fsm.recentTransitions();
+        int from = Math.max(0, log.size() - MAX_TRANSITION_ENTRIES);
+        List<Map<String, Object>> txs = new ArrayList<>();
+        for (int i = from; i < log.size(); i++) {
+            ClientStateMachine.Transition t = log.get(i);
+            Map<String, Object> txEntry = new LinkedHashMap<>();
+            txEntry.put("from", t.from.name());
+            txEntry.put("to", t.to.name());
+            txEntry.put("reason", t.reason);
+            txEntry.put("atRealtimeMs", t.atRealtimeMs);
+            txs.add(txEntry);
+        }
+        out.put("transitions", txs);
+        return out;
+    }
+
+    /** Bound on per-player transition entries in the JSON payload.
+     *  Keeps the payload small for long sessions; the underlying
+     *  ring is bounded by {@link
+     *  ClientStateMachine#TRANSITION_LOG_CAPACITY}. */
+    static final int MAX_TRANSITION_ENTRIES = 20;
 
     @Override
     protected void doOptions(HttpServletRequest req, HttpServletResponse resp) {

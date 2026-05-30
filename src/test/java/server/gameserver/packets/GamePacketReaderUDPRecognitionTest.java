@@ -164,4 +164,47 @@ public class GamePacketReaderUDPRecognitionTest {
         assertTrue(decode(hex("3c 03 ff 05 0b 00 00 00 00 6c ae 46"))
                 instanceof UnknownClientUDPPacket);
     }
+
+    // ─── task #195: 0x03/0x1f act_tag=0x1f equip/holster ───────────
+
+    @Test
+    public void equipHolsterIsRecognisedNotUnknown() throws Exception {
+        // Retail-pinned: 03 [seq2] 1f 01 00 1f [slot]. Slot 0x00
+        // (holster) is the most common (12/28 observations).
+        byte[] sub = hex("03 42 00 1f 01 00 1f 00");
+        GameServerEvent ev = decode(sub);
+        assertNotNull(ev);
+        assertEquals(
+            "server.gameserver.packets.client_udp.EquipHolster",
+            ev.getClass().getName());
+    }
+
+    @Test
+    public void equipHolsterRecognisedForAllRetailSlotValues() throws Exception {
+        // 0x00=holster, 0x01/0x02/0x04/0x08=slots1-4 (bitmask),
+        // 0xff=sentinel (all retail-observed).
+        for (String slot : new String[] {
+                "00", "01", "02", "04", "08", "ff" }) {
+            byte[] sub = hex("03 42 00 1f 01 00 1f " + slot);
+            GameServerEvent ev = decode(sub);
+            assertNotNull("slot=" + slot, ev);
+            assertEquals("slot=" + slot,
+                "server.gameserver.packets.client_udp.EquipHolster",
+                ev.getClass().getName());
+        }
+    }
+
+    // ─── task #229: 0x03/0x1f act_tag=0x27 close-dialog ────────────
+
+    @Test
+    public void closeDialogIsRecognisedNotUnknown() throws Exception {
+        // Retail-pinned: 03 [seq2] 1f 01 00 27 (1-byte body, no
+        // payload). 27 retail observations.
+        byte[] sub = hex("03 42 00 1f 01 00 27");
+        GameServerEvent ev = decode(sub);
+        assertNotNull(ev);
+        assertEquals(
+            "server.gameserver.packets.client_udp.CloseDialog",
+            ev.getClass().getName());
+    }
 }

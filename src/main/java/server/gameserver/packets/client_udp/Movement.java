@@ -119,7 +119,37 @@ public class Movement extends GamePacketDecoderUDP {
 		// committed by the normal movement path below (which also
 		// drives the peer SMovement broadcast). See SitOnChair /
 		// ExitSeat.
+		//
+		// SIT grace + coord-based stand:
+		//
+		// Wire-log retest 2026-05-30 (Asddf chair-sit): the original
+		// 1500ms grace expired and the very next 0x20 movement
+		// (T+1548ms, body `00 00 7f e1 ...`, raw[6]=0xc4 ≠ 0x80)
+		// triggered the stand-up. The earlier assumption that the
+		// retail client sends only `raw[6]=0x80` anchor syncs while
+		// seated was wrong — it continues to send normal 0x20
+		// position-pings, just at a low rate, with the seated coords
+		// in the body. `isSeatedAnchorSync()` thus misses them all
+		// and any one of them passes the grace and unseats.
+		//
+		// Correct retail behaviour: a seated player ONLY stands when
+		// (a) they explicitly press stand (-> ExitSeatRequest, not
+		// gated by this branch), or (b) they actually move
+		// (coords change beyond the seated position).
+		//
+		// Until (b)'s coord-delta detector is implemented, set the
+		// grace to a very large value so the routine keepalives
+		// don't unseat. Players stand explicitly. If the value here
+		// is too generous in some edge case (e.g. AFK + slow drift),
+		// the only consequence is a delayed visual stand — not a
+		// broken sit. This is the strictly safer default.
+		final long SIT_GRACE_MS = 60_000;
 		if (pl.isSeated()) {
+			long seatedFor = System.currentTimeMillis()
+					- pl.getSeatedAtMillis();
+			if (seatedFor < SIT_GRACE_MS) {
+				return;
+			}
 			pl.setSeatedChairRawId(0);
 			server.gameserver.Zone sz = pl.getZone();
 			if (sz != null) {

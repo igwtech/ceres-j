@@ -517,66 +517,32 @@ public class PlayerCharacter {
 	}
 
 	public void setTexture(int i, int value) {
-		ModelTexture mte = ModelTextureManager.getEntry(getMisc(MODEL_HEAD));
-		if (mte == null) {
-			misc[i] = 0;
-		} else if (mte.isOldFormat()) {
-			switch (i) {
-			case TEXTURE_HEAD:
-				misc[i] = mte.findTextureHead(value);
-				break;
-			case TEXTURE_TORSO:
-				misc[i] = mte.findTextureTorso(value);
-				break;
-			case TEXTURE_LEG:
-				misc[i] = mte.findTextureLeg(value);
-				break;
-			}
-		} else {
-			switch (i) {
-			case TEXTURE_TORSO:
-				mte = ModelTextureManager.getEntry(getMisc(MODEL_TORSO));
-				break;
-			case TEXTURE_LEG:
-				mte = ModelTextureManager.getEntry(getMisc(MODEL_LEG));
-				break;
-			}
-			if (mte == null) {
-				misc[i] = -1;
-			} else {
-				misc[i] = mte.findTextureHead(value);
-			}
-		}
+		// Direct passthrough — symmetric with setModel(). The retail
+		// client sends model + texture indices it has already resolved
+		// against its own data files; the server's job is to persist
+		// them verbatim and re-emit them in LongPlayerInfo / CharList /
+		// CharInfo. The pre-#217 path did a
+		// ModelTextureManager.getEntry()→findTextureHead() round-trip
+		// that nuked the value to 0 whenever the modeltextures.def
+		// lookup missed (typical for chars created with arbitrary
+		// model indices not in the imported defs). That produced the
+		// texture_head=0 / texture_torso=0 / texture_leg=0 rows that
+		// rendered as a glitched face + bald-spot for every char
+		// visible from a third party (task #217).
+		misc[i] = value;
 	}
 
 	public int getTexture(int i) {
-		ModelTexture mte = ModelTextureManager.getEntry(getMisc(MODEL_HEAD));
-		if (mte == null) return -1; // this is an error!!
-		if (mte.isOldFormat()) {
-			switch (i) {
-			case TEXTURE_HEAD:
-				return mte.getTextureHead(getMisc(i));
-			case TEXTURE_TORSO:
-				return mte.getTextureTorso(getMisc(i));
-			case TEXTURE_LEG:
-				return mte.getTextureLeg(getMisc(i));
-			}
-		} else {
-			switch (i) {
-			case TEXTURE_TORSO:
-				mte = ModelTextureManager.getEntry(getMisc(MODEL_TORSO));
-				break;
-			case TEXTURE_LEG:
-				mte = ModelTextureManager.getEntry(getMisc(MODEL_LEG));
-				break;
-			}
-			if (mte == null) {
-				return -1;
-			} else {
-				return mte.getTextureHead(getMisc(i));
-			}
-		}
-		return -1;
+		// Direct passthrough — symmetric with setTexture() and getModel().
+		// The pre-#217 path went through a ModelTexture.getTextureHead()
+		// indirection that returned -1 when the modeltextures.def
+		// lookup missed (typical for chars whose model_head index
+		// isn't in our imported defs). On the wire that -1 was
+		// emitted as 0xFFFF — a "no texture" sentinel the client
+		// renders as glitched flesh / bald head, even when the
+		// underlying texture index was perfectly valid for the
+		// client's own data files.
+		return misc[i];
 	}
 
 	public int getTextureIndex(int i) {

@@ -7,7 +7,6 @@ import server.gameserver.packets.GamePacketDecoderUDP;
 import server.gameserver.packets.server_tcp.InteractionAck;
 import server.gameserver.packets.server_tcp.Packet838F;
 import server.gameserver.packets.server_udp.ChangeLocation;
-import server.gameserver.packets.server_udp.LocalChatMessage;
 import server.gameserver.packets.server_udp.OpenDoor;
 import server.tools.Out;
 
@@ -42,8 +41,21 @@ public class UseItem extends GamePacketDecoderUDP {
 			int objectId = id / 1024 - 1;
 			server.gameserver.Zone z = pl.getZone();
 			String worldname = (z == null) ? null : z.getWorldname();
-			String worldPath =
-				PortalResolver.worldnameToObjectPath(worldname);
+			// Resolve world_objects.world_path with worldinfo.f2
+			// override awareness (task #237) — dungeon zones use an
+			// alternate .dat filename (reaktor_nc.dat vs reaktor.dat,
+			// sewer_p4_x1.dat vs sewer_p4.dat) that's stored in
+			// defs.worldinfo.f2. Without this override, all dungeon
+			// object lookups fail and exit doors are stuck.
+			//
+			// Falls back to legacy worldnameToObjectPath() for zones
+			// that have no worldinfo.f2 row (plaza/pepper/etc.).
+			int zoneId = pl.getCharacter() == null ? -1
+				: pl.getCharacter().getMisc(
+					PlayerCharacter.MISC_LOCATION);
+			String worldPath = (zoneId >= 0)
+				? PortalResolver.worldIdToObjectPath(zoneId, worldname)
+				: PortalResolver.worldnameToObjectPath(worldname);
 
 			// ── Chair (seatable furniture) ──────────────────────────
 			// A static furniture object whose worldmodel.def UseFlags
@@ -90,8 +102,10 @@ public class UseItem extends GamePacketDecoderUDP {
 				// Same interaction-commit contract as the portal /
 				// door paths: 0x83 0x8f already sent above, then the
 				// transaction-ack PAIR after the state-change packet.
-				pl.send(new InteractionAck());
-				pl.send(new InteractionAck());
+				// Task #254 — retail 13B variant (RETRY3 pcap
+				// 2026-05-24 verified for chair-sit on plaza_p1).
+				pl.send(new InteractionAck(true));
+				pl.send(new InteractionAck(true));
 				return;
 			}
 
@@ -102,39 +116,76 @@ public class UseItem extends GamePacketDecoderUDP {
 					"UseItem: zone-change actor objectId=" + objectId
 					+ " in '" + worldname + "' → " + portal);
 
-				// Commit the destination zone server-side. The
-				// client self-positions from the Entity index
-				// against the destination .dat — the server sends
-				// NO coordinates (doc §4). Mirror the existing
-				// zone-commit path (Zoning1.SZoning1ConfirmEvent):
-				// set MISC_LOCATION then updateZone().
+				// MISC_LOCATION commit + DB save are deferred to the
+				// PortalCrossCommitEvent (fires ~470ms after this
+				// click — see retail-timing comment below). Both
+				// run together with the 0x83/0x0c Location packet
+				// so the server-side state transition is aligned
+				// with the wire moment the client transitions.
 				PlayerCharacter pc = pl.getCharacter();
-				if (pc != null) {
-					pc.setMisc(PlayerCharacter.MISC_LOCATION,
-						portal.exitWorldId);
-					pl.updateZone();
-				}
 
 				// Zone/portal/world-change TCP confirm. Per
-				// RE_tcp_confirm.md §2/§2.1/§7.3 (and the retail pcap
-				// strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap:
-				//   t=238.352  S→C TCP 0x83/0x0d  fe0400830d0000
-				//   t=238.847  S→C TCP 0x83/0x0c  fe1d00830c65…"plaza/plaza_p3"
-				// ), every path that changes a player's zone MUST emit
-				// 0x83/0x0d (loading UI begin) THEN 0x83/0x0c (Location:
-				// destination BSP). The client runs the world-load
-				// state machine ONLY on 0x83/0x0c (Ghidra FUN_0055aa30
-				// case '\f'/'\r' → FUN_00558950). The portal path is a
-				// zone change but the UDP ChangeLocation (0x03/0x1f/0x38)
-				// alone never triggers it — without the TCP pair the
-				// client never loads the destination world. Location is
-				// built AFTER the zone commit above so it resolves the
-				// destination BSP. Order is mandatory: 0x83/0x0d first.
+				// RE_tcp_confirm.md §2/§2.1/§7.3 AND the retail pcap
+				// PLAZA_TO_PEPPER_CROSS_DISTRICT_20260502_103513
+				// timing analysis (task #172, 2026-05-23):
+				//
+				//   T+0     TCP 0x83/0x8f  (interaction-commit — sent
+				//                          at line 27 above)
+				//   T+180ms TCP 0x83/0x0d  (loading UI begin)
+				//   T+650ms TCP 0x83/0x0c  (Location: destination BSP)
+				//
+				// Earlier builds emitted 0x83/0x0d and 0x83/0x0c
+				// back-to-back. The modern NCE 2.5 client appears to
+				// need the ~470ms gap between them to enter its
+				// loading state before processing the new Location —
+				// without the gap the client silently drops 0x83/0x0c
+				// and the cross never transitions on-screen (verified
+				// 2026-05-23 in a Ceres-J pcap: server emitted
+				// 830d+830c in 9ms, client never reconnected to
+				// destination worldserver, timed out, kicked to
+				// login). The 0x83/0x0d alone IS sent immediately;
+				// the rest of the burst (0x83/0x0c, ChangeLocation,
+				// InteractionAck pair, MISC_LOCATION commit + DB
+				// save) is deferred via PortalCrossCommitEvent at
+				// +470ms.
 				if (pl.getTcpConnection() != null) {
-					pl.send(new server.gameserver.packets.server_tcp
-							.Packet830D());
-					pl.send(new server.gameserver.packets.server_tcp
-							.Location(pl));
+					// Task #253 — emit 0x83/0x0d LoadingBegin ONLY for
+					// cross-IN to a NEW BSP. Retail empirically NEVER
+					// emits 0x83/0x0d when the destination is already
+					// loaded (cross-OUT, re-cross). Verified 2026-05-24
+					// in pcap RETRY3: cross-IN to reaktor at frame
+					// 310+312 had both 830D + 830C; cross-OUT to
+					// plaza_p1 at frame 5906 had ONLY 830C. Always-
+					// emitting 830D for a cached BSP likely triggers
+					// the client's loading state for a BSP it already
+					// has — root-cause hypothesis for #208.
+					//
+					// PortalResolver returns the destination world_path
+					// (worldinfo.f2 lookup, task #237); we resolve it
+					// here to check the per-Player BSP cache.
+					String destPath = PortalResolver
+							.worldIdToObjectPath(
+								portal.exitWorldId, null);
+					if (destPath == null
+							|| !pl.hasLoadedBsp(destPath)) {
+						pl.send(new server.gameserver.packets.server_tcp
+								.Packet830D());
+						Out.writeln(Out.Info,
+							"UseItem: 0x83/0x0d LoadingBegin emitted "
+							+ "for new-to-client BSP '" + destPath + "'");
+					} else {
+						Out.writeln(Out.Info,
+							"UseItem: 0x83/0x0d suppressed — client "
+							+ "already loaded BSP '" + destPath + "'");
+					}
+					// Task #239 — observe the cross transition.
+					// CROSS_PENDING_LOAD regardless of whether
+					// LoadingBegin was emitted; the client is
+					// still mid-cross either way.
+					pl.getStateMachine().transition(
+						server.gameserver.state.ClientState
+							.CROSS_PENDING_LOAD,
+						"UseItem portal: cross initiated");
 				} else {
 					Out.writeln(Out.Warning,
 						"UseItem: portal zone-change for "
@@ -143,31 +194,34 @@ public class UseItem extends GamePacketDecoderUDP {
 						+ "confirm (0x83/0x0d→0x83/0x0c) dropped");
 				}
 
-				// Emit ChangeLocation (0x03/0x1f/<localId>/0x38).
-				pl.send(new ChangeLocation(pl,
-					portal.exitWorldId,
-					portal.exitWorldEntity,
-					portal.entityTypeByte));
-
-				// Retail emits the transaction-ack PAIR after the
-				// state-change packet (same contract as the door
-				// path below). Without it the client's interaction
-				// lock-out never releases.
-				pl.send(new InteractionAck());
-				pl.send(new InteractionAck());
+				// Defer the rest of the cross burst (Location +
+				// ChangeLocation + commit + save + InteractionAck
+				// pair) to fire ~470ms after 0x83/0x0d.
+				pl.addEvent(new server.gameserver.internalEvents
+						.PortalCrossCommitEvent(portal));
 				return;
 			}
 		}
 
-		String text = new String();
-		text += "UnknownItem ID: " + id + " at pos: y:" +
-		Float.floatToIntBits((float)pl.getCharacter().getMisc(PlayerCharacter.MISC_Y_COORDINATE)) +
-		" z:" +
-		Float.floatToIntBits((float)pl.getCharacter().getMisc(PlayerCharacter.MISC_Z_COORDINATE)) +
-		" x:" +
-		Float.floatToIntBits((float)pl.getCharacter().getMisc(PlayerCharacter.MISC_X_COORDINATE));
-		Out.writeln(Out.Info, text);
-		pl.send(new LocalChatMessage(pl, text));
+		// Diagnostic only — not a chat-visible message. Coord
+		// storage in MISC_*_COORDINATE is the raw bit pattern of a
+		// float32 (per `project_movement_coord_frame` memory); decode
+		// via Float.intBitsToFloat to get the real world-coord value.
+		// Previously this emitted Float.floatToIntBits((float) raw),
+		// which double-mangles the value, AND was broadcast to local
+		// chat — both removed 2026-05-23.
+		PlayerCharacter pc = pl.getCharacter();
+		Out.writeln(Out.Info,
+			"UseItem: unrecognised object id=" + id
+			+ " (fell through portal/chair/door dispatchers) at pos x="
+			+ Float.intBitsToFloat(pc.getMisc(
+				PlayerCharacter.MISC_X_COORDINATE))
+			+ " y="
+			+ Float.intBitsToFloat(pc.getMisc(
+				PlayerCharacter.MISC_Y_COORDINATE))
+			+ " z="
+			+ Float.intBitsToFloat(pc.getMisc(
+				PlayerCharacter.MISC_Z_COORDINATE)));
 
 		pl.send(new OpenDoor(id, pl));
 
@@ -176,9 +230,9 @@ public class UseItem extends GamePacketDecoderUDP {
 		//   0x83 0x8f  (commit, pre-state-change)   ← already sent
 		//   state-change packets (OpenDoor, etc.)   ← already sent
 		//   0xa0 0x02 ×2 (transaction-ack pair)     ← below
-		// See InteractionAck javadoc for catalog evidence.
-		pl.send(new InteractionAck());
-		pl.send(new InteractionAck());
+		// Task #254 — retail 13B variant (RETRY3 pcap 2026-05-24).
+		pl.send(new InteractionAck(true));
+		pl.send(new InteractionAck(true));
 	}
 
 }

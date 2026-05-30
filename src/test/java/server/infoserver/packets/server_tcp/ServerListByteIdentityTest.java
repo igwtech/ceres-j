@@ -161,9 +161,10 @@ public class ServerListByteIdentityTest {
 
     @Test
     public void fullBodyByteEqualsLoopbackFixture() {
-        // With a null socket, server_ip = 127.0.0.1 and online_users
-        // = 99 / unknown_flag = 127 (current placeholders). The retail
-        // header pattern is identical except for those three fields.
+        // With a null socket, server_ip = 127.0.0.1.
+        // online_users = live PlayerManager count (0 in unit-test
+        // context — no players logged in).
+        // unknown_flag = CONFIG_REVISION_FLAG = 0x0007 (May-2026 era).
         InfoServerConnection isc = new InfoServerConnection(null);
         byte[] expected = hex(
                 "83 83"          // opcode
@@ -173,10 +174,62 @@ public class ServerListByteIdentityTest {
               + "e0 2e 00 00"    // udp_port  = 12000
               + "06"             // name_len_terminated
               + "04"             // chars_per_account
-              + "63 00"          // online_users LE16 = 99 (placeholder)
-              + "7f 00"          // unknown_flag LE16 = 127 (placeholder)
+              + "00 00"          // online_users LE16 = 0 (no players)
+              + "07 00"          // unknown_flag LE16 = May-2026 revision
               + "74 69 74 61 6e 00");  // "titan\0"
         assertArrayEquals(expected, body(new ServerList(isc)));
+    }
+
+    // ─── online_users dynamic count (task #230) ────────────────────
+
+    @Test
+    public void onlineUsersFieldReflectsLivePlayerCount() {
+        // In the unit-test context PlayerManager.getOnlinePlayers()
+        // returns an empty list (no players have logged in), so the
+        // field must encode LE16 = 0.
+        InfoServerConnection isc = new InfoServerConnection(null);
+        byte[] b = body(new ServerList(isc));
+        int onlineUsers = (b[16] & 0xff) | ((b[17] & 0xff) << 8);
+        assertEquals(
+            "online_users must equal live PlayerManager count (0 in"
+            + " test context)",
+            0, onlineUsers);
+    }
+
+    @Test
+    public void onlineUsersUpperByteIsZeroForRealisticCounts() {
+        // Retail samples show the upper byte is always 0 (counts
+        // 3-25 across 17 captures). Ceres-J must emit the same
+        // shape: byte[17] always 0 for any plausible player count
+        // ≤255.
+        InfoServerConnection isc = new InfoServerConnection(null);
+        byte[] b = body(new ServerList(isc));
+        assertEquals("online_users upper byte must be 0 for"
+            + " realistic player counts", 0, b[17] & 0xff);
+    }
+
+    @Test
+    public void uint16ClampGuardsAgainstOverflow() {
+        // Defensive: a hypothetical population > 0xFFFF must clamp
+        // to 0xFFFF (not wrap around or write a 3rd byte).
+        assertEquals(0,      ServerList.clampToUint16(-1));
+        assertEquals(0,      ServerList.clampToUint16(0));
+        assertEquals(1,      ServerList.clampToUint16(1));
+        assertEquals(0xFFFF, ServerList.clampToUint16(0xFFFF));
+        assertEquals(0xFFFF, ServerList.clampToUint16(0x10000));
+        assertEquals(0xFFFF, ServerList.clampToUint16(Integer.MAX_VALUE));
+    }
+
+    @Test
+    public void configRevisionFlagPinned() {
+        // The May-2026 retail era carries 0x0007. Older retail
+        // (April) carried 0x0006. Pin the current-era value so a
+        // future refactor doesn't accidentally drift it.
+        assertEquals(0x0007, ServerList.CONFIG_REVISION_FLAG);
+        InfoServerConnection isc = new InfoServerConnection(null);
+        byte[] b = body(new ServerList(isc));
+        int flag = (b[18] & 0xff) | ((b[19] & 0xff) << 8);
+        assertEquals(0x0007, flag);
     }
 
     // ─── Retail-IP byte-equality (with fidelity placeholders) ──────

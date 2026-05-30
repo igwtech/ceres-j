@@ -41,6 +41,86 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 	public String getWorldname() {
 		return location;
 	}
+
+	/**
+	 * Default appplaces spawn-row index for this zone's destination
+	 * entry point. The TCP {@code 0x83/0x0c Location} packet carries
+	 * this as its 3rd LE32 field — the client uses it to pick a
+	 * spawn position inside the loaded BSP.
+	 *
+	 * <p>Values pinned from live retail captures
+	 * (2026-05-29 iter 45 + earlier #252 work):
+	 * <ul>
+	 *   <li>{@code 16} — plaza_p1 / city default</li>
+	 *   <li>{@code  1} — startmissions/reaktor dungeon</li>
+	 *   <li>{@code 0x100 = 256} — sewer/sewer_p4 dungeon
+	 *       (cellar-door entry)</li>
+	 *   <li>{@code 0} — generic fallback (back-compat)</li>
+	 * </ul>
+	 *
+	 * <p>Cross-types per Zoning1's {@code crossKind} discriminator:
+	 * dungeon-class destinations use larger spawn indices than city
+	 * zones. See {@code memory/dungeon_cross_wire.md} +
+	 * {@code memory/interzone_elevator_cross.md} for the byte map.
+	 */
+	/**
+	 * Per-zone default spawn index — the appplaces row pointing
+	 * at this zone's primary entry point. Read from the canonical
+	 * source: {@code defs.worldinfo[zoneId].f3} via
+	 * {@link PortalResolver#lookupSpawnIdx(int)}.
+	 *
+	 * <p>Replaced the bsp-prefix heuristic 2026-05-30 03:30 UTC
+	 * (the heuristic returned 16 for ALL {@code plaza/} zones,
+	 * but the DB correctly has {@code f3=16} for plaza_p1 only
+	 * and {@code f3=0} for plaza_p3 — the latter is what a
+	 * walk-cross into P3 needs to keep the player at the seam).
+	 *
+	 * <p>Lazy-computed + cached on first read.
+	 */
+	public int getDefaultSpawnIdx() {
+		if (defaultSpawnIdxCache == null) {
+			defaultSpawnIdxCache =
+				PortalResolver.lookupSpawnIdx(zoneId);
+		}
+		return defaultSpawnIdxCache;
+	}
+
+	private Integer defaultSpawnIdxCache; // lazy
+
+	/**
+	 * District map-id used as the LE16 field after {@code 0x1f}
+	 * event byte in many C→S / S→C sub-packets (LocalChat,
+	 * posture broadcasts, state-poll, etc.).
+	 *
+	 * <p>Live-verified values (2026-05-29 iter 45 Frida captures):
+	 * <ul>
+	 *   <li>{@code 1} — Plaza district (krafteo's chat in Plaza)</li>
+	 *   <li>{@code 5} — Viarosso district (krafteo's "Hi everyone"
+	 *       chat post-elevator)</li>
+	 * </ul>
+	 *
+	 * <p>Speculative values (not yet captured but inferred from
+	 * bsp_path prefix; replace with live data when available):
+	 * <ul>
+	 *   <li>{@code 8} — Pepper district (Plaza-adjacent)</li>
+	 *   <li>{@code 2} — generic outdoor/sewer/apps fallback</li>
+	 * </ul>
+	 *
+	 * <p>Used by {@link server.gameserver.packets.server_udp
+	 * .LocalChatMessage} and other 0x1f-event broadcasters that
+	 * need to fill the mapId field with the player's current
+	 * district. See memory: {@code correction_1f_is_event_class.md}.
+	 */
+	public int getDistrictMapId() {
+		if (location == null) return 2;  // generic outdoor fallback
+		if (location.startsWith("plaza/")) return 1;             // live-confirmed
+		if (location.startsWith("viarosso/")) return 5;          // live-confirmed
+		if (location.startsWith("pepper/")) return 8;            // speculative
+		if (location.startsWith("apps/")) return 2;              // apartment / VR (no own district)
+		if (location.startsWith("sewer/")) return 2;             // dungeon fallback
+		if (location.startsWith("startmissions/")) return 2;     // reaktor fallback
+		return 2;  // safe fallback for unknown bsp prefixes
+	}
 	
 	public NPC getNPC(int ID){
 		synchronized(NPCList){
@@ -313,6 +393,15 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 				if (reciever == null || reciever.getUdpConnection() == null) continue;
 				reciever.send(new PlayerPositionUpdate(reciever, pc, mapId));
 				reciever.send(new LongPlayerInfo(reciever, pc, mapId));
+				// Task #218: also push the ShortPlayerInfo proactively
+				// so the receiver's "People" HUD panel populates with
+				// the joining player's name immediately, without
+				// waiting for the client to send a RequestShortPlayerInfo
+				// (0x03/0x31) which it may not do for every new entity.
+				// ShortPlayerInfo carries map_id + char_id + name —
+				// the minimal info the panel renders.
+				reciever.send(new server.gameserver.packets.server_udp
+						.ShortPlayerInfo(reciever, pc, mapId));
 			}
 		}
 	}

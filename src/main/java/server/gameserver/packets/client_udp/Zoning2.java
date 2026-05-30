@@ -68,10 +68,26 @@ public class Zoning2 extends GamePacketDecoderUDP {
 
         // TCP zone-swap pair: GameinfoReady then Location (carries
         // the destination BSP path resolved from the now-committed
-        // MISC_LOCATION).
+        // MISC_LOCATION). spawnIdx now comes from the canonical
+        // source: defs.worldinfo[destZone].f3, via
+        // Zone.getDefaultSpawnIdx() → PortalResolver.lookupSpawnIdx().
+        //
+        // Live-verified DB values: plaza_p1=16, plaza_p3=0 (preserves
+        // seam coords), plaza_p4=0, reaktor=1. Earlier today's
+        // bsp-prefix heuristic was wrong because it returned 16 for
+        // ALL plaza/ zones (regressed walk-cross spawn position).
         if (pl.getTcpConnection() != null) {
             pl.send(new Packet830D());
-            pl.send(new Location(pl));
+            server.gameserver.Zone destZone =
+                server.gameserver.ZoneManager.getZone(pending);
+            int spawnIdx = (destZone == null)
+                ? 0 : destZone.getDefaultSpawnIdx();
+            Out.writeln(Out.Info,
+                "Zoning2: Location spawnIdx=" + spawnIdx
+                + " (from client_defs.worldinfo[" + pending
+                + "].f3) — 0 preserves seam coords, non-zero "
+                + "teleports to appplaces entry");
+            pl.send(new Location(pl, spawnIdx));
         } else {
             Out.writeln(Out.Warning,
                 "Zoning2: no TCP connection for "

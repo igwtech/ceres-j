@@ -51,10 +51,22 @@ public class NpcDataBroadcast extends PacketBuilderUDP1303 {
 
     public NpcDataBroadcast(Player pl, NPC npc) {
         super(pl);
-        write(0x2d);                          // [0] sub-opcode
-        writeShort(npc.getMapID());           // [1-2] entity id LE16
-        write(0x00);                          // [3] CONSTANT
-        write(0x00);                          // [4] CONSTANT
-        write(0x06);                          // [5] form discriminator
+        writeBody(this, npc);
+    }
+
+    /**
+     * Write the 6-byte NpcData ping body into an open
+     * {@link PacketBuilderUDP1303}. Extracted so callers that need to
+     * bundle the ping into a multi-sub-packet datagram (e.g.
+     * {@link ZoneStateCompoundPacket}) can write it after
+     * {@link PacketBuilderUDP1303#newSubPacket()} without spinning up
+     * a separate builder + datagram + UDP send round-trip.
+     */
+    static void writeBody(PacketBuilderUDP1303 b, NPC npc) {
+        b.write(0x2d);                          // [0] sub-opcode
+        b.writeShort(npc.getMapID());           // [1-2] entity id LE16
+        b.write(0x00);                          // [3] CONSTANT
+        b.write(0x00);                          // [4] CONSTANT
+        b.write(0x06);                          // [5] form discriminator
     }
 }

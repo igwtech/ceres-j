@@ -45,10 +45,10 @@ Offset  Size  Description
 0x05    ...   Payload data
 ```
 
-### Connection Flow
+### Connection Flow — Ceres-J simplified (single-stage on port 12000)
 
 ```
-Client                          Server
+Client                          Server (Ceres-J)
   |                               |
   |--- TCP Connect (port 12000) ->|
   |<-- HandshakeA (0x8001) -------|
@@ -80,6 +80,54 @@ Client                          Server
   |  [UDP connection starts]      |
 ```
 
+### Connection Flow — RETAIL 3-stage (live-verified 2026-05-22)
+
+Retail uses **3 sequential TCP connections** with distinct (port, K, padding) tuples per stage. The bot's MSVCRT rand stream advances by exactly 27 per Auth attempt and is shared across stages 1+2 — stage 3 uses a fresh rand seed.
+
+```
+Stage 1 — InfoServer (TCP 7000)
+  C→S TCP Connect (port 7000)
+  S→C HandshakeA, HandshakeC          (server sends both quickly)
+  C→S HandshakeB
+  C→S Auth (0x8480) K=0x29, padding A — see "Auth Packet" below
+  S→C AuthAck (0x8381) — account_id LE32 + 18B session_data
+       session_data IS the password ciphertext echoed back (proof of
+       server-side byte-exact match — see "Password cipher")
+  C→S AuthB (0x8482) — server_slot=1 ("titan")
+  S→C ServerList (0x8383) — gameserver IP+port+name
+  TCP closes
+
+Stage 2 — GameLobby (TCP 12000, fresh connection)
+  C→S TCP Connect (port 12000)
+  S→C HandshakeA, HandshakeC
+  C→S HandshakeB
+  C→S Auth (0x8480) K=0x1c, padding B
+  S→C AuthAck (0x8381)
+  C→S AuthB (0x8482) byte 6 = 0x06 (constant marker, NOT char slot)
+  S→C CharList (0x8385)
+  TCP closes
+
+  ⚠ LEGACY (April 2026 captures only — current retail SKIPS this):
+     After AuthAck, real client sends C→S 0x8737 and receives S→C 0x873a
+     before sending AuthB. Current retail (May 2026) silently TCP-ACKs
+     the 0x8737 but never replies with 0x873a — bot MUST skip this
+     sub-exchange and send AuthB directly after AuthAck.
+
+Stage 3 — GameSession (TCP 12000, ANOTHER fresh connection)
+  C→S TCP Connect (port 12000)
+  S→C HandshakeA, HandshakeC
+  C→S HandshakeB
+  C→S ResumeAuth (0x8301) — actual char slot LE32 + new salt/K
+  S→C UDPServerData (0x8305)         ← UDP target + 8B session_id
+  S→C GameinfoReady (0x830d)         ← 4B "0x83 0x0d 0x00 0x00"
+  S→C Location (0x830c)              ← zone BSP name + location_id
+  TCP STAYS OPEN — keepalive (0x838f) every ~11s
+
+  Then UDP world stream begins on the new (server_ip, udp_port).
+  See "UDP Handshake (C→S 0x01)" below for the critical session_id
+  XOR-mask binding.
+```
+
 ### TCP Packet IDs
 
 | ID | Direction | Name | Description |
@@ -109,33 +157,101 @@ Client                          Server
 
 ### Auth Packet (0x8480) — Modern Client (NCE 2.5.x)
 
+**FULLY REVERSE-ENGINEERED 2026-05-21.** Every byte explained, byte-exact reproduction verified live against retail (157.90.195.74).
+
 ```
 Offset  Size  Description
 0x00    2     Packet ID (0x84 0x80)
-0x02    1     Encryption key for password
-0x03    30    Unknown (was 18 bytes in older versions)
-0x21    2     Username length (LE, includes null terminator)
-0x23    2     Password length (LE, encoded byte count)
-0x25    N     Username (C string, null-terminated)
-0x25+N  M     Encrypted password (shorts: ((char + key) << 4))
+0x02    1     Encryption key K (= salt[0] from MSVCRT rand stream)
+0x03    7     salt[1..7] — bytes 1..7 of the 8-byte salt
+0x0A    2     Build version LE16 (0x02fe=766, 0x0328=808, …)
+0x0C    1     uVar5 — client state byte from FUN_0075eb10
+0x0D    4     SHA-1(ini/hash.ini) bytes [0..3]
+0x11    4     SHA-1(ini/hash.ini) bytes [16..19]
+                (stack-overflow trick: thunk writes the full 20B digest;
+                caller only reads first 4 + last 4)
+0x15    2     Optional rand LE16 (zero by default; non-zero only when
+              certain integrity flags are set)
+0x17    2     (bVar7 << 4) LE16 — recovery channel so the server can
+              undo the XOR mask at offsets 0x19..0x20
+0x19    8     MAC address (6 bytes from GetAdaptersInfo, +2 zero pad)
+              XOR'd byte-by-byte with bVar7
+0x21    2     Username length LE16 (includes NUL terminator)
+0x23    2     Password length LE16 (= 2 × character count)
+0x25    N     Username (C-string, null-terminated)
+0x25+N  M     Encrypted password (see "Password cipher" below)
+0x25+N+M 1    Trailing 0x00
 ```
 
-**Important:** The unknown block changed from 18 bytes to 30 bytes in the modern NCE client.
+**Password cipher** (`FUN_005f4490` in `neocronclient.exe`).
+For each char of cleartext password::
 
-### AuthB Packet (0x8301) — Character Selection
+    mid = (char + K) & 0xFF
+    low_byte  = (rand() & 0x0F) | ((mid & 0x0F) << 4)
+    high_byte = (rand() & 0xF0) | ((mid >> 4) & 0x0F)
+    write LE16(low_byte | high_byte << 8)
+
+Server decode = `((LE16 >> 4) & 0xFF) - K`. The low+high nibble noise
+bytes (4 bits each) come from MSVCRT `rand()` — bot must replicate
+the same rand stream byte-exactly because retail's AuthAck.session_data
+**echoes the password ciphertext verbatim** and the server validates
+it. Each Auth attempt consumes exactly 27 rand calls (8 salt + 18
+encoder + 1 final XOR-mask). nclib **never** calls `srand()` so a
+fresh-client rand stream is deterministic (default seed=1).
+
+**Per-attempt rand layout** (skip count = `27 * attempt_index`):
+- attempt #1 (skip=0): K=0x29 → InfoServer (port 7000)
+- attempt #2 (skip=27): K=0x1c → GameLobby (port 12000)
+- attempt #3 (skip=54): K=0x45 → ResumeAuth / additional connection
+- attempt #4 (skip=81): K=0x4f
+
+### AuthB Packet (0x8482) — Retail server-slot / char-slot selector
+
+**This is the FIRST AuthB packet retail sends, on InfoServer:7000 (server selection)
+and again on GameLobby:12000 (char list trigger).** Distinct from the
+0x83/0x01 resume-auth packet — both used to be called "AuthB" but they have
+different opcodes and roles.
+
+```
+Offset  Size  Description
+0x00    2     Packet ID (0x84 0x82)
+0x02    4     Account ID LE32 (from prior AuthAck)
+0x06    1     Slot — server slot (InfoServer) or constant 0x06 (GameLobby)
+              **NOT the char slot. Char slot is in stage 3 ResumeAuth.**
+0x07    3     Constant 00 00 1e
+0x0A    1     Constant 0x00
+0x0B    4     Session tick — varies per session (per-build GetTickCount?)
+0x0F    4     Session-specific 4B (zero in newer captures DRSTONE/CREATION)
+0x13    4     Constant 1f 00 00 00
+0x17    4     Constant 80 96 98 00 (= 10_000_000)
+0x1B    3     Trailer (varies per session)
+```
+
+Stage 2 (port 12000): byte 0x06 = **constant 0x06**. Sending a real
+char_slot here causes silent server drop (live-verified 2026-05-22).
+
+### ResumeAuth Packet (0x8301) — Stage 3 char-slot selector + session resume
+
+Sent on a **third** fresh TCP connection to GameServer:12000 after stage 2
+CharList has been received. Triggers UDPServerData + Location handover.
 
 ```
 Offset  Size  Description
 0x00    2     Packet ID (0x83 0x01)
-0x02    4     Unknown (possibly client IP)
-0x06    4     Client port
-0x0A    1     Encryption key
-0x0B    7     Unknown
-0x12    4     Character slot (LE int)
-0x16    2     Password length (LE, /2 for char count)
-0x18    2     Username length (LE, includes null)
-0x1A    N     Username (C string)
-0x1A+N  M     Encrypted password
+0x02    4     Session tag — `ac 1b e9 XX` where XX varies slowly per
+              build (0xb8 in April, 0xcf-d2 in May 2026; current
+              retail seems lenient — `0xd2` accepted on 2026-05-22).
+0x06    4     Reserved (zero)
+0x0A    8     Salt — salt[0] = K used to encode password below.
+              Salt source: client appears to seed rand fresh here
+              (separate from the main MSVCRT rand stream of stages 1+2).
+0x12    4     Char slot LE32 (the actual character index, 0..3).
+              Sending an invalid slot → S→C `0x83/0x03` ASCII error
+              "Char does not exist on this server".
+0x16    2     Password length LE16 (= 2 × char count = 18 for 9-char pw)
+0x18    2     Username length LE16 (includes NUL = 9 for "msn3wolf")
+0x1A    N     Username (C-string)
+0x1A+N  M     Encrypted password (same encoder as Auth, K = salt[0])
 ```
 
 ### UDPServerData Packet (0x8305)
@@ -143,13 +259,43 @@ Offset  Size  Description
 ```
 Offset  Size  Description
 0x00    2     Packet ID (0x83 0x05)
-0x02    4     Account ID (LE)
-0x06    4     Character ID (LE)
-0x0A    4     Server IP (network byte order)
-0x0E    2     UDP port (LE)
-0x10    4     Flags/unknown (retail sends 0x00830000)
-0x14    8     Session ID (transformed: 127 - original_byte)
+0x02    4     Account ID LE32
+0x06    4     Character ID LE32
+0x0A    4     Server IP (NETWORK byte order — no swap)
+0x0E    2     UDP port LE16 — the port for the world UDP stream;
+              varies per session (5002..5008 observed for Plaza1)
+0x10    4     Flags / sub-server identifier
+0x14    8     **Session ID** — used to bind the UDP world stream
+              to this TCP session. Bot MUST replicate this verbatim
+              (after XOR 0x7f) in the UDP handshake at bytes [1..8],
+              otherwise retail silently drops the UDP datagram.
 ```
+
+### UDP Handshake (C→S 0x01) — session-bound 10-byte packet
+
+**CRITICAL** (live-verified 2026-05-22): the UDP handshake is **NOT** a 10-byte constant as previously believed. It carries the `session_id` from the just-received `UDPServerData` packet, XOR-masked with `0x7f` per byte. This is how retail's UDP server BINDS the incoming datagram to the TCP-established game session.
+
+```
+Offset  Size  Description
+0x00    1     Opcode 0x01
+0x01    8     UDPServerData.session_id XOR 0x7f (per byte)
+0x09    1     Interface ID — 0x00 on first handshake
+```
+
+Verified across 18 retail captures (100% match: `plain[1..8] == sid ^ 0x7f`).
+
+If the bot sends a handshake with the wrong masked session_id (e.g., the
+old hardcoded constant `01 d1 84 21 e2 21 e2 11 a0 00`), retail silently
+drops it — no UDPAlive comes back. This appears to be how retail
+disambiguates UDP traffic when multiple clients/sessions share an IP.
+
+### TCP S→C 0x8303 — Error message
+
+Retail sends this when an action is invalid (e.g., ResumeAuth with a
+char slot that doesn't exist on the account). Body = `0x83 0x03 0x00` +
+ASCII string (NUL-terminated).
+
+Example: `83 03 00 43 68 61 72 20 64 6f 65 73 20 6e 6f 74 20 65 78 69 73 74 20 6f 6e 20 74 68 69 73 20 73 65 72 76 65 72 00` = "Char does not exist on this server\0".
 
 ### Location Packet (0x830c)
 
@@ -400,19 +546,67 @@ Client sends 3 handshake packets immediately after receiving `UDPServerData`. Se
 
 ### Gamedata (0x13) — Multiplexed
 
+**Verified 2026-05-28** via live Frida hook of `ws2_32!recvfrom/sendto`
+(task #259). 362 of 362 decrypted UDP datagrams that begin with `0x13`
+parse cleanly under this layout; 0 of 362 fit the previous
+4B-counter / 1B-sub-length hypothesis. Live capture archived at
+`/tmp/frida_nc2_v3live_1780018616.jsonl`.
+
+**Outer wrapper (5-byte fixed header):**
+
 ```
 Offset  Size  Description
 0x00    1     Type (0x13)
-0x01    4     Packet counter (big-endian)
-0x05    ...   Sub-packets (length-prefixed)
+0x01    2     field_a LE16 — per-direction sequence (monotonic,
+              starts low, advances ~1 per packet sent in this direction)
+0x03    2     field_b LE16 — semantics unconfirmed; in the captured
+              session both directions kept this in 0x996a..0x9c2c
+              with `field_b - field_a` clustering at a constant
+              0x996a (could be peer's last-seen seq + session-key,
+              or a session-derived counter — needs cross-direction
+              correlation to disambiguate)
+0x05    ...   one or more sub-packets, packed back-to-back
 ```
 
-Each sub-packet:
+`GamePacketReaderUDP.java` in Ceres-J skips both fields (`pd.skip(4)`)
+because the server never needs to validate them at this layer — the
+inner reliable channel (`0x03/<seq>`) has its own seq inside the
+sub-packet body. The outer fields appear to be redundant or
+informational; an emitter that holds them constant has not been
+observed to break the client, which is consistent with them not
+being load-bearing for the reliable protocol.
+
+**Each sub-packet:**
+
 ```
 Offset  Size  Description
-0x00    1     Sub-packet length
-0x01    N     Sub-packet data
+0x00    2     Sub-packet body length, LE16
+0x02    N     Sub-packet body (typically begins with 0x03 reliable,
+              or a raw protocol opcode like 0x20 movement, 0x1f game,
+              0x0b ping, 0x2a request-init-burst, …)
 ```
+
+Observed in the live capture:
+
+* 60% of 0x13 packets carry **multiple sub-packets** (max 6 seen);
+  the remainder are single-sub. Multi-sub is common during movement
+  bursts where the client coalesces position deltas + reliable acks.
+* `seq` values cover 0x0000..0x02c2 across the 60s window
+  (monotonically advancing). `ack` values cluster around the
+  peer's latest seq (0x996a..0x9c2c here — the *server*-side seq we
+  were ack-ing).
+* A typical c2s 0x13 sub-body shape during sit/stand/move is
+  `[03][seq LE2][1f][01][00][act_tag][body]`, the canonical 0x03/0x1f
+  envelope from `c2s_03_1f_envelope_canonical`. Live-confirmed
+  act_tags: 0x17 (sit), 0x22 (stand), 0x3d (position update), 0x25
+  (state-ack), 0x21 (posture broadcast).
+
+The peer's seq is what the documented "packet counter" was probably
+referring to, but the original doc was wrong on both endianness AND
+field structure (it's two 2-byte LE values, not one 4-byte BE value),
+and on the sub-packet length size (2 bytes, not 1). The 1-byte
+hypothesis happens to walk a few packets correctly by accident and
+then misframes everything downstream.
 
 Sub-packet types (first byte of data):
 

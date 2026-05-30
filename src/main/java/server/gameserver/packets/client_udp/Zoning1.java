@@ -51,12 +51,41 @@ public class Zoning1 extends GamePacketDecoderUDP {
 
     @Override
     public void execute(Player pl) {
-        // Body layout from live capture: skip 14 bytes of header
-        // (with the 03/seq reliable prefix the zone_id lands at
-        // offset 14), then [location LE32][legacy session id LE32].
-        skip(14);
-        int newLocation = readInt();
-        int szoningId = readInt(); // 2nd int → SZoning1's 0x23 [i] field
+        // Body layout pinned 2026-05-29 via live retail capture across 3
+        // cross variants (sector P1↔P3, inter-zone apt→viarosso, dungeon
+        // cellar→sewer). Full 17B body after [03 seq:2 22 0d]:
+        //
+        //   sub-pkt 5+0  : pad u8     (0x00)
+        //   sub-pkt 5+1  : to_sec u8
+        //   sub-pkt 5+2..5: char_id 4B
+        //   sub-pkt 5+6  : cross_subtype u8 (0x00 normal, 0x03 dungeon)
+        //   sub-pkt 5+7..8: flags LE16
+        //                    0x0004 = sector-internal walk
+        //                    0xFFFF = inter-zone (elevator/portal)
+        //                    0x0000 = dungeon entry
+        //   sub-pkt 5+9..12: door_id LE32 (was named "newLocation" — keep
+        //                    name for back-compat; semantically it's the
+        //                    cross's door identifier, not a zone_id)
+        //   sub-pkt 5+13..16: from_sec LE32 (was named "szoningId")
+        //
+        // The cross_subtype + flags fields are the discriminators
+        // the client uses to know whether the destination needs a
+        // full CharInfo reload (inter-zone/dungeon) vs sector-only.
+        // See: memory/dungeon_cross_wire.md +
+        //      memory/interzone_elevator_cross.md +
+        //      memory/plaza_p1_p3_is_zoning1.md
+        skip(11);
+        int crossSubtype = read();    // pos 11→12
+        int crossFlags = readShort(); // pos 12→14
+        int newLocation = readInt();  // pos 14→18 (door_id; legacy name)
+        int szoningId = readInt();    // pos 18→22 (from_sec; legacy name)
+
+        String crossKind =
+            (crossSubtype == 0x03) ? "DUNGEON"
+            : (crossFlags == 0xFFFF) ? "INTERZONE"
+            : (crossFlags == 0x0004) ? "SECTOR"
+            : ("UNKNOWN[subtype=" + crossSubtype + " flags=0x"
+               + Integer.toHexString(crossFlags) + "]");
 
         int oldLocation =
             pl.getCharacter().getMisc(PlayerCharacter.MISC_LOCATION);
@@ -64,8 +93,10 @@ public class Zoning1 extends GamePacketDecoderUDP {
             server.gameserver.ZoneManager.getZone(newLocation);
         PlayerCharacter pcAtCross = pl.getCharacter();
         Out.writeln(Out.Info,
-            "Zoning1: target zone_id=" + newLocation
-            + " (from=" + oldLocation + ")"
+            "Zoning1: kind=" + crossKind
+            + " door_id=" + newLocation
+            + " wire_from_sec=" + szoningId
+            + " (MISC_LOCATION=" + oldLocation + ")"
             + " resolved bsp='" + (resolvedZone == null ? "<null>"
                 : resolvedZone.getWorldname()) + "'"
             // Instrumentation for the sector-seam entry-point RE:
@@ -86,6 +117,28 @@ public class Zoning1 extends GamePacketDecoderUDP {
         // why the commit is no longer in Zoning2 (the client never
         // sends a UDP Zoning2 — it reconnects instead).
         pl.setPendingZoneId(newLocation);
+
+        // Task #303: retail emits the start-ack 0x03/0x1f/[mapID]/
+        // 25 23 [trailing] within 0..30 ms of receiving Zoning1, well
+        // before the SZoning1 commit fires ~450 ms later. Without
+        // this fast "request acknowledged" signal the modern NCE
+        // client tends to fall back to a full resync mid-cross and
+        // reconnect — the splash-hang behaviour seen on plaza p1↔p3
+        // with Asddf 2026-05-30. Source-zone mapID, sent
+        // synchronously here. See [[ceresj-zoning1-missing-startack]]
+        // and [[zoning1-body-pinned]] §A.
+        pl.send(new server.gameserver.packets.server_udp
+                .SZoning1StartAck(pl));
+
+        // Task #243 — FSM observation: walking-cross enters the
+        // "waiting for the client to load the destination BSP"
+        // phase. CROSS_PENDING_LOAD here mirrors the portal-cross
+        // path's transition at the 0x83/0x0d emit moment, so the
+        // FSM diagnostic surface treats both walking and portal
+        // crosses uniformly.
+        pl.getStateMachine().transition(
+            server.gameserver.state.ClientState.CROSS_PENDING_LOAD,
+            "Zoning1: walking-cross to zone " + newLocation);
 
         // Send the SZoning1 confirmation — the server's "request
         // validated, proceed" reply. Retail ALWAYS sends this and
@@ -230,6 +283,29 @@ public class Zoning1 extends GamePacketDecoderUDP {
 
                 pl.updateZone();
                 pl.setPendingZoneId(0);
+                // Persist the location change to the DB IMMEDIATELY
+                // — see task #236 for the symmetric fix in
+                // UseItem.java (portal branch). The in-memory
+                // PlayerCharacter cache *should* survive the
+                // post-Zoning1 reconnect (PlayerCharacterManager
+                // returns the cached instance) but the dungeon-cross
+                // case 2026-05-23 showed the destination location was
+                // not honored on reconnect. Flushing on every commit
+                // is cheap and removes the race.
+                server.database.playerCharacters
+                    .PlayerCharacterManager.saveCharacter(pc);
+
+                // Task #243 — FSM observation: walking-cross commit
+                // mirrors the portal-cross PortalCrossCommitEvent
+                // CROSS_PENDING_LOCATION transition. The reconnect
+                // path will subsequently re-enter via WorldEntryEvent
+                // for the destination zone, which will advance to
+                // IN_WORLD when it completes.
+                pl.getStateMachine().transition(
+                    server.gameserver.state.ClientState
+                        .CROSS_PENDING_LOCATION,
+                    "SZoning1Confirm: committed walking-cross to "
+                        + pending);
                 Out.writeln(Out.Info,
                     "SZoning1Confirm: committed zone switch to "
                     + pending + " for " + pc.getName()

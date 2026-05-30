@@ -55,15 +55,16 @@ public class Zoning1Test {
     }
 
     @Test
-    public void zoning1EmitsNoTcpAndDefersSZoning1Confirm()
+    public void zoning1EmitsStartAckSyncAndDefersSZoning1Confirm()
             throws Exception {
-        // Zoning1 emits NOTHING synchronously: no TCP, no
-        // immediate UDP. The SZoning1 confirm
-        // (0x03/0x1f 25 13 + roster + 0x03/0x23) is deferred
-        // ~450 ms via SZoning1ConfirmEvent to match the retail
-        // Zoning1→confirm gap (RETAIL_PLAZA_CROSSZONE, all 8
-        // crossings). The TCP zone-swap (Location) is later still,
-        // on Zoning2.
+        // Task #303 — Zoning1 must emit the fast start-ack
+        // (0x03/0x1f/[mapID]/25 23 [trailing]) synchronously to match
+        // retail's T+0..30 ms timing. Without it the modern NCE
+        // client tends to fall back to a full resync and reconnect.
+        // The SZoning1 commit burst (0x03/0x1f 25 13 + NPC roster +
+        // 0x03/0x23 zone-info ack) is still deferred ~450 ms via
+        // SZoning1ConfirmEvent. TCP zone-swap (Location) is later
+        // still on Zoning2 — Zoning1 emits NO TCP.
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
         CapturingTCPConnection tcp = new CapturingTCPConnection();
@@ -78,10 +79,15 @@ public class Zoning1Test {
 
         assertEquals("Zoning1 must not emit any TCP packet",
                 0, tcp.received().size());
-        assertEquals("Zoning1 must not emit any synchronous UDP",
-                0, udp.received().size());
+        assertEquals("Zoning1 must emit exactly one synchronous "
+                + "UDP packet — the start-ack (#303)",
+                1, udp.received().size());
+        assertTrue("synchronous UDP must be SZoning1StartAck",
+                udp.received().get(0)
+                        instanceof server.gameserver.packets
+                                .server_udp.SZoning1StartAck);
 
-        // The confirm must be queued as a delayed event.
+        // The deferred confirm must still be queued.
         java.lang.reflect.Field f =
                 Player.class.getDeclaredField("eventList");
         f.setAccessible(true);
@@ -94,11 +100,11 @@ public class Zoning1Test {
                         .getClass().getSimpleName());
 
         // Driving the deferred event must emit exactly one
-        // SZoning1 on UDP.
+        // additional SZoning1 on UDP (total: start-ack + commit).
         ((server.interfaces.GameServerEvent) q.getFirst())
                 .execute(pl);
-        assertEquals(1, udp.received().size());
-        assertTrue(udp.received().get(0)
+        assertEquals(2, udp.received().size());
+        assertTrue(udp.received().get(1)
                 instanceof server.gameserver.packets.server_udp
                         .SZoning1);
     }

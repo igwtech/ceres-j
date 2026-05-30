@@ -1,0 +1,4 @@
+frida>=16.5.0
+frida-tools>=12.5.0
+pytest>=7.4.0
+pytest-asyncio>=0.23.0

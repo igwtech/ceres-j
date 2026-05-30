@@ -86,17 +86,24 @@ char re-query).
 
 ## Open questions
 
-None — fully decoded constant probe. Server response is
-implicit: the client stops emitting `0xa003` once it receives
-the CharList.
+None — fully decoded constant probe. **2026-05-22**: live capture
+of Braine real-client revealed `0xa003` is NOT just a keepalive but
+a synchronous **ready-probe** — the client sends it after `AuthAck`
+and **waits ~170 ms** for the server's `0xa0/0x01` (`SessionReady`)
+reply before issuing `AuthB` (GetCharList). Without the
+`SessionReady` reply the modern client stays stuck. The legacy
+`0x87/0x37 → 0x87/0x3a` GetGamedata sub-exchange is dead in
+current retail; `0xa003 → 0xa001` is the live path.
 
 ## Server-side handler
 
-**Currently no-op handled** by `GamePacketReaderTCP` — the
-server recognises the 2-byte packet and consumes it without
-explicit response. The implicit response is the natural flow
-of the post-Auth sequence (`AuthAck` → `SessionReady-S` →
-`CharList`).
+**Explicit handler 2026-05-22**: `ReadyProbe.java` in
+`server.gameserver.packets.client_tcp`. Dispatched from
+`GamePacketReaderTCP` via `case (byte) 0xa0: case 0x03`. On
+receive the handler sends `SessionReady` (0x83/0xa0 0x01 + 8-byte
+payload `15 00 00 00 00 00 80 3f`) back to the client.
+
+See `ReadyProbeTest` for the byte-identity assertions.
 
 If the client emits `0xa003` AFTER receiving CharList, that's
 a sign the client believes its session is desynced. Currently

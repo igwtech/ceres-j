@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import server.gameserver.GameServerTCPConnection;
+import server.gameserver.Player;
 import server.gameserver.packets.client_tcp.*;
 import server.interfaces.GameServerEvent;
 
@@ -24,6 +25,13 @@ public final class GamePacketReaderTCP {
 		if (server.tools.Debug.isWireEnabled()) {
 			server.tools.WireLog.tcpIn(tcp.wireUser(),
 					readbuffer, readbuffer.length);
+		}
+		// Task #215: refresh the idle-timeout clock on the player
+		// (if one is bound to this TCP connection) — real C→S TCP
+		// traffic should keep a session alive just like C→S UDP does.
+		Player pl = tcp.getPlayer();
+		if (pl != null) {
+			pl.setLastping();
 		}
 		tcp.addEvent(decode(readbuffer, tcp));
 	}
@@ -87,6 +95,16 @@ public final class GamePacketReaderTCP {
 				return new GetGamedata(readbuffer); // no player
 			case 0x3c:
 				return new GetUDPConnection(readbuffer);
+			default :
+				return new UnknownClientTCPPacket(readbuffer);
+			}
+		case (byte) 0xa0:
+			switch (packet.read()) {
+			case 0x03:
+				// Modern (May 2026) retail client's "ready probe" sent
+				// between AuthAck and AuthB on the GameLobby connection.
+				// Replaces the older 0x87/0x37 GetGamedata sub-exchange.
+				return new ReadyProbe(readbuffer); // no player
 			default :
 				return new UnknownClientTCPPacket(readbuffer);
 			}

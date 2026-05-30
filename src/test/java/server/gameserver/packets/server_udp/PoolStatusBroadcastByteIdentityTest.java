@@ -147,6 +147,106 @@ public class PoolStatusBroadcastByteIdentityTest {
         assertEquals(0x30, body[3] & 0xFF);
     }
 
+    @Test
+    public void psiStaCurBytesLandAtExpectedOffsets()
+            throws Exception {
+        // Task #247 — pin the PSI + STA byte positions that the
+        // original test punted on. PSI/STA setters are direct
+        // field access (PlayerCharacter.setPsi / .setStamina just
+        // write the backing field), so we can assert exact bytes
+        // without subskill-fixture gymnastics.
+        //
+        // Evidence for task #207 (".setpsi 0 también baja STA"):
+        // if PSI bytes correctly land at offset 6..7 and STA at
+        // offset 8..9 with NO cross-contamination, the wire
+        // format is byte-correct and the bug must be elsewhere
+        // (client recompute, OR a different packet emitted by
+        // cmdSetPsi). If they don't, we've found the bug.
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        PlayerCharacter pc = pl.getCharacter();
+        pc.setHealth(0x0102);
+        pc.setPsi(0x0304);
+        pc.setStamina(0x0506);
+
+        byte[] body = extractInnerBody(
+                datagramBytes(new PoolStatusBroadcast(pl)));
+
+        // HP (offsets 4..5)
+        assertEquals("HP lo @4", 0x02, body[4] & 0xFF);
+        assertEquals("HP hi @5", 0x01, body[5] & 0xFF);
+        // PSI (offsets 6..7)
+        assertEquals("PSI lo @6", 0x04, body[6] & 0xFF);
+        assertEquals("PSI hi @7", 0x03, body[7] & 0xFF);
+        // STA (offsets 8..9)
+        assertEquals("STA lo @8", 0x06, body[8] & 0xFF);
+        assertEquals("STA hi @9", 0x05, body[9] & 0xFF);
+    }
+
+    @Test
+    public void setPsiZeroDoesNotMutateStaminaField() {
+        // Task #247 — server-side check for the cross-pool side
+        // effect hypothesised in #207. PlayerCharacter.setPsi must
+        // ONLY write the psiPool field; if it accidentally also
+        // resets stamina (via some misc-field share or a hidden
+        // setter chain), this test catches it.
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        PlayerCharacter pc = pl.getCharacter();
+        pc.setPsi(150);
+        pc.setStamina(80);
+        pc.setHealth(250);
+
+        pc.setPsi(0);
+
+        // PSI mutated as requested.
+        assertEquals("PSI must be 0 after setPsi(0)",
+                0, pc.getPsi());
+        // STA + HP must be unchanged.
+        assertEquals("STA must NOT be side-effected by setPsi",
+                80, pc.getStamina());
+        assertEquals("HP must NOT be side-effected by setPsi",
+                250, pc.getHealth());
+    }
+
+    @Test
+    public void setStaZeroEmitsCorrectPoolStatusBytes()
+            throws Exception {
+        // Task #247 — the user-reported bug says .setsta 0 lowers
+        // BOTH PSI and STA on the HUD. Verify the wire packet
+        // emitted by a subsequent PoolStatusBroadcast carries
+        // PSI unchanged + STA=0 (i.e. the wire is correct and
+        // the client is the one mixing them up).
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        PlayerCharacter pc = pl.getCharacter();
+        pc.setHealth(0x0102);
+        pc.setPsi(0x0304);
+        pc.setStamina(0x0506);
+        // Snapshot the wire BEFORE the mutation.
+        byte[] before = extractInnerBody(
+                datagramBytes(new PoolStatusBroadcast(pl)));
+        assertEquals("PSI lo @6 before", 0x04, before[6] & 0xFF);
+        assertEquals("STA lo @8 before", 0x06, before[8] & 0xFF);
+
+        // Simulate the cmd handler: setStamina(0).
+        pc.setStamina(0);
+
+        byte[] after = extractInnerBody(
+                datagramBytes(new PoolStatusBroadcast(pl)));
+        // PSI bytes UNCHANGED.
+        assertEquals("PSI lo @6 after — must NOT collateral-zero",
+                0x04, after[6] & 0xFF);
+        assertEquals("PSI hi @7 after — must NOT collateral-zero",
+                0x03, after[7] & 0xFF);
+        // STA bytes mutated as requested.
+        assertEquals("STA lo @8 after = 0", 0x00, after[8] & 0xFF);
+        assertEquals("STA hi @9 after = 0", 0x00, after[9] & 0xFF);
+        // HP bytes UNCHANGED.
+        assertEquals("HP lo @4 after", 0x02, after[4] & 0xFF);
+        assertEquals("HP hi @5 after", 0x01, after[5] & 0xFF);
+    }
+
     /** Reflection helper: set a misc-pool field via PlayerCharacter
      *  so we don't depend on getters that compute from subskills. */
     private static void installMiscPool(PlayerCharacter pc,

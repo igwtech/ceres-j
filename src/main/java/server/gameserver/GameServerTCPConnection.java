@@ -105,12 +105,23 @@ public class GameServerTCPConnection extends Thread {
 		return ua;
 	}
 
+	/** The Player bound to this TCP connection, or {@code null} if
+	 *  the connection is still pre-AuthB (no character selected yet).
+	 *  Used by {@link server.gameserver.packets.GamePacketReaderTCP}
+	 *  to refresh the player's idle-timeout clock on every C→S TCP
+	 *  frame (task #215). */
+	public Player getPlayer() {
+		return pl;
+	}
+
 	public void activatePlayer(int spot) {
 		pl = PlayerManager.findPlayer(ua);
 		pl.setTcpConnection(this);
 		// Clear old UDP connection so a new one can be established
 		pl.closeUDP();
-		pl.setCharacter(PlayerCharacterManager.getCharacter(ua.getChar(spot)));
+		// Refresh from DB at select-time so hand-edited rows take effect
+		// without a restart (and before the in-memory copy saves over them).
+		pl.setCharacter(PlayerCharacterManager.reloadCharacter(ua.getChar(spot)));
 	}
 
 	public String getServerIP() {

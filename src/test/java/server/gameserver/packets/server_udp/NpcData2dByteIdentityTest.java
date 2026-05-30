@@ -42,21 +42,47 @@ public class NpcData2dByteIdentityTest {
         return (b[o] & 0xFF) | ((b[o + 1] & 0xFF) << 8);
     }
 
-    /** Datagram inner sub-op = byte at wire offset 10
-     *  (0x13(1)+ctr(2)+ctr+sk(2)+subLen(2)+0x03(1)+seq(2)). */
-    private static int subOp(DatagramPacket dp) {
-        return dp.getData()[10] & 0xFF;
+    /** Walks a bundled {@code 0x13} datagram and returns every
+     *  reliable sub-packet's body bytes (post {@code 0x03 [seq LE2]}).
+     *  Each entry starts with the inner sub-op byte at index 0.
+     *  Handles both single-sub and multi-sub datagrams uniformly. */
+    private static java.util.List<byte[]> subs(DatagramPacket dp) {
+        java.util.List<byte[]> out = new java.util.ArrayList<>();
+        byte[] d = dp.getData();
+        int len = dp.getLength();
+        int i = 5; // past [0x13][ctr LE2][ctr+sk LE2]
+        while (i + 2 <= len) {
+            int subLen = (d[i] & 0xFF) | ((d[i + 1] & 0xFF) << 8);
+            i += 2;
+            if (subLen <= 0 || i + subLen > len) break;
+            // Reliable sub-packet body = sub[3:] (post 0x03 + seq LE2)
+            if (subLen >= 3 && (d[i] & 0xFF) == 0x03) {
+                byte[] body = new byte[subLen - 3];
+                System.arraycopy(d, i + 3, body, 0, body.length);
+                out.add(body);
+            }
+            i += subLen;
+        }
+        return out;
     }
 
+    /** First-sub inner-op byte. Back-compat with the old single-sub
+     *  assertion contract. */
+    private static int subOp(DatagramPacket dp) {
+        return subs(dp).get(0)[0] & 0xFF;
+    }
+
+    /** First-sub inner body. */
     private static byte[] body(DatagramPacket dp) {
-        int len = dp.getLength();
-        byte[] b = new byte[len - 10];
-        System.arraycopy(dp.getData(), 10, b, 0, b.length);
-        return b;
+        return subs(dp).get(0);
     }
 
     @Test
-    public void emitsExactlyTwoReliableDatagrams_28then2d_no1b() {
+    public void emitsBundledReliableDatagram_28then2d_no1b() {
+        // 2026-05-30 bundling: 0x28 + 0x2d ride as TWO sub-packets in
+        // ONE 0x13 datagram (was two separate datagrams pre-fix). The
+        // retail two-sub-packet ordering and absence of any 0x1b are
+        // preserved; only the wire framing changes.
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
         NPC npc = new NPC(1234, -567, 89, 100, 0, 20, 0x010A);
@@ -64,26 +90,24 @@ public class NpcData2dByteIdentityTest {
                 new ZoneStateCompoundPacket(pl, npc)
                         .getDatagramPackets();
 
-        assertEquals("exactly 2 datagrams (0x28 + 0x2d, no 0x1b)",
-                2, dps.length);
+        assertEquals("bundled into exactly 1 0x13 datagram",
+                1, dps.length);
+        assertEquals("outer 0x13", 0x13, dps[0].getData()[0] & 0xFF);
+        assertEquals("reliable 0x03 at first sub",
+                0x03, dps[0].getData()[7] & 0xFF);
 
-        // Every datagram is a reliable 0x13/0x03 frame.
-        for (DatagramPacket dp : dps) {
-            assertEquals("outer 0x13", 0x13, dp.getData()[0] & 0xFF);
-            assertEquals("reliable 0x03", 0x03, dp.getData()[7] & 0xFF);
-        }
-
-        // Datagram 1 = WorldInfo 0x28; datagram 2 = NPCData 0x2d.
-        assertEquals("datagram 1 must be 0x28 WorldInfo",
-                0x28, subOp(dps[0]));
-        assertEquals("datagram 2 must be 0x2d NPCData",
-                0x2d, subOp(dps[1]));
-
-        // No datagram is a raw 0x1b broadcast — the spurious
-        // world-item registration that despawned the NPC.
-        for (DatagramPacket dp : dps) {
+        java.util.List<byte[]> bodies = subs(dps[0]);
+        assertEquals("exactly 2 reliable sub-packets",
+                2, bodies.size());
+        assertEquals("sub 1 must be 0x28 WorldInfo",
+                0x28, bodies.get(0)[0] & 0xFF);
+        assertEquals("sub 2 must be 0x2d NPCData",
+                0x2d, bodies.get(1)[0] & 0xFF);
+        // No sub-packet is a raw 0x1b — the spurious world-item
+        // registration that despawned the NPC pre-#178d.
+        for (byte[] b : bodies) {
             assertNotEquals("no raw 0x1b for a scripted NPC",
-                    0x1b, subOp(dp));
+                    0x1b, b[0] & 0xFF);
         }
     }
 
@@ -96,7 +120,7 @@ public class NpcData2dByteIdentityTest {
                 new ZoneStateCompoundPacket(pl, npc)
                         .getDatagramPackets();
 
-        byte[] tick = body(dps[1]);
+        byte[] tick = subs(dps[0]).get(1);
         // Retail entity 266 idle tick: 2d 0a01 0000 06
         assertArrayEquals(
                 new byte[] { 0x2d, 0x0a, 0x01, 0x00, 0x00, 0x06 },
@@ -113,8 +137,9 @@ public class NpcData2dByteIdentityTest {
                 new ZoneStateCompoundPacket(pl, npc)
                         .getDatagramPackets();
 
-        byte[] world = body(dps[0]);   // 28 0001 [id LE2] ...
-        byte[] tick  = body(dps[1]);   // 2d [id LE2] 0000 06
+        java.util.List<byte[]> bodies = subs(dps[0]);
+        byte[] world = bodies.get(0);   // 28 0001 [id LE2] ...
+        byte[] tick  = bodies.get(1);   // 2d [id LE2] 0000 06
 
         assertEquals(0x28, world[0] & 0xFF);
         assertEquals("0x28 world-object id @[3..4]",

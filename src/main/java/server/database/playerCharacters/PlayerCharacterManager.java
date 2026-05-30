@@ -45,85 +45,8 @@ public class PlayerCharacterManager {
 
 			while (rs.next()) {
 				PlayerCharacter pc = new PlayerCharacter();
-				pc.setName(rs.getString("name"));
-
-				// Load the UUID. Wrapped so a missing column (e.g. legacy
-				// schemas that haven't migrated yet for some reason) leaves
-				// the field null and the application keeps booting.
-				try {
-					pc.setUuid(SqliteDatabase.getUuid(rs, "uuid"));
-				} catch (SQLException uuidErr) {
-					// Column missing / unreadable — log once and continue.
-				}
-
-				// Load MISCLIST fields
-				for (int i = 0; i < PlayerCharacter.MISCLIST.length; i++) {
-					if (PlayerCharacter.MISCLIST[i] != null) {
-						pc.setMisc(i, rs.getInt(PlayerCharacter.MISCLIST[i]));
-					} else {
-						pc.setMisc(i, 0);
-					}
-				}
-
-				// Load skills (lvl + pts)
-				for (int i = 1; i < PlayerCharacter.SKILLS.length; i++) {
-					pc.setSkillLVL(i, rs.getInt(PlayerCharacter.SKILLS[i] + "_lvl"));
-					pc.setSkillPTS(i, rs.getInt(PlayerCharacter.SKILLS[i] + "_pts"));
-				}
-
-				// Load subskills
-				for (int i = 1; i < PlayerCharacter.SUBSKILLS.length; i++) {
-					if (PlayerCharacter.SUBSKILLS[i] != null) {
-						pc.setSubskillLVL(i, rs.getInt(PlayerCharacter.SUBSKILLS[i]));
-					} else {
-						pc.setSubskillLVL(i, 0);
-					}
-				}
-
-				// Load CharInfo fidelity fields (schema v1). If any column is
-				// missing (e.g. a pre-migration DB that somehow skipped the
-				// migration path) we catch per-character and keep the
-				// PlayerCharacter default values.
-				try {
-					pc.setHealth(rs.getInt("health"));
-					pc.setMaxHealth(rs.getInt("max_health"));
-					pc.setPsi(rs.getInt("psi_pool"));
-					pc.setMaxPsi(rs.getInt("max_psi_pool"));
-					pc.setStamina(rs.getInt("stamina"));
-					pc.setMaxStamina(rs.getInt("max_stamina"));
-					pc.setSynaptic(rs.getInt("synaptic"));
-					pc.setCash(rs.getInt("cash"));
-					pc.setRank(rs.getInt("rank"));
-
-					String symJson = rs.getString("faction_sympathies");
-					float[] parsed = parseFactionSympathies(symJson);
-					if (parsed != null) {
-						pc.setFactionSympathies(parsed);
-					}
-
-					// Per-skill xp/rate/max overrides — leave the sentinel in
-					// place so the getter falls back to class-based defaults.
-					for (int i = 1; i < PlayerCharacter.SKILLS.length; i++) {
-						String base = PlayerCharacter.SKILLS[i];
-						int xp = rs.getInt(base + "_xp");
-						if (xp != Integer.MIN_VALUE) pc.setSkillXP(i, xp);
-						int rate = rs.getInt(base + "_rate");
-						if (rate != Integer.MIN_VALUE) pc.setSkillRate(i, rate);
-						int max = rs.getInt(base + "_max");
-						if (max != Integer.MIN_VALUE) pc.setSkillMax(i, max);
-					}
-				} catch (SQLException fidelityErr) {
-					Out.writeln(Out.Warning,
-						"CharInfo fidelity columns missing for character '" + pc.getName()
-							+ "', using defaults: " + fidelityErr.getMessage());
-				}
-
-				int[] contId = new int[3];
-				contId[0] = rs.getInt("f2_inventory_cont_id");
-				contId[1] = rs.getInt("gogu_inventory_cont_id");
-				contId[2] = rs.getInt("qb_inventory_cont_id");
-
-				pc.initContainer(contId);
+				applyScalarFields(rs, pc);
+				attachContainers(rs, pc);
 				pcList.add(pc);
 			}
 		} catch (SQLException e) {
@@ -163,6 +86,148 @@ public class PlayerCharacterManager {
 		// the user reported for the 3 existing chars.
 		for (PlayerCharacter pc : pcList) {
 			bootstrapStarterInventoryIfEmpty(pc);
+		}
+	}
+
+	/**
+	 * Populate a PlayerCharacter's scalar fields (name, uuid, misc,
+	 * skills, subskills, CharInfo-fidelity columns) from the current
+	 * ResultSet row. Does NOT touch inventory containers — see
+	 * {@link #attachContainers}. Shared by {@link #load()} (fresh
+	 * objects) and {@link #reloadCharacter(int)} (refresh in place).
+	 */
+	private static void applyScalarFields(ResultSet rs, PlayerCharacter pc) throws SQLException {
+		pc.setName(rs.getString("name"));
+
+		// Load the UUID. Wrapped so a missing column (e.g. legacy
+		// schemas that haven't migrated yet for some reason) leaves
+		// the field null and the application keeps booting.
+		try {
+			pc.setUuid(SqliteDatabase.getUuid(rs, "uuid"));
+		} catch (SQLException uuidErr) {
+			// Column missing / unreadable — log once and continue.
+		}
+
+		// Load MISCLIST fields
+		for (int i = 0; i < PlayerCharacter.MISCLIST.length; i++) {
+			if (PlayerCharacter.MISCLIST[i] != null) {
+				pc.setMisc(i, rs.getInt(PlayerCharacter.MISCLIST[i]));
+			} else {
+				pc.setMisc(i, 0);
+			}
+		}
+
+		// Load skills (lvl + pts)
+		for (int i = 1; i < PlayerCharacter.SKILLS.length; i++) {
+			pc.setSkillLVL(i, rs.getInt(PlayerCharacter.SKILLS[i] + "_lvl"));
+			pc.setSkillPTS(i, rs.getInt(PlayerCharacter.SKILLS[i] + "_pts"));
+		}
+
+		// Load subskills
+		for (int i = 1; i < PlayerCharacter.SUBSKILLS.length; i++) {
+			if (PlayerCharacter.SUBSKILLS[i] != null) {
+				pc.setSubskillLVL(i, rs.getInt(PlayerCharacter.SUBSKILLS[i]));
+			} else {
+				pc.setSubskillLVL(i, 0);
+			}
+		}
+
+		// Load CharInfo fidelity fields (schema v1). If any column is
+		// missing (e.g. a pre-migration DB that somehow skipped the
+		// migration path) we catch per-character and keep the
+		// PlayerCharacter default values.
+		try {
+			pc.setHealth(rs.getInt("health"));
+			pc.setMaxHealth(rs.getInt("max_health"));
+			pc.setPsi(rs.getInt("psi_pool"));
+			pc.setMaxPsi(rs.getInt("max_psi_pool"));
+			pc.setStamina(rs.getInt("stamina"));
+			pc.setMaxStamina(rs.getInt("max_stamina"));
+			pc.setSynaptic(rs.getInt("synaptic"));
+			pc.setCash(rs.getInt("cash"));
+			pc.setRank(rs.getInt("rank"));
+
+			String symJson = rs.getString("faction_sympathies");
+			float[] parsed = parseFactionSympathies(symJson);
+			if (parsed != null) {
+				pc.setFactionSympathies(parsed);
+			}
+
+			// Per-skill xp/rate/max overrides — leave the sentinel in
+			// place so the getter falls back to class-based defaults.
+			for (int i = 1; i < PlayerCharacter.SKILLS.length; i++) {
+				String base = PlayerCharacter.SKILLS[i];
+				int xp = rs.getInt(base + "_xp");
+				if (xp != Integer.MIN_VALUE) pc.setSkillXP(i, xp);
+				int rate = rs.getInt(base + "_rate");
+				if (rate != Integer.MIN_VALUE) pc.setSkillRate(i, rate);
+				int max = rs.getInt(base + "_max");
+				if (max != Integer.MIN_VALUE) pc.setSkillMax(i, max);
+			}
+		} catch (SQLException fidelityErr) {
+			Out.writeln(Out.Warning,
+				"CharInfo fidelity columns missing for character '" + pc.getName()
+					+ "', using defaults: " + fidelityErr.getMessage());
+		}
+	}
+
+	/**
+	 * Register the character's three inventory containers (F2, gogu,
+	 * quickbelt) from the row's container-id columns. Only used on a
+	 * fresh load — a field refresh leaves containers as they are (their
+	 * ids don't change on a name/stat edit, and re-registering would
+	 * re-attach already-loaded items).
+	 */
+	private static void attachContainers(ResultSet rs, PlayerCharacter pc) throws SQLException {
+		int[] contId = new int[3];
+		contId[0] = rs.getInt("f2_inventory_cont_id");
+		contId[1] = rs.getInt("gogu_inventory_cont_id");
+		contId[2] = rs.getInt("qb_inventory_cont_id");
+		pc.initContainer(contId);
+	}
+
+	/**
+	 * Re-read one character row from the DB and refresh its in-memory
+	 * {@code pcList} entry's scalar fields IN PLACE, so a hand-edited DB
+	 * row (name, location, stats, cash, …) takes effect at next login
+	 * without a server restart — and before the in-memory copy would
+	 * otherwise overwrite the edit on the next save. Inventory containers
+	 * are intentionally left untouched (their ids don't change on a field
+	 * edit). If the character isn't cached yet (e.g. created directly in
+	 * the DB) it is loaded fresh, containers included. Falls back to the
+	 * cached entry on any DB error.
+	 *
+	 * @return the refreshed (or freshly loaded) character, or {@code null}
+	 *         if it exists in neither memory nor DB.
+	 */
+	public static PlayerCharacter reloadCharacter(int charid) {
+		Connection conn = SqliteDatabase.getConnection();
+		if (conn == null) return getCharacter(charid);
+		try (PreparedStatement ps = conn.prepareStatement(
+				"SELECT * FROM player_characters WHERE id = ?")) {
+			ps.setInt(1, charid);
+			try (ResultSet rs = ps.executeQuery()) {
+				if (!rs.next()) return getCharacter(charid);
+				PlayerCharacter existing = getCharacter(charid);
+				if (existing != null) {
+					synchronized (pcList) {
+						applyScalarFields(rs, existing);
+					}
+					return existing;
+				}
+				// Not cached yet — full load incl. containers.
+				PlayerCharacter pc = new PlayerCharacter();
+				applyScalarFields(rs, pc);
+				attachContainers(rs, pc);
+				synchronized (pcList) {
+					pcList.add(pc);
+				}
+				return pc;
+			}
+		} catch (SQLException e) {
+			Out.writeln(Out.Error,
+				"reloadCharacter(" + charid + ") failed: " + e.getMessage());
+			return getCharacter(charid);
 		}
 	}
 

@@ -37,13 +37,58 @@ import server.gameserver.Player;
  */
 public class NpcRenderChainTest {
 
-    private static int subOp(DatagramPacket dp) {
-        // 0x13(1)+ctr(2)+ctr+sk(2)+subLen(2)+0x03(1)+seq(2) = 10
-        return dp.getData()[10] & 0xFF;
+    /** Walk a bundled 0x13 datagram's reliable sub-packets and
+     *  return each one's inner op byte. 2026-05-30 bundling fix:
+     *  ZoneStateCompoundPacket now emits ONE datagram with multiple
+     *  sub-packets (was one-per-sub pre-fix). */
+    private static List<Integer> subOpsOf(DatagramPacket dp) {
+        List<Integer> ops = new ArrayList<>();
+        byte[] d = dp.getData();
+        int len = dp.getLength();
+        int i = 5; // past [0x13][ctr LE2][ctr+sk LE2]
+        while (i + 2 <= len) {
+            int subLen = (d[i] & 0xFF) | ((d[i + 1] & 0xFF) << 8);
+            i += 2;
+            if (subLen <= 0 || i + subLen > len) break;
+            if (subLen >= 4 && (d[i] & 0xFF) == 0x03) {
+                // body op = sub[3] (after [0x03][seq LE2])
+                ops.add(d[i + 3] & 0xFF);
+            }
+            i += subLen;
+        }
+        return ops;
     }
 
-    /** Collect the sub-opcode of every datagram a spawn/refresh
-     *  emits for one NPC. */
+    /** Single reliable sub-op of a datagram that carries exactly one
+     *  sub-packet. Back-compat with the old single-sub assertions. */
+    private static int subOp(DatagramPacket dp) {
+        return subOpsOf(dp).get(0);
+    }
+
+    /** Walk a bundled 0x13 datagram and return each reliable
+     *  sub-packet's body (post {@code 0x03 [seq LE2]}). Each entry
+     *  starts with the inner op byte at index 0. */
+    private static List<byte[]> subBodiesOf(DatagramPacket dp) {
+        List<byte[]> out = new ArrayList<>();
+        byte[] d = dp.getData();
+        int len = dp.getLength();
+        int i = 5; // past [0x13][ctr LE2][ctr+sk LE2]
+        while (i + 2 <= len) {
+            int subLen = (d[i] & 0xFF) | ((d[i + 1] & 0xFF) << 8);
+            i += 2;
+            if (subLen <= 0 || i + subLen > len) break;
+            if (subLen >= 3 && (d[i] & 0xFF) == 0x03) {
+                byte[] body = new byte[subLen - 3];
+                System.arraycopy(d, i + 3, body, 0, body.length);
+                out.add(body);
+            }
+            i += subLen;
+        }
+        return out;
+    }
+
+    /** Collect the sub-opcode of every reliable sub-packet a
+     *  spawn/refresh emits for one NPC. */
     private static List<Integer> chainFor(int npcId) {
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
@@ -55,9 +100,9 @@ public class NpcRenderChainTest {
         for (DatagramPacket dp : dps) {
             assertEquals("every datagram is a 0x13 frame",
                     0x13, dp.getData()[0] & 0xFF);
-            assertEquals("every datagram is reliable 0x03",
+            assertEquals("every datagram is reliable 0x03 at first sub",
                     0x03, dp.getData()[7] & 0xFF);
-            ops.add(subOp(dp));
+            ops.addAll(subOpsOf(dp));
         }
         return ops;
     }
@@ -86,6 +131,8 @@ public class NpcRenderChainTest {
         // Simulate many heartbeat ticks for the same live NPC: not
         // one of them may emit a 0x1b or a 0x26 (retail re-sends
         // 0x28+0x2d only, indefinitely, for a stationary NPC).
+        // 2026-05-30 bundling: each tick = 1 datagram with [0x28, 0x2d]
+        // sub-packets (was 2 separate datagrams pre-fix).
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
         NPC npc = new NPC(50, 60, 70, 100, 0, 20, 0x010A);
@@ -93,12 +140,15 @@ public class NpcRenderChainTest {
             DatagramPacket[] dps =
                     new ZoneStateCompoundPacket(pl, npc)
                             .getDatagramPackets();
-            assertEquals("tick " + tick + ": 2 datagrams",
-                    2, dps.length);
-            assertEquals("tick " + tick + ": [0]=0x28",
-                    0x28, subOp(dps[0]));
-            assertEquals("tick " + tick + ": [1]=0x2d",
-                    0x2d, subOp(dps[1]));
+            assertEquals("tick " + tick + ": 1 bundled datagram",
+                    1, dps.length);
+            List<Integer> ops = subOpsOf(dps[0]);
+            assertEquals("tick " + tick + ": 2 sub-packets",
+                    2, ops.size());
+            assertEquals("tick " + tick + ": sub 0 = 0x28",
+                    Integer.valueOf(0x28), ops.get(0));
+            assertEquals("tick " + tick + ": sub 1 = 0x2d",
+                    Integer.valueOf(0x2d), ops.get(1));
         }
     }
 
@@ -108,6 +158,8 @@ public class NpcRenderChainTest {
         // 0x28[3..4] world-object id and ages it out unless the
         // 0x2d[1..2] ping carries the SAME id. A mismatch is the
         // appear-then-vanish bug in a different guise.
+        // Bundled wire layout walk: read sub bodies via
+        // subBodiesOf(dp) — same content as before, different framing.
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
         int id = 0x0145;
@@ -115,10 +167,11 @@ public class NpcRenderChainTest {
         DatagramPacket[] dps =
                 new ZoneStateCompoundPacket(pl, npc)
                         .getDatagramPackets();
-        byte[] w = dps[0].getData();
-        byte[] t = dps[1].getData();
-        int worldId = (w[13] & 0xFF) | ((w[14] & 0xFF) << 8); // doc[3..4]
-        int tickId  = (t[11] & 0xFF) | ((t[12] & 0xFF) << 8); // 0x2d[1..2]
+        java.util.List<byte[]> bodies = subBodiesOf(dps[0]);
+        byte[] w = bodies.get(0);  // 28 0001 [id LE2] ...
+        byte[] t = bodies.get(1);  // 2d [id LE2] 0000 06
+        int worldId = (w[3] & 0xFF) | ((w[4] & 0xFF) << 8);
+        int tickId  = (t[1] & 0xFF) | ((t[2] & 0xFF) << 8);
         assertEquals("0x28 world-object id", id, worldId);
         assertEquals("0x2d ping entity id", id, tickId);
         assertEquals(worldId, tickId);

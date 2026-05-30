@@ -66,11 +66,47 @@ public class WorldEntryEvent extends DummyEvent {
         PlayerCharacter pc = pl.getCharacter();
         int mapId = pl.getMapID();
 
+        // Task #243 — FSM observation: world-entry burst begins.
+        // Covers both first login and cross-reconnect WorldEntries;
+        // distinguishing the two in the transition reason lets the
+        // log identify which path produced any subsequent issues.
+        pl.getStateMachine().transition(
+            server.gameserver.state.ClientState.WORLDENTRY_BURST,
+            "WorldEntryEvent: begin (mapId=" + mapId + ")");
+
         // A fresh world-entry (login or post-cross reconnect) is a
         // clean slate: drop any half-finished zone-cross intent so a
         // never-completed Zoning1 can't leave pendingZoneId stuck
         // (which would permanently suppress the UDPAlive heartbeat).
         pl.setPendingZoneId(0);
+
+        // ── Defensive pool rehydration (task #202 / #204) ──────────
+        // Retail-faithful semantics (user-confirmed 2026-05-19):
+        // logout-while-dead must STAY dead on next login — the client
+        // re-shows the respawn overlay and the server gates revive on
+        // genrep selection (synaptic). DO NOT auto-restore cur≤0 here:
+        // that is a legitimate death-state, not corruption.
+        //
+        // We DO repair max≤0 to a playable default — that path is only
+        // hit by legacy/corrupted rows (an honest character can never
+        // mutate its max below 0 through the wire), and a max=0 HUD is
+        // not recoverable in-game. Cur>max is clamped down because the
+        // bucket-sum HUD recompute (FUN_0080c660) cannot handle it.
+        // The death-on-login re-emit lives in the world-entry burst
+        // below (PlayerDeath after the CharInfo apply, task #210).
+        rehydratePool("HP", pc.getHealth(), pc.getMaxHealth(),
+                pc::setHealth, pc::setMaxHealth);
+        rehydratePool("PSI", pc.getPsi(), pc.getMaxPsi(),
+                pc::setPsi, pc::setMaxPsi);
+        rehydratePool("STA", pc.getStamina(), pc.getMaxStamina(),
+                pc::setStamina, pc::setMaxStamina);
+
+        // Record the persisted-dead state BEFORE rehydration so the
+        // burst below can re-emit PlayerDeath without the rehydrate
+        // having to know about it. (rehydratePool only mutates cur
+        // when it's clamped above a repaired max — never when cur is
+        // simply <=0 — so this snapshot is stable.)
+        final boolean persistedDead = pc.getHealth() <= 0;
 
         Out.writeln(Out.Info, "WorldEntryEvent: streaming world state for "
                 + pc.getName() + " mapId=" + mapId);
@@ -216,6 +252,13 @@ public class WorldEntryEvent extends DummyEvent {
         // explicit 0x03/0x0d C→S request) was the only thing
         // keeping previous sessions alive at all.
         pl.addEvent(new TimeSyncHeartbeatEvent());
+        // ── 0x03/0x0d TimeSync push every 30 s ────────────────────
+        // Distinct channel from the heartbeat above (which is the
+        // ~1 Hz 0x03/0x1f state-ack). This event is the actual
+        // clock-advance packet retail emits unsolicited at ~32 s
+        // cadence — without it the HUD clock stays frozen at the
+        // world-entry baseline (task #231). See TimeSyncPushEvent.
+        pl.addEvent(new TimeSyncPushEvent());
         pl.addEvent(new PoolStatusHeartbeat());
         pl.addEvent(new ZoneStateHeartbeat());
         // ── UDPAlive keepalive (0x04) every ~3 s ──
@@ -266,6 +309,58 @@ public class WorldEntryEvent extends DummyEvent {
                 + " consumed and cleared for " + pc.getName());
         }
 
+        // ── Retail-faithful death persistence (task #202 / #210) ──
+        // If the character was persisted dead (cur HP ≤ 0), re-emit
+        // the death packet AFTER the CharInfo apply so the client
+        // re-shows the respawn overlay. Revive is then gated on
+        // genrep selection (the C→S genrep-pick packet, task #203).
+        // RespawnEvent is NOT scheduled here — retail does not
+        // auto-respawn a logged-back-in dead player.
+        if (persistedDead) {
+            Out.writeln(Out.Info,
+                "WorldEntryEvent: " + pc.getName()
+                + " logged in dead (HP=" + pc.getHealth()
+                + ") — re-emitting PlayerDeath for respawn overlay");
+            safeSend(pl, () -> new server.gameserver.packets.server_udp
+                    .PlayerDeath(pl, 0),
+                    "PlayerDeath (login-while-dead)");
+        }
+
+        // Task #243 — FSM observation: world-entry burst finished;
+        // the client now has every initial-state packet it needs.
+        // Phase 2 callers can register onceAcked() against the
+        // post-burst seq to gate further work on the client having
+        // settled into IN_WORLD.
+        pl.getStateMachine().transition(
+            server.gameserver.state.ClientState.IN_WORLD,
+            "WorldEntryEvent: complete");
+
+        // Task #253 — mark the current BSP as loaded so future
+        // crosses back to this BSP (cross-OUT, re-login portal)
+        // suppress 0x83/0x0d LoadingBegin (retail-faithful).
+        //
+        // CRITICAL (2026-05-24): the cache key must match the
+        // string `UseItem` uses for the suppression check.
+        // PortalResolver.worldIdToObjectPath returns the
+        // "worlds/<dir>/pak_<base>.dat" form. Marking the raw
+        // "plaza/plaza_p1" worldname here would be a cache MISS
+        // on lookup → 830D would still fire on cross-OUT and the
+        // client would hang on SYNCHRONIZING (#208).
+        server.gameserver.Zone z = pl.getZone();
+        if (z != null && z.getWorldname() != null) {
+            int zoneId = pc.getMisc(
+                server.database.playerCharacters.PlayerCharacter
+                    .MISC_LOCATION);
+            String bspKey = server.gameserver.PortalResolver
+                .worldIdToObjectPath(zoneId, z.getWorldname());
+            if (bspKey != null) {
+                pl.markBspLoaded(bspKey);
+                Out.writeln(Out.Info,
+                    "WorldEntryEvent: marked spawn BSP loaded — "
+                    + bspKey + " (for " + pc.getName() + ")");
+            }
+        }
+
         Out.writeln(Out.Info, "WorldEntryEvent: completed for " + pc.getName());
     }
 
@@ -280,6 +375,44 @@ public class WorldEntryEvent extends DummyEvent {
             pl.send(factory.build());
         } catch (Exception e) {
             Out.writeln(Out.Error, "WorldEntryEvent: " + label + " failed: " + e.getMessage());
+        }
+    }
+
+    /** Default max value applied when both cur and max persisted as 0
+     *  (legacy row, corrupted DB). Matches the {@link PlayerCharacter}
+     *  field-init default of 100. */
+    private static final int FALLBACK_MAX = 100;
+
+    /** Visible for unit tests. Repairs the persistence-corruption
+     *  cases only: {@code max≤0} (legacy/corrupted row — an honest
+     *  in-game path never mutates max below 0) and {@code cur>max}
+     *  (would break the bucket-sum HUD recompute).
+     *
+     *  <p>Crucially this does <b>not</b> restore {@code cur≤0} — that
+     *  is a legitimate death-state which retail expects to persist
+     *  across logout. The login burst re-emits {@code PlayerDeath} so
+     *  the client shows the respawn overlay; revive is gated on
+     *  genrep selection (task #203 / #210). */
+    static void rehydratePool(String label, int cur, int max,
+            java.util.function.IntConsumer setCur,
+            java.util.function.IntConsumer setMax) {
+        int repairedMax = max;
+        if (repairedMax <= 0) {
+            Out.writeln(Out.Warning,
+                "WorldEntryEvent: " + label + " max=" + max
+                + " — defaulting to " + FALLBACK_MAX
+                + " (corrupted row repair)");
+            repairedMax = FALLBACK_MAX;
+            setMax.accept(repairedMax);
+        }
+        // cur≤0 is left as-is: retail-faithful death persistence.
+        if (cur > repairedMax) {
+            // Clamp down: cur > max breaks the bucket-sum HUD recompute
+            // (FUN_0080c660 expects sum ≤ anchor).
+            Out.writeln(Out.Warning,
+                "WorldEntryEvent: " + label + " cur=" + cur
+                + " exceeds max=" + repairedMax + " — clamping");
+            setCur.accept(repairedMax);
         }
     }
 }

@@ -91,6 +91,24 @@ public class Player extends Thread {
 	// matching NC2 retail's session-per-port design. Null if the player
 	// falls back to the shared ListenerUDP (pool exhausted, bind failure).
 	private PlayerUdpListener udpListener;
+	// Observable client phase (login → world → cross-pending …). Phase 1
+	// observe-only: emit sites + ack-handlers call into the machine,
+	// nothing reads it for control flow yet. Task #239. See
+	// `server-lacks-client-state-machine` memory.
+	private final server.gameserver.state.ClientStateMachine stateMachine
+		= new server.gameserver.state.ClientStateMachine();
+	// BSPs (worldname strings) the client has loaded this session.
+	// Used to suppress 0x83/0x0d LoadingBegin on cross-OUT or
+	// re-cross to a cached BSP — retail empirically emits 0x83/0x0d
+	// ONLY when the destination is being loaded for the first time
+	// (verified 2026-05-24, task #253). Re-emitting 0x83/0x0d for
+	// a cached BSP likely triggers the client's loading-screen state
+	// for a BSP it already has — root cause hypothesis for #208.
+	// Synchronised because cross handlers run on the event loop thread
+	// but Player can also be accessed by UDP listener threads.
+	private final java.util.Set<String> loadedBspPaths =
+		java.util.Collections.synchronizedSet(
+			new java.util.HashSet<>());
 
 	public Player(Account ua) {
 		this.ua = ua;
@@ -125,10 +143,40 @@ public class Player extends Thread {
 				}
 				Debug.event(e, this);
 				e.execute(this);
-				lastping = Timer.getRealtime(); //TODO somthing more usefull
+				// NOTE: lastping is NO LONGER updated here. Server-
+				// scheduled heartbeat events (TimeSyncHeartbeat,
+				// PoolStatusHeartbeat, ZoneStateHeartbeat) execute
+				// continuously even on dead sessions; updating
+				// lastping here meant a dead Player was never reaped
+				// by the idle timeout (task #215 — exposed by the
+				// nc2-bot dashboard reconnect test 2026-05-19).
+				// lastping is now refreshed exclusively by
+				// PlayerUdpListener / GameServerTCPConnection when a
+				// REAL client packet arrives — see setLastping().
 			}
-			
-			if (lastping + 60000 < Timer.getRealtime()) { // 60sec timeout
+
+			// Idle-session reaper. 30s without any client packet =>
+			// teardown. Retail kicks idle sessions even faster (~15s
+			// in some captures); 30s is the conservative middle ground
+			// that survives a brief network hiccup. Configurable later
+			// if we need per-deployment tuning.
+			if (lastping + 30000 < Timer.getRealtime()) {
+				server.tools.Out.writeln(server.tools.Out.Info,
+					"Player.run: idle timeout (>30s no client packet)"
+					+ " for "
+					+ (pc != null ? pc.getName() : "?")
+					+ " — closing session");
+				break;
+			}
+
+			// Avoid burning a core when the event queue is empty.
+			// 50ms is well below any user-visible latency floor and
+			// well below the idle-check granularity, so it changes
+			// no observable behaviour beyond not pegging CPU.
+			try {
+				Thread.sleep(50);
+			} catch (InterruptedException ie) {
+				Thread.currentThread().interrupt();
 				break;
 			}
 		}
@@ -162,6 +210,44 @@ public class Player extends Thread {
 			tcpConnection.closeTCP();
 		}
 		tcpConnection = null;
+	}
+
+	/** Per-session observable FSM. See {@link
+	 *  server.gameserver.state.ClientStateMachine}. Never null —
+	 *  initialised at Player construction. */
+	public server.gameserver.state.ClientStateMachine getStateMachine() {
+		return stateMachine;
+	}
+
+	/**
+	 * Has the client already loaded the BSP at {@code worldPath}
+	 * this session? Use to decide whether to emit 0x83/0x0d
+	 * LoadingBegin before 0x83/0x0c Location: retail empirically
+	 * emits 0x83/0x0d ONLY for cross-IN to a new BSP, never for
+	 * cross-OUT or re-cross to a cached one (task #253).
+	 *
+	 * <p>{@code worldPath} matches the ASCII string emitted in
+	 * {@link server.gameserver.packets.server_tcp.Location}
+	 * (e.g. {@code "plaza/plaza_p1"},
+	 * {@code "startmissions/reaktor"}).
+	 */
+	public boolean hasLoadedBsp(String worldPath) {
+		if (worldPath == null) return false;
+		return loadedBspPaths.contains(worldPath);
+	}
+
+	/**
+	 * Mark {@code worldPath} as loaded. Called after a successful
+	 * Location emission completes (i.e. after the client has had
+	 * the destination delivered to it, in
+	 * {@link server.gameserver.internalEvents.PortalCrossCommitEvent}),
+	 * and at first-login spawn (in WorldEntryEvent) so the login
+	 * zone doesn't re-trigger LoadingBegin on subsequent crosses.
+	 */
+	public void markBspLoaded(String worldPath) {
+		if (worldPath != null && !worldPath.isEmpty()) {
+			loadedBspPaths.add(worldPath);
+		}
 	}
 
 	public void setAccount(Account ua) {
@@ -464,6 +550,19 @@ public class Player extends Thread {
 	 */
 	private volatile int seatedChairRawId = 0;
 
+	/**
+	 * Wall-clock millis when {@link #setSeatedChairRawId(int)} last
+	 * transitioned the player into a seated state (non-zero). Used by
+	 * {@link server.gameserver.packets.client_udp.Movement} to enforce
+	 * a brief grace period after a chair-sit: in-flight C→S movement
+	 * packets that the client emitted just before / concurrent with
+	 * its chair-use click would otherwise race the seat-set and unseat
+	 * the player within a frame (the bug behind #205/#232 —
+	 * "no sit animation" / "equip-weapon sound on chair"). 0 means
+	 * not seated.
+	 */
+	private volatile long seatedAtMillis = 0;
+
 	/** rawObjectId of the chair this player is seated on, or 0. */
 	public int getSeatedChairRawId() {
 		return seatedChairRawId;
@@ -474,8 +573,27 @@ public class Player extends Thread {
 		return seatedChairRawId != 0;
 	}
 
-	/** Set the seated chair rawObjectId ({@code 0} = stand up). */
+	/**
+	 * Wall-clock millis when the player last transitioned from
+	 * standing to seated. Returns 0 if not seated. Used by Movement
+	 * to apply a stand-on-move grace period (see field javadoc).
+	 */
+	public long getSeatedAtMillis() {
+		return seatedAtMillis;
+	}
+
+	/**
+	 * Set the seated chair rawObjectId ({@code 0} = stand up).
+	 * Records the transition time on a 0→non-zero edge so the
+	 * Movement handler can enforce a grace window before treating
+	 * in-flight movement as an explicit stand-up.
+	 */
 	public void setSeatedChairRawId(int rawObjectId) {
+		if (rawObjectId != 0 && this.seatedChairRawId == 0) {
+			this.seatedAtMillis = System.currentTimeMillis();
+		} else if (rawObjectId == 0) {
+			this.seatedAtMillis = 0;
+		}
 		this.seatedChairRawId = rawObjectId;
 	}
 }

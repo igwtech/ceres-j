@@ -45,8 +45,15 @@ public class SmallFixedTcpPacketsTest {
 
     @Test
     public void sessionReadyExactBytes() {
-        // Catalog body `a001` framed = fe 02 00 a0 01
-        byte[] expected = { (byte) 0xfe, 0x02, 0x00, (byte) 0xa0, 0x01 };
+        // Live-verified retail body 2026-05-22 (Braine real-client
+        // capture): `a0 01` + 8-byte payload `15 00 00 00 00 00 80 3f`
+        // (LE32=21, float32 LE=1.0). Framed = fe 0a 00 + body.
+        byte[] expected = {
+                (byte) 0xfe, 0x0a, 0x00,
+                (byte) 0xa0, 0x01,
+                0x15, 0x00, 0x00, 0x00,
+                0x00, 0x00, (byte) 0x80, 0x3f
+        };
         assertArrayEquals(expected, wireBytes(new SessionReady()));
     }
 
@@ -87,8 +94,8 @@ public class SmallFixedTcpPacketsTest {
         // drops bytes silently.
         assertEquals("Gamedata = 5B framed",
                 5, new Gamedata().size());
-        assertEquals("SessionReady = 5B framed",
-                5, new SessionReady().size());
+        assertEquals("SessionReady = 13B framed (retail 2026-05 payload)",
+                13, new SessionReady().size());
         assertEquals("TcpKeepalive = 10B framed",
                 10, new TcpKeepalive().size());
     }

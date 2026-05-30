@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -118,6 +119,170 @@ public final class PortalResolver {
         String dir = worldname.substring(0, slash);
         String base = worldname.substring(slash + 1);
         return "worlds/" + dir + "/pak_" + base + ".dat";
+    }
+
+    /**
+     * Resolve a zone's {@code world_objects.world_path} respecting the
+     * {@code defs.worldinfo} {@code alternatedatfile} override (field
+     * {@code f2}).
+     *
+     * <h3>Why this exists</h3>
+     *
+     * <p>Most zones use the default naming convention encoded in
+     * {@link #worldnameToObjectPath(String)}: the {@code World} path
+     * {@code "dir/base"} maps to the .dat file
+     * {@code "worlds/dir/pak_base.dat"}. But some dungeon zones have
+     * an alternate .dat filename that does NOT follow the convention:
+     *
+     * <pre>
+     *   worldinfo[1064] (ABANDONED CELLAR 2 EASY):
+     *     world_defs.path  = "sewer/sewer_p4"
+     *     defs.worldinfo.f2 = ".\worlds\sewer\sewer_p4_x1.dat"
+     *     world_objects.world_path = "worlds/sewer/pak_sewer_p4_x1.dat"
+     *                                                ^^^^ NOT pak_sewer_p4.dat
+     *
+     *   worldinfo[1573] (Reactor Room):
+     *     world_defs.path  = "startmissions/reaktor"
+     *     defs.worldinfo.f2 = ".\worlds\startmissions\reaktor_NC.dat"
+     *     world_objects.world_path =
+     *       "worlds/startmissions/pak_reaktor_nc.dat"
+     *
+     *   worldinfo[1] (PLAZA SEC-1):
+     *     world_defs.path  = "plaza/plaza_p1"
+     *     defs.worldinfo.f2 = " "   (whitespace = no override)
+     *     world_objects.world_path = "worlds/plaza/pak_plaza_p1.dat"
+     * </pre>
+     *
+     * <p>Without honouring {@code worldinfo.f2}, dungeon zones'
+     * objects (exit doors, NPCs, scripted entities) can't be looked
+     * up in {@code world_objects} — every interaction logs
+     * {@code "UnknownItem ID: …"} and the player is stuck.
+     * Live-confirmed 2026-05-23 via pcap of an entry→Reactor-Room
+     * cross: server emitted the zone-change correctly, client
+     * transitioned, exit-door click ({@code objectId=8} in
+     * {@code worlds/startmissions/pak_reaktor.dat}) returned NULL
+     * because the file doesn't exist — the real file is
+     * {@code pak_reaktor_nc.dat}.
+     *
+     * <h3>Normalisation</h3>
+     *
+     * <p>Converts the worldinfo.f2 string to a world_objects-shaped
+     * key:
+     *
+     * <pre>
+     *   ".\worlds\startmissions\reaktor_NC.dat"
+     *     →  worlds/startmissions/pak_reaktor_nc.dat
+     * </pre>
+     *
+     * <ol>
+     *   <li>Strip leading {@code "./"} or {@code ".\"} if present</li>
+     *   <li>Replace all {@code "\"} with {@code "/"}</li>
+     *   <li>Lowercase (world_objects rows are lowercase)</li>
+     *   <li>Add {@code "pak_"} prefix to the final filename</li>
+     * </ol>
+     *
+     * @param zoneId  the target zone id (e.g. 1573 for Reactor Room)
+     * @param fallbackWorldname  worldname to use if neither
+     *        {@code worldinfo[zoneId].f2} nor
+     *        {@link server.database.worlds.WorldManager#getWorldname}
+     *        returns anything. Pass {@code pl.getZone().getWorldname()}
+     *        from callers — production has the World registered there
+     *        AND in WorldManager; test fixtures may only populate the
+     *        Zone object.
+     * @return the world_objects.world_path, or {@code null} if no
+     *         worldinfo[zoneId] row exists / f2 is blank AND no
+     *         worldname is available from any source.
+     */
+    public static String worldIdToObjectPath(int zoneId,
+                                              String fallbackWorldname) {
+        // Prefer the alternate .dat path when worldinfo[zoneId].f2 is
+        // populated.
+        Connection conn = SqliteDatabase.getConnection();
+        if (conn != null) {
+            String f2 = lookupWorldinfoF2(conn, zoneId);
+            String normalised = normaliseDatFile(f2);
+            if (normalised != null) {
+                return normalised;
+            }
+        }
+        // Fallback: the legacy default convention (no override).
+        String worldname = server.database.worlds.WorldManager
+                .getWorldname(zoneId);
+        if (worldname == null) {
+            worldname = fallbackWorldname;
+        }
+        return worldnameToObjectPath(worldname);
+    }
+
+    /**
+     * @deprecated Use the 2-arg form so test fixtures can supply a
+     * fallback worldname. Internal use only — production callers should
+     * pass {@code pl.getZone().getWorldname()}.
+     */
+    @Deprecated
+    public static String worldIdToObjectPath(int zoneId) {
+        return worldIdToObjectPath(zoneId, null);
+    }
+
+    /**
+     * Look up {@code defs.worldinfo[zoneId].f2}.
+     *
+     * <p>Returns {@code null} if no row, no f2 field, or the field is
+     * blank / single-space (the "no override" sentinel used by retail
+     * for non-dungeon zones).
+     */
+    private static String lookupWorldinfoF2(Connection conn, int zoneId) {
+        JsonObject row = lookupDefFields(conn, "worldinfo", zoneId);
+        if (row == null) {
+            return null;
+        }
+        JsonElement f2el = row.get("f2");
+        if (f2el == null || f2el.isJsonNull()) {
+            return null;
+        }
+        String f2 = f2el.getAsString();
+        if (f2 == null) return null;
+        String trimmed = f2.trim();
+        if (trimmed.isEmpty()) return null;
+        return f2;
+    }
+
+    /**
+     * Normalise a worldinfo.f2 dat-file string into a
+     * world_objects.world_path key. See {@link #worldIdToObjectPath}
+     * for the format spec.
+     *
+     * <p>Package-private for unit testing.
+     *
+     * @param f2  raw value from {@code defs.worldinfo.f2}
+     * @return normalised key, or {@code null} if {@code f2} is null,
+     *         blank, or doesn't look like a {@code worlds\dir\file.dat}
+     *         shape.
+     */
+    static String normaliseDatFile(String f2) {
+        if (f2 == null) return null;
+        String s = f2.trim();
+        if (s.isEmpty()) return null;
+        // Strip leading "./" / ".\"
+        if (s.startsWith("./") || s.startsWith(".\\")) {
+            s = s.substring(2);
+        }
+        // Backslashes to forward slashes.
+        s = s.replace('\\', '/');
+        s = s.toLowerCase(java.util.Locale.ROOT);
+        // Sanity check the shape — must end in .dat and have a slash.
+        if (!s.endsWith(".dat")) return null;
+        int lastSlash = s.lastIndexOf('/');
+        if (lastSlash <= 0 || lastSlash >= s.length() - 1) {
+            return null;
+        }
+        // Add pak_ prefix to the final filename if not already present.
+        String dir = s.substring(0, lastSlash);
+        String file = s.substring(lastSlash + 1);
+        if (!file.startsWith("pak_")) {
+            file = "pak_" + file;
+        }
+        return dir + "/" + file;
     }
 
     /**
@@ -290,5 +455,49 @@ public final class PortalResolver {
         } catch (RuntimeException e) {
             return null;
         }
+    }
+
+    /**
+     * Look up the default appplaces spawn-row index for a zone — the
+     * {@code f3} field of {@code defs.worldinfo[zoneId]}. This is
+     * the LE32 written as the 3rd field of TCP {@code 0x83/0x0c
+     * Location} (the "spawnIdx"), telling the client which entry
+     * point to position the player at on world-load.
+     *
+     * <p>Live-verified values from the DB (2026-05-30):
+     * <ul>
+     *   <li>Plaza Sec-1 (zone 1): {@code f3=16} — login spawn center.</li>
+     *   <li>Plaza Sec-3 (zone 101): {@code f3=0} — preserves coords
+     *       (right value for a walk-cross into P3).</li>
+     *   <li>Plaza Sec-4 (zone 102): {@code f3=0}.</li>
+     *   <li>Reactor Room (zone 1573): {@code f3=1} — dungeon entry.</li>
+     *   <li>Abandoned Cellar 2 Easy (zone 1064): {@code f3=…}.</li>
+     * </ul>
+     *
+     * <p>This replaces the bsp-prefix heuristic that
+     * {@link server.gameserver.Zone#getDefaultSpawnIdx()} used to
+     * carry — that approach returned 16 for ALL {@code plaza/} zones
+     * and regressed the walk-cross spawn position (caused Asddf to
+     * spawn in the centre of plaza_p3 instead of at the P1↔P3 seam).
+     * The DB is the canonical source.
+     *
+     * @param zoneId  Ceres-J zone id (matches {@code defs.worldinfo}
+     *                {@code entry_id}, which is the same as
+     *                {@code PlayerCharacter.MISC_LOCATION})
+     * @return        the spawn index from {@code worldinfo.f3}, or
+     *                {@code 0} if no row, no f3 field, or the field
+     *                is not parseable as an int (safe fallback)
+     */
+    public static int lookupSpawnIdx(int zoneId) {
+        Connection conn = SqliteDatabase.getConnection();
+        if (conn == null) {
+            return 0;
+        }
+        JsonObject row = lookupDefFields(conn, "worldinfo", zoneId);
+        if (row == null) {
+            return 0;
+        }
+        Integer f3 = jsonInt(row, "f3");
+        return f3 == null ? 0 : f3;
     }
 }

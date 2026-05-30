@@ -164,6 +164,14 @@ public final class GamePacketReaderUDP {
 				//resend packets
 				// TODO implement this
 				return null;
+			case 0x08:
+				// Explicit client reliable-ACK (task #239).
+				// Wire: [0x03][own_seq2][0x08][acked-1 LE2].
+				// Decoded into ClientStateMachine.observeReliableAck
+				// so portal-cross + zone-cross gating can phase-2
+				// off the actual ack stream instead of timers.
+				return new server.gameserver.packets.client_udp
+						.ReliableAck08(subPacket);
 			case 0x0d:
 				// Client sync request: 0x03→0x0d TimeSync. The client
 				// sends this from state 3/6 every 8 seconds and expects
@@ -196,6 +204,13 @@ public final class GamePacketReaderUDP {
 					return new LocalChat(subPacket);
 				case 0x1e:
 					return new InventoryMove(subPacket);
+				case 0x1f:
+					// Toolbelt equip/holster (task #195). Wire:
+					// `1f <slot>` 2-byte body. Slot values are a
+					// bitmask: 0x00=holster, 0x01/0x02/0x04/0x08
+					// = toolbelt slots 1..4. Byte-pinned 2026-05-22
+					// against 28 retail observations.
+					return new EquipHolster(subPacket);
 				case 0x25:{
 					switch(pd.read()){
 					case 0x14:
@@ -248,6 +263,19 @@ public final class GamePacketReaderUDP {
 					}
 				case 0x4c:
 					return new ChangedChannels(subPacket);
+				case 0x2f:
+					// Genrep map-pick (death-overlay E key). Wire:
+					// `1f <mapId> 2f ff×8` 9B body, all-FF sentinel
+					// = "pick any GR". Byte-pinned 2026-05-29 iter 45
+					// (memory/genrep_teleport_full_sequence.md). #203.
+					return new GenrepMapPick(subPacket);
+				case 0x27:
+					// Close-dialog / release-interaction-lock signal.
+					// Wire: `27` 1-byte body (no payload). Top retail
+					// marker `NPC_VENDOR_CLOSE × 1` — emitted when
+					// player closes vendor/CityCom/dialog. Byte-pinned
+					// 2026-05-22 against 27 retail observations.
+					return new CloseDialog(subPacket);
 				default:
 					pd.reset();
 					return pd;

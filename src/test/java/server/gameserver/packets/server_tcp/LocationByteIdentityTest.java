@@ -172,4 +172,105 @@ public class LocationByteIdentityTest {
                 PlayerCharacter.MISC_LOCATION, 9999);
         assertEquals(42, new Location(pl).size());
     }
+
+    // ──────────────────────────────────────── task #252 — retail
+    // byte-identity assertions captured 2026-05-24 from live
+    // retail portal-cross. Memory: retail-0x830c-bytes-cracked.
+
+    @Test
+    public void retailReaktorCrossInBytesIdentical() throws Exception {
+        // Captured retail bytes for cross-IN to "startmissions/reaktor"
+        // (zoneId=1573, spawnIdx=1). Source: pcap RETRY3 frame 312.
+        //
+        //   fe 24 00 83 0c 25 06 00 00 00 00 00 00 00 01 00 00 00
+        //   "startmissions/reaktor\0"
+        //
+        // Total wire: 3 (frame) + 14 (header) + 21 (path) + 1 (\0) = 39 bytes.
+        Player pl = buildPlayerWithZone(1573, "startmissions/reaktor");
+
+        byte[] wire = wireBytes(new Location(pl, 1));
+
+        byte[] expected = hex(
+                "fe 24 00 83 0c " +
+                "25 06 00 00 " +   // destZoneId LE32 = 1573
+                "00 00 00 00 " +   // reserved
+                "01 00 00 00 " +   // spawnIdx LE32 = 1
+                "73 74 61 72 74 6d 69 73 73 69 6f 6e 73 " + // startmissions
+                "2f " +            // '/'
+                "72 65 61 6b 74 6f 72 " + // reaktor
+                "00");
+        assertArrayEquals("retail reaktor cross-in bytes",
+                expected, wire);
+    }
+
+    @Test
+    public void retailPlazaSpawnBytesIdentical() throws Exception {
+        // Captured retail bytes for plaza_p1 (zoneId=1, spawnIdx=16) —
+        // used for BOTH login spawn AND cross-OUT from reaktor.
+        // Source: pcap RETRY3 frames 53 (compound login) + 5906 (cross-out).
+        //
+        //   fe 1d 00 83 0c 01 00 00 00 00 00 00 00 10 00 00 00
+        //   "plaza/plaza_p1\0"
+        //
+        // Total wire: 3 + 14 + 14 + 1 = 32 bytes.
+        Player pl = buildPlayerWithZone(1, "plaza/plaza_p1");
+
+        byte[] wire = wireBytes(new Location(pl, 16));
+
+        byte[] expected = hex(
+                "fe 1d 00 83 0c " +
+                "01 00 00 00 " +   // destZoneId LE32 = 1
+                "00 00 00 00 " +   // reserved
+                "10 00 00 00 " +   // spawnIdx LE32 = 16
+                "70 6c 61 7a 61 2f 70 6c 61 7a 61 5f 70 31 " + // plaza/plaza_p1
+                "00");
+        assertArrayEquals("retail plaza_p1 spawn bytes",
+                expected, wire);
+    }
+
+    @Test
+    public void backwardCompatDefaultSpawnIdxIsZero() {
+        // The 1-arg ctor MUST keep emitting spawnIdx=0 so callers
+        // that haven't been updated (login, GM warp) don't change
+        // wire shape. Verify the [10..13] LE32 is 0.
+        Player pl = PacketTestFixture.newPlayer();
+        pl.getCharacter().setMisc(PlayerCharacter.MISC_LOCATION, 1);
+
+        byte[] body = extractBody(wireBytes(new Location(pl)), 15);
+        for (int i = 10; i <= 13; i++) {
+            assertEquals("default spawnIdx byte " + i + " must be 0",
+                    0x00, body[i] & 0xFF);
+        }
+    }
+
+    // ──────────────────────────────────────── helpers
+
+    /** Build a Player whose Zone returns the given worldname and
+     *  whose MISC_LOCATION is set. Uses reflection to install a
+     *  Zone without booting ZoneManager/NPC system. */
+    private static Player buildPlayerWithZone(int zoneId,
+                                               String worldname)
+            throws Exception {
+        Player pl = PacketTestFixture.newPlayer();
+        pl.getCharacter().setMisc(
+                PlayerCharacter.MISC_LOCATION, zoneId);
+        server.gameserver.Zone z =
+                new server.gameserver.Zone(zoneId, worldname);
+        java.lang.reflect.Field f =
+                Player.class.getDeclaredField("currentZone");
+        f.setAccessible(true);
+        f.set(pl, z);
+        return pl;
+    }
+
+    /** Parse a "fe 24 00 ..." style hex literal into bytes. */
+    private static byte[] hex(String s) {
+        String c = s.replaceAll("\\s+", "");
+        byte[] out = new byte[c.length() / 2];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = (byte) Integer.parseInt(
+                    c.substring(i * 2, i * 2 + 2), 16);
+        }
+        return out;
+    }
 }

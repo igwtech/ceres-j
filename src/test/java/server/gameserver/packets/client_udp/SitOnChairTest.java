@@ -182,6 +182,22 @@ public class SitOnChairTest {
         assertNotNull(z);
     }
 
+    /**
+     * Force the player's seated-since timestamp into the past so the
+     * {@code SIT_GRACE_MS} window in {@link Movement} (which prevents
+     * in-flight C→S movement packets concurrent with a chair-click
+     * from racing the seat-set and unseating the player within a
+     * frame — see #205/#232) doesn't suppress an immediately-following
+     * stand in tests that ARE about the stand transition.
+     */
+    private static void backdateSeatedTimestamp(Player pl)
+            throws Exception {
+        java.lang.reflect.Field f =
+                Player.class.getDeclaredField("seatedAtMillis");
+        f.setAccessible(true);
+        f.setLong(pl, 1L);
+    }
+
     @Test
     public void movingWhileSeatedStandsUpAndEmitsExitSeat()
             throws Exception {
@@ -194,6 +210,10 @@ public class SitOnChairTest {
         // Sit first.
         new UseItem(useBody(CHAIR_RAW_ID)).execute(pl);
         assertTrue(pl.isSeated());
+        // Bypass the sit-grace window so the very next move
+        // legitimately stands the player up (this test is about the
+        // stand transition, not the race-prevention window).
+        backdateSeatedTimestamp(pl);
 
         // A minimal movement packet: 03 <seq2> 20 <type=0x00>.
         // type 0 = no axes/orientation/status fields follow; the
@@ -278,7 +298,9 @@ public class SitOnChairTest {
 
         // A subsequent REAL locomotion 0x20 (no 0x80 type) still
         // stands the player up + emits ExitSeat (retail behaviour
-        // preserved).
+        // preserved). Backdate past the sit-grace window first —
+        // this assertion is about the post-grace stand path.
+        backdateSeatedTimestamp(pl);
         byte[] move = { 0x03, 0x12, 0x00, 0x20, 0x00 };
         new Movement(move).execute(pl);
         assertFalse("real locomotion 0x20 must still stand up",
@@ -335,6 +357,50 @@ public class SitOnChairTest {
         }
         assertEquals("each chair use re-broadcasts the seated pose",
                 2, sits);
+    }
+
+    /**
+     * Regression for #205/#232 — the actual user-visible bug.
+     *
+     * <p>Live wire log 2026-05-30 (Asddf clicking chair 835584 in
+     * plaza_p1, msn3wolf account) showed: UseItem fires, SitConfirm
+     * + SitOnChair queued, and within microseconds a queued
+     * Movement event from the same client (~50/sec position pings)
+     * runs on the same thread, sees {@code isSeated=true}, and
+     * emits ExitSeat — the client sees sit → stand within one
+     * frame, "no sit animation, equip-weapon sound only".
+     *
+     * <p>Fix: {@link Movement#execute(Player)} drops stand-on-move
+     * for ~{@code SIT_GRACE_MS} after a sit. Explicit
+     * {@link ExitSeatRequest} still stands the player up
+     * immediately. This test pins the grace contract.
+     */
+    @Test
+    public void movementImmediatelyAfterSitDoesNotUnseat()
+            throws Exception {
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0);
+        installPlazaP1Zone(pl);
+        CapturingUDPConnection cap =
+                CapturingUDPConnection.replaceOn(pl);
+
+        // Sit, then immediately get a non-anchor movement (the in-
+        // flight C→S 0x20 the client was emitting before the sit).
+        new UseItem(useBody(CHAIR_RAW_ID)).execute(pl);
+        assertTrue(pl.isSeated());
+
+        byte[] move = { 0x03, 0x10, 0x00, 0x20, 0x00 };
+        new Movement(move).execute(pl);
+
+        // Still seated — the grace window protects the sit from being
+        // cancelled by a queued movement.
+        assertTrue("movement within SIT_GRACE_MS of sit must NOT "
+                + "stand the player up (#205/#232 race)",
+                pl.isSeated());
+        for (ServerUDPPacket p : cap.received()) {
+            assertFalse("movement during sit-grace must not emit "
+                    + "ExitSeat", p instanceof ExitSeat);
+        }
     }
 
     @Test

@@ -165,6 +165,121 @@ public class WorldEntryEventTest {
                 + selfPos, selfPos >= 1);
     }
 
+    /**
+     * Task #202 retail-faithful semantics (user-confirmed 2026-05-19):
+     * logout-while-dead must PERSIST as dead on next login — the
+     * client re-shows the respawn overlay and revive is gated on
+     * genrep selection (#203 / #210). {@link
+     * WorldEntryEvent#rehydratePool} therefore does NOT touch
+     * {@code cur≤0}; only persistence-corruption cases ({@code
+     * max≤0}, {@code cur>max}) are repaired.
+     */
+    @Test
+    public void rehydratePoolLeavesDeadCurAlone() {
+        int[] cur = {0};
+        int[] max = {300};
+        WorldEntryEvent.rehydratePool("HP", cur[0], max[0],
+                v -> cur[0] = v, v -> max[0] = v);
+        assertTrue("dead cur=0 must persist (retail-faithful);"
+                + " got cur=" + cur[0], cur[0] == 0);
+        assertTrue("max must remain untouched when valid; got "
+                + max[0], max[0] == 300);
+    }
+
+    @Test
+    public void rehydratePoolRepairsZeroMaxButLeavesCur() {
+        int[] cur = {0};
+        int[] max = {0};
+        WorldEntryEvent.rehydratePool("PSI", cur[0], max[0],
+                v -> cur[0] = v, v -> max[0] = v);
+        // FALLBACK_MAX = 100 (matches PlayerCharacter ctor default).
+        // Corrupted max=0 is a legacy/schema repair, not a death
+        // state — fix max so the HUD is playable.
+        assertTrue("zero max must default to 100; got " + max[0],
+                max[0] == 100);
+        // BUT cur=0 must NOT be touched: retail keeps the player
+        // dead until they genrep. The login burst will re-emit
+        // PlayerDeath instead.
+        assertTrue("zero cur must NOT be auto-restored;"
+                + " got " + cur[0], cur[0] == 0);
+    }
+
+    @Test
+    public void rehydratePoolClampsCurAboveMax() {
+        int[] cur = {500};
+        int[] max = {300};
+        WorldEntryEvent.rehydratePool("STA", cur[0], max[0],
+                v -> cur[0] = v, v -> max[0] = v);
+        assertTrue("cur>max must be clamped to max; got " + cur[0],
+                cur[0] == 300);
+    }
+
+    @Test
+    public void rehydratePoolLeavesHealthyValuesAlone() {
+        int[] cur = {180};
+        int[] max = {250};
+        WorldEntryEvent.rehydratePool("HP", cur[0], max[0],
+                v -> cur[0] = v, v -> max[0] = v);
+        assertTrue("healthy cur must not change; got " + cur[0],
+                cur[0] == 180);
+        assertTrue("healthy max must not change; got " + max[0],
+                max[0] == 250);
+    }
+
+    /**
+     * Task #210 wiring check: a character persisted dead (HP=0)
+     * must trigger a {@link server.gameserver.packets.server_udp
+     * .PlayerDeath} emit during the world-entry burst, so the
+     * client re-paints the respawn overlay on re-login.
+     */
+    @Test
+    public void persistedDeadCharacterReceivesPlayerDeathOnLogin() {
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey(
+                (short) 0);
+        server.testtools.CapturingUDPConnection udp =
+                server.testtools.CapturingUDPConnection.replaceOn(pl);
+
+        // Force the persisted-dead state: HP=0, max intact.
+        pl.getCharacter().setHealth(0);
+        pl.getCharacter().setMaxHealth(300);
+
+        new WorldEntryEvent(0).execute(pl);
+
+        long deathPackets = udp.received().stream()
+                .filter(p -> p instanceof
+                    server.gameserver.packets.server_udp.PlayerDeath)
+                .count();
+        assertTrue("dead login must emit exactly one PlayerDeath"
+                + " (re-paints respawn overlay); got " + deathPackets,
+                deathPackets == 1);
+    }
+
+    /**
+     * Counterpart: a healthy login (HP > 0) must NOT receive a
+     * spurious {@link server.gameserver.packets.server_udp.PlayerDeath}.
+     * Guards against regressing the death re-emit into "every login
+     * shows the death screen for a frame".
+     */
+    @Test
+    public void healthyCharacterReceivesNoPlayerDeathOnLogin() {
+        Player pl = PacketTestFixture.newPlayerWithFixedSessionKey(
+                (short) 0);
+        server.testtools.CapturingUDPConnection udp =
+                server.testtools.CapturingUDPConnection.replaceOn(pl);
+
+        pl.getCharacter().setHealth(180);
+        pl.getCharacter().setMaxHealth(300);
+
+        new WorldEntryEvent(0).execute(pl);
+
+        long deathPackets = udp.received().stream()
+                .filter(p -> p instanceof
+                    server.gameserver.packets.server_udp.PlayerDeath)
+                .count();
+        assertTrue("healthy login must NOT emit PlayerDeath;"
+                + " got " + deathPackets, deathPackets == 0);
+    }
+
     @Test
     public void executeToleratesMissingCharacter() {
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
