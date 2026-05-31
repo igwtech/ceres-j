@@ -11,6 +11,8 @@ Status legend:
 
 Per-packet structure docs live under [`packets/`](packets/). Capture corpus map: [`captures/INDEX.md`](captures/INDEX.md).
 
+**Function reference (what each type/sub-type DOES):** [`PACKET_FUNCTION_REFERENCE.md`](PACKET_FUNCTION_REFERENCE.md) — master index linking the UDP, 0x1f act_tag/sub-tag, and TCP function tables.
+
 ## Catalog
 
 | Status | Transport | Dir | Type | Name (best-known) | Count | Captures | Size min/avg/max | Top markers | Sample |
