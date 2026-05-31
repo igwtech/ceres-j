@@ -79,10 +79,17 @@ public class ReliableAckSubPacket extends GamePacketDecoderUDP {
         // be the exact seq the client asked for — retail
         // (RETAIL_PLAZA_CROSSZONE) always echoes the requested seq
         // so the client can slot the resent body into the gap in
-        // its reliable receive window. Using a free-running counter
-        // here (the old bug) meant the client could never close the
-        // gap and flooded 0x01 requests forever, blocking the
-        // zone-cross ("Synchronizing" overlay).
+        // its reliable receive window.
+        //
+        // NOTE (2026-05-31, reverse-engi2): tested re-sending via the
+        // 0x03 reliable channel instead (PacketBuilderUDP1303Retransmit).
+        // Apartment oracle: the 0x02 flood moved to 0x03 (38->4) but the
+        // client's raw-0x01 re-request count did NOT drop (36->30) — the
+        // wrapper is NOT the lever; the client fails to COMMIT the resent
+        // reliable regardless of 0x02 vs 0x03. Reverted to the decoded
+        // retail 0x02. Real cause is in the client's app-layer reliable
+        // commit path (seq the client expects, and/or the committed-
+        // handshake-state gate) — see ceres_nak_storm_is_liveness_not_reliable.
         server.networktools.PacketBuilderUDP1302 retransmit =
                 new server.networktools.PacketBuilderUDP1302(pl, seq);
         retransmit.write(body);

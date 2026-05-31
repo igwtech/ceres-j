@@ -37,21 +37,29 @@ import server.gameserver.Player;
  */
 public class PacketBuilderUDP1302 extends PacketBuilderUDP13 {
 
-    /** Free-running fallback seq for the fire-and-forget
-     *  initialization packets (InitWeather02, InitSoullight02,
-     *  InitInfoResponse02, InitUpdateModel02, SoullightUpdate,
-     *  CashUpdateProbe). These are sent once during the
-     *  world-entry burst and the client is not strict about their
-     *  seq, so the legacy free-running counter is acceptable here.
-     *  RETRANSMIT replies must NOT use this — they need the
-     *  explicit-seq constructor below. */
-    private static int seq = 1;
-
-    /** Init / fire-and-forget constructor (legacy behaviour). */
+    /** Init / fire-and-forget constructor.
+     *
+     *  <p><b>Root-cause fix 2026-05-31 (reverse-engi2):</b> the 0x02
+     *  "simplified reliable" wrapper shares the CLIENT's reliable
+     *  receive-window seq namespace with the 0x03 reliable stream — the
+     *  client commits a 0x02 packet by its seq exactly like a 0x03.
+     *  This builder used a PRIVATE {@code static int seq = 1} counter,
+     *  independent of {@code incandgetSessionCounter()} that 0x03 uses.
+     *  At login the 0x02 init packets (InitWeather/Soullight/InfoResponse/
+     *  …) took seqs 1,2,3,4 while the 0x03 stream ALSO emitted seqs
+     *  2,3,4 — a COLLISION. The 0x02 lands first, the client commits
+     *  seqs 2/3/4 with the init bodies, then sees the genuine 0x03/seq
+     *  2,3,4 (CharSys/Config/timestamp state) as already-received
+     *  DUPLICATES and drops them — the real state never commits, and the
+     *  client re-requests forever (the apartment-idle raw-0x01 storm /
+     *  0x02 retransmit flood; byte-proven by trace diff vs retail, which
+     *  emits ZERO 0x02 sub-packets in the login burst). Drawing the seq
+     *  from the SAME unified counter guarantees no seq is ever issued to
+     *  both a 0x02 and a 0x03 body. */
     public PacketBuilderUDP1302(Player pl) {
         super(pl);
         write(2);                 // 0x02 wrapper (simplified reliable)
-        writeShort(seq++);
+        writeShort(pl.getUdpConnection().incandgetSessionCounter() & 0xFFFF);
     }
 
     /**

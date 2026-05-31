@@ -18,25 +18,45 @@ import server.gameserver.Player;
  */
 public class PacketBuilderUDP1303 extends PacketBuilderUDP13 {
 
-	/** Sequence counter assigned to this packet at constructor
-	 *  time — used as the ring key on finalize. The bytes are
-	 *  also written into the body at wire offset 8..9; we cache
-	 *  separately so getDatagramPackets() doesn't have to re-read
-	 *  them from the byte buffer. */
-	private final int recordedSeq;
+	/** Buffer offsets of every reliable {@code [seq LE2]} placeholder
+	 *  written by this builder (one per sub-packet — the constructor's
+	 *  plus every {@link #newSubPacket()}). The real seqs are assigned
+	 *  and patched into the buffer at finalize time
+	 *  ({@link #getDatagramPackets()}), NOT at construction.
+	 *
+	 *  <p>Why deferred: {@code incandgetSessionCounter()} permanently
+	 *  consumes a reliable seq. If it were consumed in the constructor
+	 *  (the old behaviour) and the packet then threw before reaching
+	 *  the wire (a malformed item in CharInfo, an aborted NPC-roster
+	 *  loop in SZoning1, …) — or was simply constructed out of send
+	 *  order — that seq would be burned with no {@code 0x03/[seq]}
+	 *  ever emitted, leaving a permanent GAP in the client's reliable
+	 *  receive window. The client then NAK-floods (raw {@code 0x01})
+	 *  the missing seq forever and the server answers each with a
+	 *  {@code 0x02} retransmit — the reliable livelock diagnosed
+	 *  2026-05-30 in the apartment-idle diff. Assigning the seq only
+	 *  at finalize guarantees: seq-consumed ⇔ bytes-on-wire, and that
+	 *  the on-wire seq order is exactly the build order. */
+	private final java.util.List<Integer> seqOffsets =
+			new java.util.ArrayList<>();
+
+	/** Guards seq assignment so a double-finalize (the base header
+	 *  is already {@code isFinished}-guarded) can't double-consume
+	 *  the session counter. */
+	private boolean seqsAssigned = false;
 
 	public PacketBuilderUDP1303(Player pl) {
 		super(pl);
 		write(3);
-		this.recordedSeq =
-				pl.getUdpConnection().incandgetSessionCounter();
-		writeShort(recordedSeq);
+		seqOffsets.add(count);   // remember where the seq LE2 goes
+		writeShort(0);           // placeholder — patched at finalize
 	}
 
 	public void newSubPacket() {
 		super.newSubPacket();
 		write(3);
-		writeShort(pl.getUdpConnection().incandgetSessionCounter());
+		seqOffsets.add(count);   // remember where the seq LE2 goes
+		writeShort(0);           // placeholder — patched at finalize
 	}
 
 	/** Finalize the packet AND record into the per-session ring
@@ -53,6 +73,24 @@ public class PacketBuilderUDP1303 extends PacketBuilderUDP13 {
 	 *  this is called at most once per packet anyway. */
 	@Override
 	public DatagramPacket[] getDatagramPackets() {
+		// Assign the reliable seq(s) NOW (finalize time), in build
+		// order, and patch them into their placeholders. The session
+		// counter is only consumed here — so a packet that throws
+		// during construction (before reaching this point) burns no
+		// seq and leaves no gap. Must run before super.getDatagramPackets()
+		// because the base writes the outer 0x13 counter from the
+		// session counter's CURRENT value, which (retail-faithfully)
+		// equals the LAST reliable seq in this datagram.
+		if (!seqsAssigned) {
+			for (int off : seqOffsets) {
+				int seq = pl.getUdpConnection()
+						.incandgetSessionCounter();
+				buf[off]     = (byte) (seq & 0xFF);
+				buf[off + 1] = (byte) ((seq >> 8) & 0xFF);
+			}
+			seqsAssigned = true;
+		}
+
 		DatagramPacket[] dps = super.getDatagramPackets();
 		// Record EVERY reliable sub-packet (seq -> inner body) into
 		// the per-session ring, not just the first one.

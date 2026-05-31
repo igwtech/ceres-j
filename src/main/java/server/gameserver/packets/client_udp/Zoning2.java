@@ -107,6 +107,27 @@ public class Zoning2 extends GamePacketDecoderUDP {
      * session key, cleared retransmit ring) THEN emit the UDPAlive
      * carrying that new key. Order is mandatory — UDPAlive reads
      * the session key at construction time.
+     *
+     * <p><strong>Reliable window-init primer (root-cause fix,
+     * 2026-05-30).</strong> After the counter reset, the very first
+     * reliable {@code 0x13/0x03} packet on the fresh seq counter
+     * MUST be the tiny standalone {@code sub-op 0x08}
+     * ({@link server.gameserver.packets.server_udp.ZoningEnd})
+     * carrying seq=1. Retail emits exactly this at every
+     * UDP-session reset / reconnect (5/6 resets in
+     * {@code RETAIL_PLAZA_CROSSZONE}, every reconnect in
+     * {@code HANNIBAL}) — it is the signal that re-initialises the
+     * client's reliable RECEIVE window to expect seq=1 and flush
+     * the pre-reset NAK backlog. Without it, Ceres' first post-reset
+     * reliable was a large CharInfo/heartbeat packet; the client
+     * never cleanly re-based its window, kept NAKing stale seqs
+     * (raw {@code 0x01} retransmit-requests), and the server
+     * answered each with a {@code 0x02} retransmit — the NAK-storm /
+     * "0x02 over-use" livelock documented in
+     * {@code ceres-reliable-nak-storm-diff}. Emitting the 0x08
+     * primer first claims seq=1 and lets the client re-sync without
+     * a NAK storm, matching retail's monotonic, dup-free post-reset
+     * stream.
      */
     static class Zoning2Answer extends DummyEvent {
         public Zoning2Answer() {
@@ -126,7 +147,15 @@ public class Zoning2 extends GamePacketDecoderUDP {
                         : pl.getCharacter().getName())
                 + " — counter=0 newSessionKey=0x"
                 + Integer.toHexString(newKey & 0xFFFF));
+            // Transport keepalive carrying the NEW session key, then
+            // the reliable window-init primer (seq=1, sub-op 0x08).
+            // Order matters: UDPAlive (raw 0x04, no seq) advertises the
+            // key the client must adopt; the 0x08 ZoningEnd is the FIRST
+            // reliable on the fresh counter so it lands on seq=1 and
+            // re-bases the client's receive window (see class javadoc).
             pl.send(new UDPAlive(pl));
+            pl.send(new server.gameserver.packets.server_udp
+                    .ZoningEnd(pl));
         }
     }
 }

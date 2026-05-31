@@ -2,33 +2,28 @@ package server.gameserver.packets.server_udp;
 
 import static org.junit.Assert.*;
 
-import java.lang.reflect.Field;
 import java.net.DatagramPacket;
 
-import org.junit.Before;
 import org.junit.Test;
 
 import server.gameserver.Player;
-import server.networktools.PacketBuilderUDP1302;
 
 /**
  * Byte-identity test for {@link InitWeather02} — the
- * world-entry weather initializer (0x02 wrapper variant of
- * {@code 0x2e}). Distinct from {@link WorldWeather} (the 0x03
- * reliable variant): same inner payload structure but
- * fire-and-forget instead of reliable.
+ * world-entry weather initializer ({@code 0x2e} on the 0x03
+ * reliable wrapper). Emits the same inner payload structure as
+ * {@link WorldWeather}; both are now sent on the 0x03 reliable
+ * wrapper (retail-faithful for login state).
  *
  * <p>13-byte body matches the verified retail samples (see
  * source javadoc).
  */
 public class InitWeather02ByteIdentityTest {
 
-    @Before
-    public void resetSeqCounter() throws Exception {
-        Field f = PacketBuilderUDP1302.class.getDeclaredField("seq");
-        f.setAccessible(true);
-        f.setInt(null, 1);
-    }
+    // NOTE: PacketBuilderUDP1302's old static `seq` field was
+    // removed in production; the 0x03 init seq now comes from the
+    // connection's unified udpSessionCounter. These tests pin only
+    // op + body bytes, so no seq reset is needed.
 
     private static byte[] datagramBytes(InitWeather02 pkt) {
         DatagramPacket[] dps = pkt.getDatagramPackets();
@@ -37,12 +32,10 @@ public class InitWeather02ByteIdentityTest {
         return b;
     }
 
-    /** Body starts at offset 11 (PacketBuilderUDP1302 frame).
-     *  Same offset as the 0x03 wrapper since the framing is
-     *  structurally identical. */
+    /** Body starts at offset 11 (PacketBuilderUDP1303 frame). */
     private static byte[] extractInnerBody(byte[] datagram, int len) {
         assertEquals("outer 0x13",      0x13, datagram[0] & 0xFF);
-        assertEquals("0x02 wrapper",    0x02, datagram[7] & 0xFF);
+        assertEquals("0x03 wrapper",    0x03, datagram[7] & 0xFF);
         assertEquals("sub-opcode 0x2e", 0x2e, datagram[10] & 0xFF);
         byte[] body = new byte[len];
         System.arraycopy(datagram, 11, body, 0, len);
@@ -69,7 +62,7 @@ public class InitWeather02ByteIdentityTest {
     @Test
     public void totalDatagramSizeIsTwentyFourBytes() {
         // 1 (0x13) + 2 (counter) + 2 (counter+sk) + 2 (size) +
-        //   1 (0x02) + 2 (seq) + 1 (0x2e) + 13 (body) = 24 bytes
+        //   1 (0x03) + 2 (seq) + 1 (0x2e) + 13 (body) = 24 bytes
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
         assertEquals(24, datagramBytes(new InitWeather02(pl)).length);
     }
@@ -112,10 +105,10 @@ public class InitWeather02ByteIdentityTest {
 
     @Test
     public void initWeather02BodyMatchesWorldWeatherWireWise() {
-        // Both the 0x02 (init) and 0x03 (reliable) variants
-        // emit the same 13-byte inner payload format. The only
-        // difference is the wrapper byte. Pin this so refactors
-        // can't drift the two emitters apart.
+        // Both the InitWeather02 and WorldWeather variants emit
+        // the same 13-byte inner payload format on the 0x03
+        // reliable wrapper. Pin this so refactors can't drift the
+        // two emitters apart.
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
         byte[] init02Body = extractInnerBody(
                 datagramBytes(new InitWeather02(pl)), 13);
@@ -128,8 +121,8 @@ public class InitWeather02ByteIdentityTest {
         System.arraycopy(worldRaw, 11, worldBody, 0, 13);
 
         assertArrayEquals("InitWeather02 body must match "
-                + "WorldWeather body byte-for-byte (only wrapper "
-                + "0x02 vs 0x03 differs)",
+                + "WorldWeather body byte-for-byte (both on the "
+                + "0x03 reliable wrapper)",
                 init02Body, worldBody);
     }
 }

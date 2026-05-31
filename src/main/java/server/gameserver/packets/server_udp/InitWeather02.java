@@ -1,7 +1,7 @@
 package server.gameserver.packets.server_udp;
 
 import server.gameserver.Player;
-import server.networktools.PacketBuilderUDP1302;
+import server.networktools.PacketBuilderUDP1303;
 
 /**
  * Weather initialization via the {@code 0x02} wrapper.
@@ -15,7 +15,7 @@ import server.networktools.PacketBuilderUDP1302;
  *   ACC2: 01 00 00 64 01 dd 3e 05 00 dd 3e 05 00  (time=0x00053edd=343773)
  * </pre>
  */
-public class InitWeather02 extends PacketBuilderUDP1302 {
+public class InitWeather02 extends PacketBuilderUDP1303 {
     public InitWeather02(Player pl) {
         super(pl);
         write(0x2e); // Weather sub-type

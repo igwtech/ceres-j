@@ -114,6 +114,29 @@ public class WorldEntryEvent extends DummyEvent {
         // ── Keepalive ─────────────────────────────────────────────────
         safeSend(pl, () -> new UDPAlive(pl), "UDPAlive (pre-stream)");
 
+        // ── NO reliable window-init primer on the LOGIN path ──────────
+        // REVERTED 2026-05-31 (reverse-engi2). A prior fix emitted a
+        // ZoningEnd (sub-op 0x08) here as seq=1 to "re-base" the client's
+        // reliable window. Live apartment-idle wire diff PROVED it is the
+        // CAUSE of the NAK storm, not the cure:
+        //   - Decoded retail's S→C reliable DATA stream at login: it is
+        //     ALL normal windowed ops (0x2e/0x1f/0x2c/0x07/0x23/0x0d/...).
+        //     Retail NEVER sends 0x08 as a server reliable DATA packet —
+        //     0x08 is the C→S reliable-ACK op (see reliable_ack_08 note).
+        //   - With the 0x08 primer at seq=1, the client received it
+        //     (cipher + delivery verified byte-exact) but could not
+        //     advance its reliable window BASE past a control op it does
+        //     not treat as windowed data. Base stuck at 1 ⇒ the client
+        //     NAK-stormed seqs 1,2,3,… forever (raw 0x01 ×36/4s) and the
+        //     server answered each with a 0x02 retransmit (the "0x02
+        //     over-use" livelock). Retail's window advances past its
+        //     normal-data seq=1 and NAKs stop after the initial 1,2,3.
+        // So the login burst must START with real windowed data. CharInfo
+        // (0x2c) as seq=1 is exactly what retail does — the client windows
+        // it normally and advances. (Zone-cross via Zoning2 is a separate
+        // path; the memory note's "retail emits 0x08 at RESET bursts" is
+        // about zone-cross, not login, and is evaluated separately.)
+
         // ── Phase 1: CharInfo multipart (retail sends this first) ────
         // Retail sends ONE multipart stream: 0x22 0x02 0x01 (CharsysInfo)
         // with per-fragment header discriminator=0x01. FUN_0055c270
@@ -224,10 +247,13 @@ public class WorldEntryEvent extends DummyEvent {
             }
         }
 
-        // ── NO ZoningEnd ────────────────────────────────────────────
-        // Retail does NOT send ZoningEnd (0x03→0x08) during login.
-        // Our previous ZoningEnd may have been confusing the client's
-        // state machine. Removed to match retail behavior.
+        // ── NO trailing ZoningEnd terminator ────────────────────────
+        // Retail does NOT send a ZoningEnd (0x03→0x08) as a TERMINATOR
+        // at the END of the login burst. (The single 0x08 we now emit
+        // is the seq=1 window-init PRIMER at the very START of the
+        // burst — see the "Reliable window-init primer" block above.
+        // Sending a second 0x08 here would confuse the client's state
+        // machine, which is why the trailing terminator stays removed.)
 
         // ── Heartbeats: start NOW on first login ──────────────────
         // Original design deferred heartbeats until after a zone-

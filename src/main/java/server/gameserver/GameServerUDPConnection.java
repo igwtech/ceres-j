@@ -19,6 +19,7 @@ public class GameServerUDPConnection {
 	private short udp13Sessionkey;
 	private int udpSessionCounter;
 	private int interfaceID;
+
 	/** Per-session ring of recently-emitted reliable {@code 0x03}
 	 *  sub-packets, keyed by their LE16 sequence counter. Used by
 	 *  the {@link server.gameserver.packets.client_udp.ReliableAckSubPacket}
@@ -34,6 +35,15 @@ public class GameServerUDPConnection {
 		player = pl;
 		udp13Sessionkey = (short) new Random().nextInt();
 //		public final static int SESSIONKEY = 49732;
+		// 0 so the FIRST reliable's pre-increment (incandgetSessionCounter)
+		// yields seq=1. LIVE-PROBE PROVEN 2026-05-31 (reverse-engi2): the
+		// client's ProcessGuaranteedMsg DROPS reliable seq=0 (ret=0) and
+		// ACCEPTS seq>=1 (ret=1) — seq 0 is invalid/sentinel (seq & 0x7ff == 0).
+		// Retail's first reliable is seq=1 too. An earlier seq-base-0 attempt
+		// (init -1) made the first reliable seq=0, which the client dropped,
+		// leaving a permanent gap it re-requested forever (the raw-0x01 storm).
+		// The disasm "expected seeds to 0, start at 0" claim was refuted by
+		// the live probe — do NOT start reliable seqs at 0.
 		udpSessionCounter = 0;
 	}
 
@@ -174,6 +184,8 @@ public class GameServerUDPConnection {
 	 * @return the regenerated 16-bit session key (for logging)
 	 */
 	public synchronized short resetSessionForZoneCross() {
+		// 0 so the first post-reset reliable is seq=1 (client drops seq 0 —
+		// live-probe proven; see ctor note).
 		udpSessionCounter = 0;
 		udp13Sessionkey = (short) new Random().nextInt();
 		reliableRing.clear();

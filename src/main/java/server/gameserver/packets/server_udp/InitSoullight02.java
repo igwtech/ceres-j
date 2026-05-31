@@ -1,7 +1,7 @@
 package server.gameserver.packets.server_udp;
 
 import server.gameserver.Player;
-import server.networktools.PacketBuilderUDP1302;
+import server.networktools.PacketBuilderUDP1303;
 
 /**
  * Soullight (soul energy) initialization via the {@code 0x02} wrapper.
@@ -15,7 +15,7 @@ import server.networktools.PacketBuilderUDP1302;
  * <p>Without this packet the client may not initialize the Soullight
  * meter, which could prevent full session initialization.
  */
-public class InitSoullight02 extends PacketBuilderUDP1302 {
+public class InitSoullight02 extends PacketBuilderUDP1303 {
     public InitSoullight02(Player pl) {
         super(pl);
         write(0x1f); // GamePackets sub-type

@@ -157,6 +157,55 @@ public class Zoning2Test {
     }
 
     @Test
+    public void resetEmitsZoningEndPrimerAsFirstReliableSeq1()
+            throws Exception {
+        // Root-cause fix (2026-05-30): after the UDP-session reset on a
+        // zone-cross, the FIRST reliable 0x13/0x03 packet on the fresh
+        // seq counter must be the tiny sub-op 0x08 window-init primer
+        // (ZoningEnd), claiming seq=1. Retail emits exactly this at
+        // every reset/reconnect; without it the client NAK-storms.
+        //
+        // Drive the path at the builder level so we don't need a live
+        // socket: advance the counter to mimic a mid-session state,
+        // reset it, then emit the primer and assert the ring records
+        // seq=1 with sub-op 0x08.
+        Player pl = server.gameserver.packets.server_udp
+                .PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
+
+        // Mimic a live session: burn several reliable seqs (so the
+        // counter is well past 1, like the [69,70,71,72,...] in the
+        // wire evidence).
+        for (int i = 0; i < 12; i++) {
+            new server.gameserver.packets.server_udp.ChatList(pl)
+                    .getDatagramPackets();
+        }
+        assertTrue("counter advanced well past 1 before reset",
+                pl.getUdpConnection().getSessionCounter() >= 12);
+
+        // The reset: counter→0 (pre-increment yields first seq=1),
+        // ring cleared.
+        pl.getUdpConnection().resetSessionForZoneCross();
+        assertEquals("counter reset to 0",
+                0, pl.getUdpConnection().getSessionCounter());
+        assertEquals("ring cleared by reset",
+                0, pl.getUdpConnection().reliableRing().size());
+
+        // First reliable after reset = the 0x08 primer. ZoningEnd
+        // extends PacketBuilderUDP1303, so finalize records it into
+        // the ring keyed by its seq.
+        new server.gameserver.packets.server_udp.ZoningEnd(pl)
+                .getDatagramPackets();
+
+        assertEquals("primer claims seq=1 on the fresh counter",
+                1, pl.getUdpConnection().getSessionCounter());
+        byte[] seq1 = pl.getUdpConnection().reliableRing().get(1);
+        assertNotNull("seq=1 must be the recorded primer", seq1);
+        assertEquals("first post-reset reliable (seq=1) must be the "
+                + "sub-op 0x08 window-init primer (retail-faithful)",
+                0x08, seq1[0] & 0xFF);
+    }
+
+    @Test
     public void noTcpConnectionDoesNotThrow() {
         // Mid-flight TCP loss must not knock the server thread
         // over. Player.send(ServerTCPPacket) silently drops when

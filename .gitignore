@@ -31,6 +31,12 @@ tools/__pycache__/
 # Raw captures stay local; the analyzed catalog is in docs/protocol/.
 strace/
 
+# Frida harness runtime artifacts (per-run traces, screenshots) — local only.
+# The probe/harness SCRIPTS are tracked; their run output is not.
+tools/frida_re/runs/
+tools/frida_re/captures/
+/captures/
+
 # Lock files from open editors
 docs/.~lock.*
 

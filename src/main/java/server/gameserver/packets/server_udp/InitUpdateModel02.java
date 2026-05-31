@@ -2,7 +2,7 @@ package server.gameserver.packets.server_udp;
 
 import server.database.playerCharacters.PlayerCharacter;
 import server.gameserver.Player;
-import server.networktools.PacketBuilderUDP1302;
+import server.networktools.PacketBuilderUDP1303;
 
 /**
  * Player visual model initialization via the {@code 0x02} wrapper.
@@ -14,7 +14,7 @@ import server.networktools.PacketBuilderUDP1302;
  * <p>Retail inner payload (69-77B): model parts, textures, hair, beard,
  * character name — same structure as the 0x03→0x2f UpdateModel.
  */
-public class InitUpdateModel02 extends PacketBuilderUDP1302 {
+public class InitUpdateModel02 extends PacketBuilderUDP1303 {
     public InitUpdateModel02(Player pl) {
         super(pl);
         PlayerCharacter pc = pl.getCharacter();

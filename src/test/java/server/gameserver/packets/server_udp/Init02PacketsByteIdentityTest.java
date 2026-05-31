@@ -2,45 +2,38 @@ package server.gameserver.packets.server_udp;
 
 import static org.junit.Assert.*;
 
-import java.lang.reflect.Field;
 import java.net.DatagramPacket;
 
-import org.junit.Before;
 import org.junit.Test;
 
 import server.gameserver.Player;
 import server.networktools.PacketBuilderUDP1302;
 
 /**
- * Byte-identity tests for the small {@code 0x02} simplified-
- * reliable initialization packets sent during the world-entry
- * burst:
+ * Byte-identity tests for the small {@code 0x03} reliable
+ * initialization packets sent during the world-entry burst:
  *
  * <ul>
- *   <li>{@link InitSoullight02} — {@code 0x02/0x1f} carrying
+ *   <li>{@link InitSoullight02} — {@code 0x03/0x1f} carrying
  *       Soullight as IEEE-754 float</li>
- *   <li>{@link InitInfoResponse02} — {@code 0x02/0x23} session
+ *   <li>{@link InitInfoResponse02} — {@code 0x03/0x23} session
  *       info ({@code 0f 00 03 00 01 00})</li>
  * </ul>
  *
- * <p>The {@code 0x02} wrapper is fire-and-forget initialization
- * (not ACKed by the client reliable layer). These tests pin the
- * exact wire bytes against retail evidence so a future cleanup
- * of {@link PacketBuilderUDP1302}'s sequence-counter handling
- * can't regress the body.
+ * <p>The {@code 0x03} wrapper is retail-faithful reliable
+ * initialization (retail sends login reliable state on 0x03,
+ * never 0x02). These tests pin the exact wire bytes against
+ * retail evidence so a future cleanup of {@link PacketBuilderUDP1302}'s
+ * sequence-counter handling can't regress the body.
  */
 public class Init02PacketsByteIdentityTest {
 
-    @Before
-    public void resetSeqCounter() throws Exception {
-        // PacketBuilderUDP1302 has a static `seq` counter that
-        // increments per instance. Reset to 1 so tests are
-        // order-independent on the seq field (we don't pin it
-        // anyway, but resetting keeps surrounding tests stable).
-        Field f = PacketBuilderUDP1302.class.getDeclaredField("seq");
-        f.setAccessible(true);
-        f.setInt(null, 1);
-    }
+    // NOTE: PacketBuilderUDP1302's old static `seq` field was
+    // removed in production — the 0x03 init wrapper now draws its
+    // reliable seq from the connection's unified udpSessionCounter
+    // (shared with 0x03). The seq is therefore legitimately
+    // dynamic; these tests pin only the op + body bytes, never the
+    // seq field, so no reset is needed.
 
     private static byte[] datagramBytes(java.net.DatagramPacket dp) {
         byte[] b = new byte[dp.getLength()];
@@ -60,15 +53,15 @@ public class Init02PacketsByteIdentityTest {
 
     @Test
     public void initSoullight02BodyMatchesRetailFloat() {
-        // Frame layout (PacketBuilderUDP1302):
+        // Frame layout (PacketBuilderUDP1303):
         //   [0x13][counter LE2][counter+sk LE2][size LE2]
-        //   [0x02][seq LE2][sub-opcode 0x1f][body...]
+        //   [0x03][seq LE2][sub-opcode 0x1f][body...]
         //   Body starts at offset 10.
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
         byte[] datagram = firstDatagram(new InitSoullight02(pl));
 
         assertEquals("outer 0x13",       0x13, datagram[0] & 0xFF);
-        assertEquals("0x02 wrapper",     0x02, datagram[7] & 0xFF);
+        assertEquals("0x03 wrapper",     0x03, datagram[7] & 0xFF);
         assertEquals("sub-opcode 0x1f",  0x1f, datagram[10] & 0xFF);
 
         // Body after 0x1f sub-opcode:
@@ -105,7 +98,7 @@ public class Init02PacketsByteIdentityTest {
         byte[] datagram = firstDatagram(new InitInfoResponse02(pl));
 
         assertEquals("outer 0x13",       0x13, datagram[0] & 0xFF);
-        assertEquals("0x02 wrapper",     0x02, datagram[7] & 0xFF);
+        assertEquals("0x03 wrapper",     0x03, datagram[7] & 0xFF);
         assertEquals("sub-opcode 0x23",  0x23, datagram[10] & 0xFF);
 
         // Body after 0x23 sub-opcode: `0f 00 03 00 01 00` (6B)
@@ -121,7 +114,7 @@ public class Init02PacketsByteIdentityTest {
     @Test
     public void initSoullight02TotalSizeIsNineteenBytes() {
         // 1 (0x13) + 2 (counter) + 2 (counter+sk) + 2 (size) +
-        //   1 (0x02) + 2 (seq) + 1 (0x1f) + 8 (body) = 19 bytes
+        //   1 (0x03) + 2 (seq) + 1 (0x1f) + 8 (body) = 19 bytes
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
         DatagramPacket[] dps = new InitSoullight02(pl).getDatagramPackets();
         assertEquals(19, dps[0].getLength());
@@ -129,7 +122,7 @@ public class Init02PacketsByteIdentityTest {
 
     @Test
     public void initInfoResponse02TotalSizeIsSeventeenBytes() {
-        // 1 + 2 + 2 + 2 + 1 + 2 + 1 + 6 = 17 bytes
+        // 1 + 2 + 2 + 2 + 1 (0x03) + 2 + 1 + 6 = 17 bytes
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
         DatagramPacket[] dps = new InitInfoResponse02(pl).getDatagramPackets();
         assertEquals(17, dps[0].getLength());
