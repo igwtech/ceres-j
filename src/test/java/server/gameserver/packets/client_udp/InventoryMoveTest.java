@@ -8,7 +8,6 @@ import org.junit.Test;
 
 import server.gameserver.CapturingTCPConnection;
 import server.gameserver.Player;
-import server.gameserver.packets.server_tcp.InteractionAck;
 import server.gameserver.packets.server_udp.PacketTestFixture;
 import server.interfaces.ServerTCPPacket;
 
@@ -16,12 +15,16 @@ import server.interfaces.ServerTCPPacket;
  * Functional tests for {@link InventoryMove}.
  *
  * <p>Pins the early-return path (missing containers → no TCP
- * packets) and the import wiring of {@link InteractionAck}.
- * The full success path (with real items moved between
+ * packets). The full success path (with real items moved between
  * containers) requires {@code ItemManager} fully booted with
  * a populated DB; that's tested elsewhere via the existing
  * {@code InventoryMoveAckDeniedByteIdentityTest} byte-format
  * pin.
+ *
+ * <p>Note: as of the 2026-05 fix InventoryMove no longer sends any
+ * TCP InteractionAck (P6 — no retail evidence of one for a drag);
+ * the move confirmation is the UDP {@code 0x25/0x1e} echo, and a
+ * rejected move now sends a UDP {@code InventoryMoveDenied} (P4).
  */
 public class InventoryMoveTest {
 
@@ -76,15 +79,21 @@ public class InventoryMoveTest {
     }
 
     @Test
-    public void interactionAckClassIsImported() {
-        // Belt-and-suspenders: the implementation imports
-        // InteractionAck for the success-path emission. If a
-        // future refactor accidentally drops the import, the
-        // class won't be on the classpath visible to this test
-        // — and the assertion here would break.
-        assertNotNull("InteractionAck must remain on the test "
-                + "classpath, so a future cleanup of the success-"
-                + "path emission is caught at compile time",
-                InteractionAck.class);
+    public void missingContainerSendsNoUdpDeny() {
+        // The missing-container path early-returns BEFORE the
+        // move/deny logic, so no InventoryMoveDenied is sent either
+        // (there's nothing to revert — the client never got a valid
+        // src/dst). Only a malformed-but-resolvable move that fails
+        // moveItem() should produce a deny.
+        Player pl = PacketTestFixture.newPlayer();
+        CapturingTCPConnection cap = new CapturingTCPConnection();
+        pl.setTcpConnection(cap);
+
+        new InventoryMove(buildBody(0xff, 0, 0xff, 0)).execute(pl);
+
+        // No TCP traffic (deny is UDP anyway, and this path returns
+        // before any send).
+        List<ServerTCPPacket> sent = cap.received();
+        assertTrue(sent.isEmpty());
     }
 }

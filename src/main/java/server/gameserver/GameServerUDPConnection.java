@@ -164,6 +164,20 @@ public class GameServerUDPConnection {
 		return ++udpSessionCounter;
 	}
 
+	/** Per-player monotonic state-change counter for the {@code 0x25 0x13}
+	 *  transactional-event envelope (the {@code txn LE2} field). Retail
+	 *  increments this +1 on every state-ack event (cash, equip, …); the
+	 *  client keys on the low byte incrementing. Distinct from the reliable
+	 *  {@code udpSessionCounter} — this counts logical state changes, not
+	 *  wire sub-packets. */
+	private int stateAckTxn = 0;
+
+	/** Pre-increment and return the next {@code 0x25 0x13} state-ack txn
+	 *  (16-bit, wraps). One per state-ack event. */
+	public synchronized int nextStateAckTxn() {
+		return ++stateAckTxn & 0xffff;
+	}
+
 	/**
 	 * Reset the reliable-channel state for a zone-cross, matching
 	 * the retail wire behaviour decoded 2026-05-14 from

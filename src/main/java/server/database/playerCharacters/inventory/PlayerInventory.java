@@ -87,14 +87,25 @@ public class PlayerInventory implements ItemContainer{
 			return false;
 		}
 		else if(flags == FLAG_DSTPOS_XY){
-			int xcoord = (byte)pos;
-			int ycoord = (byte)(pos >> 8);
-			
+			// Mask to UNSIGNED — Java (byte) sign-extends, so an X or Y
+			// of 0x80+ would corrupt the index into a negative number.
+			int xcoord = pos & 0xff;
+			int ycoord = (pos >> 8) & 0xff;
+
 			int x 		= it.getInvSizeX();
 			int y		= it.getInvSizeY();
-			
+
 			int countsize = 0;
-					
+
+			// Bounds-check the footprint before touching xymap, so a
+			// drop near the grid's right/bottom edge rejects cleanly
+			// instead of throwing ArrayIndexOutOfBounds. Grid is 8 wide
+			// (xymap[8][256]) and 256 tall.
+			if(xcoord < 0 || ycoord < 0
+					|| xcoord + x > 8 || ycoord + y > 256){
+				return false;
+			}
+
 			if(xymap[xcoord][ycoord] == -1){ // no item at that pos
 				for(int i = 0; i < x; i++){ // x axis
 					for(int j = 0; j < y; j++){ // y axis
@@ -242,9 +253,16 @@ public class PlayerInventory implements ItemContainer{
 	
 	public Item getItem(int pos, int flags){
 		if(flags == FLAG_DSTPOS_XY){
-			int x = (byte)pos;
-			int y = (byte)(pos >> 8);
-			return map[xymap[x][y]];
+			// Mask to UNSIGNED (see addItem) and bounds-check so a stray
+			// position can't sign-extend or index out of the grid.
+			int x = pos & 0xff;
+			int y = (pos >> 8) & 0xff;
+			if(x < 0 || y < 0 || x >= 8 || y >= 256)
+				return null;
+			int slot = xymap[x][y];
+			if(slot < 0)
+				return null;
+			return map[slot];
 		}
 		return map[pos]; // TODO: correct this!
 	}

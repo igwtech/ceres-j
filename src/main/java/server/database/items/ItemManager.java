@@ -208,53 +208,64 @@ public class ItemManager {
 	}
 	
 	/**
+	 * Pick the position-encoding flag a container needs to interpret a
+	 * raw position value. F2 (PLINVENTORY) positions are XY-packed
+	 * ({@code posX + posY*256 (+ slot*65536)}) and must be decoded with
+	 * {@link ItemContainer#FLAG_DSTPOS_XY}; QB / GOGU / box positions are
+	 * a flat slot index and use flag 0. The encoding depends on the
+	 * CONTAINER, never on the other side of a cross-container move — see
+	 * the bug write-up on F2→QB moves silently failing because a
+	 * destination-derived flag was used to read the source.
+	 */
+	private static int posFlagFor(ItemContainer cont){
+		return cont.getContainerType() == ItemContainer.CONTAINERTYPE_PLINVENTORY
+				? ItemContainer.FLAG_DSTPOS_XY
+				: 0;
+	}
+
+	/**
 	 * takes care of itemmoves between containers
-	 * 
-	 * @param srccont 	source container 
+	 *
+	 * <p>The source-read encoding and the destination-add encoding are
+	 * INDEPENDENT: each is derived from its own container's type via
+	 * {@link #posFlagFor}. The {@code flags} argument is retained for
+	 * call-site compatibility but is no longer used to choose the
+	 * encoding (it was the root cause of cross-container moves failing —
+	 * a dst-derived flag was being used to read the src item, so a
+	 * F2→QB move read the QB at an XY-packed index and got null).
+	 *
+	 * @param srccont 	source container
 	 * @param srcpos 	the position in the sourcecontainer
 	 * @param dstcont 	destination container
 	 * @param dstpos	destination position in dstcont
-	 * @param flags		special flags describing the movement
+	 * @param flags		legacy/unused — encoding is now per-container
 	 */
 	public static boolean moveItem(ItemContainer srccont, int srcpos, ItemContainer dstcont, int dstpos, int flags){
 		//TODO: check first if item at that pos already exists!
-		if(flags == 0){
-			Item it = srccont.getItem(srcpos, 0);
-		
-			if(it == null){
-				return false;
-				}
-			
-			int pos = it.getPos(Item.CONTAINERPOS);
-			
-			if(dstcont.addItem(dstpos, it, 0)){ //TODO: doesnt work when moving from qb to f2
-				if(!srccont.removeItem(it, pos, 0)){
-					dstcont.removeItem(it, dstpos, 0);
-					return false;
-				}
-				return true;
-			}
-			
-			Out.writeln(Out.Info, "could not add Item!");
+		//      (P3 swap/occupied-slot semantics — not yet handled; a
+		//       move onto an occupied dst slot just fails the add today.)
+		int srcFlag = posFlagFor(srccont);
+		int dstFlag = posFlagFor(dstcont);
+
+		Item it = srccont.getItem(srcpos, srcFlag);
+		if(it == null){
+			return false;
 		}
-		else if(flags == ItemContainer.FLAG_DSTPOS_XY){
-			Item it = srccont.getItem(srcpos, 0);
-			
-			if(it == null){
+
+		// The item's CURRENT packed position drives the source removal —
+		// this is the value the source container itself stored, which is
+		// independent of how the wire srcpos was encoded.
+		int pos = it.getPos(Item.CONTAINERPOS);
+
+		if(dstcont.addItem(dstpos, it, dstFlag)){
+			if(!srccont.removeItem(it, pos, srcFlag)){
+				dstcont.removeItem(it, dstpos, dstFlag);
 				return false;
-				}
-			
-			int pos = it.getPos(Item.CONTAINERPOS);
-			
-			if(dstcont.addItem(dstpos, it, ItemContainer.FLAG_DSTPOS_XY)){ //TODO: doesnt work when moving from qb to f2
-				if(!srccont.removeItem(it, pos, 0)){
-					dstcont.removeItem(it, dstpos, ItemContainer.FLAG_DSTPOS_XY);
-					return false;
-				}
-				return true;
 			}
+			return true;
 		}
-		
+
+		Out.writeln(Out.Info, "could not add Item!");
 		return false;
 	}
 	

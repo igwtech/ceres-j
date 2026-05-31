@@ -303,7 +303,35 @@ basic use-object echo.
 
 ---
 
-## 6. Equip / holster (toolbelt) — NOT CAPTURED — fresh pcap needed
+## 6. Equip / holster (toolbelt) — PINNED (2026-05-31)
+
+**Resolved.** A fresh retail capture (1:1 causal, byte-verified
+across two sessions) pinned the discrete equip/holster round-trip.
+C→S `1f 01 00 1f <slot>` (slot: `0x00` holster, `0x01/0x02/0x04/0x08`
+toolbelt-slot bitmask, `0xff` sentinel) → exactly ONE reliable S→C
+`0x03/0x1f` packet with inner body:
+
+```
+1f [mapid LE2] 25 13 [txn LE2] 0b [slot] 00
+```
+
+This rides the SAME `0x25 0x13` transactional state-ack envelope as
+the cash carrier (`25 13 [txn LE2][sub-tag][data]`) — cash's sub-tag
+is `0x04`, the equipped-slot-state sub-tag is **`0x0b`**. `mapid` =
+player's current zone/map id (apartment = 1); `txn` = per-player
+monotonic state-change counter; `[slot]` echoes the commanded byte;
+trailing `00` is pad. Implemented in
+`server.gameserver.packets.server_udp.EquipStateAck` +
+`EquipHolster.execute()` (byte-identity test:
+`EquipStateAckByteIdentityTest`).
+
+The `0x4c` PlayerAction form (`1f 01 00 4c 0f 00 03 00`) gets NO
+reply — it is the periodic full-weapon state report (fire-and-forget,
+dispatched to `ChangedChannels`), distinct from this discrete event.
+Peer broadcast to nearby players remains unpinned (single-player
+capture).
+
+### Historical note (pre-2026-05-31)
 
 The lead said equip C→S = `1f 00 00 1f <slot0based>`. **That
 byte pattern does not occur in this pcap.** Full inventory of

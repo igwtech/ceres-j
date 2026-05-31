@@ -7,6 +7,7 @@ import server.database.playerCharacters.PlayerCharacter;
 import server.ecs.EcsRegistry;
 import server.ecs.PlayerCharacterBridge;
 import server.ecs.World;
+import server.gameserver.packets.client_udp.EquipHolster;
 import server.interfaces.GameServerEvent;
 import server.interfaces.ServerTCPPacket;
 import server.interfaces.ServerUDPPacket;
@@ -28,6 +29,13 @@ public class Player extends Thread {
 	private long lastping;
 	private int channels;	// the channels the player is currentyl listening to
 	private int MapID;
+	/** Currently-equipped toolbelt slot, as commanded by the client's
+	 *  EquipHolster request: {@code 0x00} = holster/unarmed,
+	 *  {@code 0x01/0x02/0x04/0x08} = toolbelt slot bitmask. Tracks the
+	 *  acting player's selected weapon/tool so peers and re-zones can
+	 *  reflect it. Not yet DB-persisted (PlayerCharacter has no slot
+	 *  column) — resets to holster on login. */
+	private int equippedSlot = EquipHolster.SLOT_HOLSTER;
 	private boolean isloggedin;
 	private short Transactionid;
 	/** Destination zone_id captured from a Zoning1 (0x03/0x22/0x0d)
@@ -367,6 +375,18 @@ public class Player extends Thread {
 	
 	public void setMapID(int ID){
 		MapID = ID;
+	}
+
+	/** @return the currently-equipped toolbelt slot (see
+	 *  {@link #setEquippedSlot(int)}). */
+	public int getEquippedSlot() {
+		return equippedSlot;
+	}
+
+	/** Record the toolbelt slot the player just equipped/holstered.
+	 *  {@code 0x00} = holster, {@code 0x01/0x02/0x04/0x08} = slot bitmask. */
+	public void setEquippedSlot(int slot) {
+		equippedSlot = slot & 0xff;
 	}
 	
 	public void setloggedin(){

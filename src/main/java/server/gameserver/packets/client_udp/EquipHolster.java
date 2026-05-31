@@ -2,6 +2,7 @@ package server.gameserver.packets.client_udp;
 
 import server.gameserver.Player;
 import server.gameserver.packets.GamePacketDecoderUDP;
+import server.gameserver.packets.server_udp.EquipStateAck;
 import server.tools.Out;
 
 /**
@@ -39,14 +40,24 @@ import server.tools.Out;
  *
  * <h3>Status</h3>
  *
- * <p>Task #195. Currently a recognise-only handler: the server
- * acknowledges the wire and logs the slot, but does NOT yet update
- * the player's equipped-item state or broadcast the equip event to
- * peers. Implementing equipped-item persistence + the S→C peer
- * broadcast is follow-up work (the broadcast wire is unpinned as of
- * 2026-05-22 — no clean retail equip/holster capture found in the
- * existing pcap corpus).
+ * <p>Task #195. The server now records the player's equipped slot
+ * ({@link Player#setEquippedSlot(int)}) and replies with the
+ * byte-pinned S→C state-ack {@link EquipStateAck} — one reliable
+ * {@code 0x03/0x1f} packet carrying
+ * {@code 1f [mapid LE2] 25 13 [txn LE2] 0b [slot] 00} (the same
+ * {@code 0x25 0x13} transactional envelope the cash carrier uses,
+ * with the equipped-slot sub-tag {@code 0x0b} instead of cash's
+ * {@code 0x04}). 1:1 causal, byte-verified across two retail
+ * sessions.
  *
+ * <p>NOT yet implemented: peer broadcast of the equip to nearby
+ * players (the capture that pinned this was single-player, so the
+ * peer-broadcast wire is still unpinned). The {@code 0x4c}
+ * PlayerAction full-weapon report ({@code 1f 01 00 4c 0f 00 03 00})
+ * is fire-and-forget and gets NO reply — it is dispatched to
+ * {@code ChangedChannels}, not here.
+ *
+ * @see server.gameserver.packets.server_udp.EquipStateAck
  * @see server.gameserver.packets.client_udp.InventoryMove
  * @see server.gameserver.packets.GamePacketReaderUDP
  */
@@ -84,12 +95,14 @@ public final class EquipHolster extends GamePacketDecoderUDP {
 	@Override
 	public void execute(Player pl) {
 		int slot = parseSlot();
-		// Recognise-only for now (task #195). The S→C peer-broadcast
-		// wire is not yet byte-pinned and the equipped-item state
-		// machine is not modelled server-side.
+		// Record the equipped slot and reply with the byte-pinned
+		// S→C state-ack (0x25/0x13/0x0b). Peer broadcast to nearby
+		// players is still unpinned (single-player capture).
+		pl.setEquippedSlot(slot);
+		pl.send(new EquipStateAck(pl, slot));
 		Out.writeln(Out.Info,
 			"EquipHolster: player=" + pl.getName()
 				+ " slot=0x" + Integer.toHexString(slot)
-				+ " (recognise-only — see task #195)");
+				+ " → EquipStateAck sent");
 	}
 }
