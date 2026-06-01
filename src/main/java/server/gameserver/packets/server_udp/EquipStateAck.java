@@ -15,7 +15,7 @@ import server.networktools.PacketBuilderUDP1303;
  * <p>Inner body (10 bytes) after the reliable {@code 0x03 [seq LE2]}
  * wrapper:
  * <pre>
- *   1f [mapid LE2] 25 13 [txn LE2] 0b [slot] 00
+ *   1f [localId LE2 = 01 00] 25 13 [txn LE2] 0b [slot] 00
  * </pre>
  *
  * <p>So the full reliable sub-packet on the wire is
@@ -30,8 +30,9 @@ import server.networktools.PacketBuilderUDP1303;
  *
  * <p>Fields:
  * <ul>
- *   <li>{@code mapid LE2} — the acting player's current zone/map id
- *       ({@link Player#getMapID()}). Retail apartment = 1.</li>
+ *   <li>{@code localId LE2} — the acting player's own local entity id,
+ *       constant {@code 01 00} (every retail 0x1f packet uses it). NOT
+ *       the map id.</li>
  *   <li>{@code txn LE2} — per-player monotonic state-change counter
  *       ({@link server.gameserver.GameServerUDPConnection#nextStateAckTxn()});
  *       the client keys on the low byte incrementing per state-ack.</li>
@@ -63,7 +64,17 @@ public class EquipStateAck extends PacketBuilderUDP1303 {
     public EquipStateAck(Player pl, int slot) {
         super(pl);
         write(0x1f);
-        writeShort(pl.getMapID());          // mapid LE2
+        // Self localId (constant 0x0001), NOT the map id. Retail emits
+        // `1f 01 00 25 13 …` in EVERY 0x1f packet (both directions) —
+        // 01 00 is the acting player's own local entity id (always 1
+        // from their client's view), the same constant CashUpdate and
+        // PoolUpdate write. The earlier `getMapID()` only matched retail
+        // by coincidence in the apartment (mapid==1); on a map where
+        // getMapID()!=1 (e.g. Krafteo=2) the client received the ack
+        // addressed to entity 2, not itself, and dropped it → weapon
+        // never drew. (Retail draw pcap 2026-06-01.)
+        write(0x01);                        // localId LE2 = self
+        write(0x00);
         write(0x25);
         write(0x13);
         int txn = pl.getUdpConnection().nextStateAckTxn();

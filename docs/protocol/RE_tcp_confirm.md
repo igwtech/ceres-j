@@ -303,10 +303,29 @@ basic use-object echo.
 
 ---
 
-## 6. Equip / holster (toolbelt) — PINNED (2026-05-31)
+## 6. Equip / holster (toolbelt) — PARTIAL; weapon-DRAW still open
 
-**Resolved.** A fresh retail capture (1:1 causal, byte-verified
-across two sessions) pinned the discrete equip/holster round-trip.
+> **CORRECTION (2026-06-01, Ghidra `case 0x4c` decompile).** The claim
+> below that the acting player's weapon-DRAW is applied by
+> `FUN_0064ec90 case 0x4c` is **WRONG**. `case 0x4c`
+> (`equip_decompile.txt:714-761`) parses `[LE32 id][len1:u8][len2:u8]
+> [str1][str2]` and feeds it to an sprintf (`FUN_00662da0`) that renders
+> a **text notification** — it is the S→C **item/loot-name** message
+> (`4c 09 00 00 00 [len][01]"Solantium"00 00`), direction-overloaded with
+> the C→S channel-listen heartbeat. It does NOT draw a weapon. The
+> `EquipStateAck` (`0x25/0x13/0x0b`) below is a real STATE-ack and stays,
+> but it alone does not make the weapon appear in-hand. The actual
+> weapon-draw for the actor is a TRIAD, none of them `0x4c`:
+> `0x1f/0x10` WeaponChange (validates `weapon_id` LE16 vs control-struct
+> `+0x334` = in-hand weapon; `case 0x10` @ `equip_decompile.txt:114-127`),
+> `0x1f/0x30` PlayerActionBroadcast (observable equip; equip `sub_type`
+> uncaptured), and `0x03/0x2f` UpdateModel (visual model, 5-9B). The
+> decompile only VALIDATES `+0x334`; the writer/model trigger needs a
+> retail quickbelt-draw pcap to byte-pin. See `_funcref_subtags.md:85`
+> (0x4c dual-use) and `s2c_1f_30_action_broadcast.md`.
+
+**Partially resolved.** A fresh retail capture (1:1 causal, byte-verified
+across two sessions) pinned the discrete equip/holster STATE round-trip.
 C→S `1f 01 00 1f <slot>` (slot: `0x00` holster, `0x01/0x02/0x04/0x08`
 toolbelt-slot bitmask, `0xff` sentinel) → exactly ONE reliable S→C
 `0x03/0x1f` packet with inner body:

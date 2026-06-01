@@ -97,16 +97,20 @@ public class EquipStateAckByteIdentityTest {
     }
 
     @Test
-    public void mapIdEncodesLittleEndian() throws Exception {
+    public void localIdIsConstantSelfOne() throws Exception {
+        // The 2 bytes after 0x1f are the acting player's self localId,
+        // a CONSTANT 01 00 (retail draw pcap 2026-06-01: every 0x1f
+        // packet uses 01 00). It must NOT track the map id — a non-1
+        // map id used to mis-address the ack so the client dropped it.
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
         pl.setMapID(0x1234);
         setTxn(pl, 0);
 
         byte[] body = extractInnerBody(datagramBytes(
                 new EquipStateAck(pl, 0x04)));
-        // mapid LE2 at body offset 1..2
-        assertEquals(0x34, body[1] & 0xFF);
-        assertEquals(0x12, body[2] & 0xFF);
+        // localId LE2 at body offset 1..2 — constant 01 00 despite mapId
+        assertEquals(0x01, body[1] & 0xFF);
+        assertEquals(0x00, body[2] & 0xFF);
         // slot echoed at offset 8
         assertEquals(0x04, body[8] & 0xFF);
     }
