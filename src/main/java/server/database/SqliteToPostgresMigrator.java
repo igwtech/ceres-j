@@ -38,9 +38,8 @@ public final class SqliteToPostgresMigrator {
         "accounts",
         "player_characters",
         "items",
-        "item_containers",
+        "item_mod_slot",
         "world_defs",
-        "item_defs",
         "npc_spawns",
     };
 

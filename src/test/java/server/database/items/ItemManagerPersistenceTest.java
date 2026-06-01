@@ -63,23 +63,38 @@ public class ItemManagerPersistenceTest {
         }
     }
 
-    /** The schema must expose the slot/flags/tokens columns the
-     *  persistence layer round-trips. */
+    /** The named-columns schema (2026-06-01) must expose the decoded
+     *  slot dimensions, flags, the token-derived stat columns, and must
+     *  NOT carry the old opaque tokens/slot columns. */
     @Test
     public void schemaHasInventoryColumns() throws Exception {
-        boolean slot = false, flags = false, tokens = false;
+        java.util.Set<String> c = new java.util.HashSet<>();
         try (Statement st = conn.createStatement();
              ResultSet rs = st.executeQuery("PRAGMA table_info(items)")) {
-            while (rs.next()) {
-                String c = rs.getString("name");
-                if ("slot".equals(c)) slot = true;
-                if ("flags".equals(c)) flags = true;
-                if ("tokens".equals(c)) tokens = true;
-            }
+            while (rs.next()) c.add(rs.getString("name"));
         }
-        assertTrue("items.slot column must exist", slot);
-        assertTrue("items.flags column must exist", flags);
-        assertTrue("items.tokens column must exist", tokens);
+        assertTrue("items.flags column must exist", c.contains("flags"));
+        assertTrue("items.slot_index column must exist", c.contains("slot_index"));
+        assertTrue("items.slot_x column must exist", c.contains("slot_x"));
+        assertTrue("items.slot_y column must exist", c.contains("slot_y"));
+        assertTrue("items.curr_cond column must exist", c.contains("curr_cond"));
+        assertTrue("items.stack_count column must exist", c.contains("stack_count"));
+        assertTrue("items.constructor_char_id column must exist",
+                c.contains("constructor_char_id"));
+        assertFalse("legacy items.tokens column must be gone",
+                c.contains("tokens"));
+        assertFalse("legacy items.slot column must be gone",
+                c.contains("slot"));
+
+        // The mod-slot side table must exist too.
+        boolean modSlotTable = false;
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(
+                 "SELECT name FROM sqlite_master WHERE type='table'"
+                 + " AND name='item_mod_slot'")) {
+            modSlotTable = rs.next();
+        }
+        assertTrue("item_mod_slot table must exist", modSlotTable);
     }
 
     /** Empty inventory round-trips to zero rows and zero loaded items. */

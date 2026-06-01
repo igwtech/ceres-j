@@ -101,6 +101,92 @@ public class ItemTokensSerdeTest {
         for (short s : back) assertEquals(0, s);
     }
 
+    /**
+     * Named-columns refactor invariant (2026-06-01): the per-column
+     * decomposition that ItemManager persists, when reassembled into a
+     * short[17] and serialised, must reproduce the original 34-byte wire
+     * blob byte-for-byte. Uses the live default starter blob
+     * {@code ff00 ff00 c800 c800 c800 c800 0000 0300 0500 00…} (LE16).
+     */
+    @Test
+    public void namedColumns_reassembleToIdenticalBlob() {
+        // The canonical 34-byte default blob (LE), zero-padded tail.
+        byte[] original = new byte[34];
+        original[0] = (byte) 0xff;            // curr_cond = 255
+        original[2] = (byte) 0xff;            // max_cond  = 255
+        original[4] = (byte) 0xc8;            // damage    = 200
+        original[6] = (byte) 0xc8;            // frequency = 200
+        original[8] = (byte) 0xc8;            // handling  = 200
+        original[10] = (byte) 0xc8;           // range     = 200
+        // clip_size (index 6) = 0 → bytes 12,13 stay 0
+        original[14] = 0x03;                  // ammo_uses = 3
+        original[16] = 0x05;                  // stack_count = 5
+        // remainder (mods, conster) all zero
+
+        // Decompose exactly as ItemManager.saveItem does (per named column),
+        // mirroring the DB write.
+        short[] src = Item.deserializeTokens(original);
+        int currCond   = src[Item.TOKENS_CURRCOND];
+        int maxCond    = src[Item.TOKENS_MAXCOND];
+        int damage     = src[Item.TOKENS_DMG];
+        int frequency  = src[Item.TOKENS_FREQUENCY];
+        int handling   = src[Item.TOKENS_HANDLING];
+        int range      = src[Item.TOKENS_RANGE];
+        int clipSize   = src[Item.TOKENS_CLIPSIZE];
+        int ammoUses   = src[Item.TOKENS_AMMOUSES];
+        int stackCount = src[Item.TOKENS_ITEMSONSTACK];
+        int modSlots   = src[Item.TOKENS_SLOTS];
+        int modUsed    = src[Item.TOKENS_SLOTSINUSE];
+        int conster    = src[Item.TOKENS_CONSTER];
+        int[] mods = {
+            src[Item.TOKENS_MOD1], src[Item.TOKENS_MOD2], src[Item.TOKENS_MOD3],
+            src[Item.TOKENS_MOD4], src[Item.TOKENS_MOD5]
+        };
+
+        // Reassemble exactly as ItemManager.loadItems does (per named col).
+        short[] rebuilt = new short[17];
+        rebuilt[Item.TOKENS_CURRCOND]     = (short) currCond;
+        rebuilt[Item.TOKENS_MAXCOND]      = (short) maxCond;
+        rebuilt[Item.TOKENS_DMG]          = (short) damage;
+        rebuilt[Item.TOKENS_FREQUENCY]    = (short) frequency;
+        rebuilt[Item.TOKENS_HANDLING]     = (short) handling;
+        rebuilt[Item.TOKENS_RANGE]        = (short) range;
+        rebuilt[Item.TOKENS_CLIPSIZE]     = (short) clipSize;
+        rebuilt[Item.TOKENS_AMMOUSES]     = (short) ammoUses;
+        rebuilt[Item.TOKENS_ITEMSONSTACK] = (short) stackCount;
+        rebuilt[Item.TOKENS_SLOTS]        = (short) modSlots;
+        rebuilt[Item.TOKENS_SLOTSINUSE]   = (short) modUsed;
+        rebuilt[Item.TOKENS_MOD1]         = (short) mods[0];
+        rebuilt[Item.TOKENS_MOD2]         = (short) mods[1];
+        rebuilt[Item.TOKENS_MOD3]         = (short) mods[2];
+        rebuilt[Item.TOKENS_MOD4]         = (short) mods[3];
+        rebuilt[Item.TOKENS_MOD5]         = (short) mods[4];
+        rebuilt[Item.TOKENS_CONSTER]      = (short) conster;
+
+        byte[] roundtripped = buildItem(rebuilt).serializeTokens();
+        assertArrayEquals("named-columns reassembly must reproduce the"
+                + " original 34-byte wire blob", original, roundtripped);
+    }
+
+    /**
+     * The packed inventory `slot` int decomposes into
+     * (slot_index, slot_y, slot_x) and re-packs to the same value. Pins
+     * the round-trip for the required boundary set: flat QB slots, the
+     * F2 X/Y origin, and multi-dimension F2 positions.
+     */
+    @Test
+    public void slotPacking_roundTrips() {
+        int[] packed = {0, 7, 65538, 131076, 196614, 328195};
+        for (int pos : packed) {
+            int slotIndex = pos / 65536;
+            int slotY = (pos - slotIndex * 65536) / 256;
+            int slotX = (pos - slotIndex * 65536 - slotY * 256);
+            int repacked = slotX + slotY * 256 + slotIndex * 65536;
+            assertEquals("slot packing must round-trip for " + pos,
+                    pos, repacked);
+        }
+    }
+
     @Test
     public void itemGetters_exposePersistenceFields() {
         short[] tokens = new short[17];

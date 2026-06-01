@@ -42,17 +42,62 @@ public class ItemManager {
 		int orphaned = 0;
 		int reflowed = 0;
 		long maxItemId = 0;
-		try (PreparedStatement ps = conn.prepareStatement(
-				"SELECT id, container_id, type_id, slot, flags, tokens FROM items");
+		// Named-columns schema (2026-06-01): the opaque `tokens` bytea and
+		// packed `slot` int were replaced by named INTEGER columns plus the
+		// `item_mod_slot` side table. We reassemble the in-memory
+		// `short[17] tokens` + packed `inventorypos` here so the Item ctor
+		// (and therefore createNetworkInfoData / the wire output) is fed a
+		// byte-identical short[] to the pre-refactor blob path.
+		String sql =
+				"SELECT i.id, i.container_id, i.type_id, i.flags,"
+				+ " i.curr_cond, i.max_cond, i.damage, i.frequency, i.handling,"
+				+ " i.range, i.clip_size, i.ammo_uses, i.stack_count,"
+				+ " i.mod_slots, i.mod_slots_used, i.constructor_char_id,"
+				+ " i.slot_index, i.slot_x, i.slot_y,"
+				+ " m1.mod_value AS mod1, m2.mod_value AS mod2,"
+				+ " m3.mod_value AS mod3, m4.mod_value AS mod4,"
+				+ " m5.mod_value AS mod5"
+				+ " FROM items i"
+				+ " LEFT JOIN item_mod_slot m1 ON m1.item_id = i.id AND m1.slot_no = 1"
+				+ " LEFT JOIN item_mod_slot m2 ON m2.item_id = i.id AND m2.slot_no = 2"
+				+ " LEFT JOIN item_mod_slot m3 ON m3.item_id = i.id AND m3.slot_no = 3"
+				+ " LEFT JOIN item_mod_slot m4 ON m4.item_id = i.id AND m4.slot_no = 4"
+				+ " LEFT JOIN item_mod_slot m5 ON m5.item_id = i.id AND m5.slot_no = 5";
+		try (PreparedStatement ps = conn.prepareStatement(sql);
 		     ResultSet rs = ps.executeQuery()) {
 			while (rs.next()) {
 				long id = rs.getLong("id");
 				int contId = rs.getInt("container_id");
 				int typeId = rs.getInt("type_id");
-				int slot = rs.getInt("slot");
 				int flags = rs.getInt("flags");
-				byte[] tokenBytes = rs.getBytes("tokens");
-				short[] tokens = Item.deserializeTokens(tokenBytes);
+
+				// Reassemble the short[17] tokens array from named columns.
+				short[] tokens = new short[17];
+				tokens[Item.TOKENS_CURRCOND]     = (short) rs.getInt("curr_cond");
+				tokens[Item.TOKENS_MAXCOND]      = (short) rs.getInt("max_cond");
+				tokens[Item.TOKENS_DMG]          = (short) rs.getInt("damage");
+				tokens[Item.TOKENS_FREQUENCY]    = (short) rs.getInt("frequency");
+				tokens[Item.TOKENS_HANDLING]     = (short) rs.getInt("handling");
+				tokens[Item.TOKENS_RANGE]        = (short) rs.getInt("range");
+				tokens[Item.TOKENS_CLIPSIZE]     = (short) rs.getInt("clip_size");
+				tokens[Item.TOKENS_AMMOUSES]     = (short) rs.getInt("ammo_uses");
+				tokens[Item.TOKENS_ITEMSONSTACK] = (short) rs.getInt("stack_count");
+				tokens[Item.TOKENS_SLOTS]        = (short) rs.getInt("mod_slots");
+				tokens[Item.TOKENS_SLOTSINUSE]   = (short) rs.getInt("mod_slots_used");
+				tokens[Item.TOKENS_MOD1]         = (short) rs.getInt("mod1");
+				tokens[Item.TOKENS_MOD2]         = (short) rs.getInt("mod2");
+				tokens[Item.TOKENS_MOD3]         = (short) rs.getInt("mod3");
+				tokens[Item.TOKENS_MOD4]         = (short) rs.getInt("mod4");
+				tokens[Item.TOKENS_MOD5]         = (short) rs.getInt("mod5");
+				tokens[Item.TOKENS_CONSTER]      = (short) rs.getInt("constructor_char_id");
+
+				// Re-pack the inventory position from the three decoded
+				// dimensions. Round-trips the old `slot` int exactly:
+				// slot = slot_x + slot_y*256 + slot_index*65536.
+				int slotX     = rs.getInt("slot_x");
+				int slotY     = rs.getInt("slot_y");
+				int slotIndex = rs.getInt("slot_index");
+				int slot = slotX + slotY * 256 + slotIndex * 65536;
 
 				if (id > maxItemId) maxItemId = id;
 
@@ -139,6 +184,16 @@ public class ItemManager {
 		//    correct-on-removal approach. Items the player threw
 		//    away or moved out won't linger as ghost DB rows.
 		// 2. Re-insert every item currently in the container.
+		try (PreparedStatement delMods = conn.prepareStatement(
+				"DELETE FROM item_mod_slot WHERE item_id IN"
+				+ " (SELECT id FROM items WHERE container_id = ?)")) {
+			delMods.setInt(1, container.getContainerID());
+			delMods.executeUpdate();
+		} catch (SQLException e) {
+			Out.writeln(Out.Error, "ItemManager.save: mod-slot delete failed: "
+					+ e.getMessage());
+			return;
+		}
 		try (PreparedStatement del = conn.prepareStatement(
 				"DELETE FROM items WHERE container_id = ?")) {
 			del.setInt(1, container.getContainerID());
@@ -176,29 +231,116 @@ public class ItemManager {
 		int contId = it.getContainer() != null
 				? it.getContainer().getContainerID() : 0;
 		boolean pg = SqliteDatabase.isPostgres();
-		String sql = pg
-				? "INSERT INTO items (id, container_id, type_id, slot, flags, tokens)"
-					+ " VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET"
-					+ " container_id=EXCLUDED.container_id,"
-					+ " type_id=EXCLUDED.type_id,"
-					+ " slot=EXCLUDED.slot,"
-					+ " flags=EXCLUDED.flags,"
-					+ " tokens=EXCLUDED.tokens"
-				: "INSERT OR REPLACE INTO items"
-					+ " (id, container_id, type_id, slot, flags, tokens)"
-					+ " VALUES (?, ?, ?, ?, ?, ?)";
+
+		// Decompose the in-memory short[17] tokens + packed inventorypos
+		// into the named columns. The wire representation (tokens array)
+		// is untouched — this is purely the persistence translation.
+		short[] tokens = it.getTokens();
+		int pos = it.getInventoryPos();
+		int slotIndex = pos / 65536;
+		int slotY     = (pos - slotIndex * 65536) / 256;
+		int slotX     = (pos - slotIndex * 65536 - slotY * 256);
+
+		final String[] cols = {
+			"id", "container_id", "type_id", "flags",
+			"curr_cond", "max_cond", "damage", "frequency", "handling",
+			"range", "clip_size", "ammo_uses", "stack_count",
+			"mod_slots", "mod_slots_used", "constructor_char_id",
+			"slot_index", "slot_x", "slot_y"
+		};
+		String sql;
+		if (pg) {
+			StringBuilder b = new StringBuilder("INSERT INTO items (");
+			for (int i = 0; i < cols.length; i++) {
+				if (i > 0) b.append(", ");
+				b.append(cols[i]);
+			}
+			b.append(") VALUES (");
+			for (int i = 0; i < cols.length; i++) {
+				if (i > 0) b.append(", ");
+				b.append("?");
+			}
+			b.append(") ON CONFLICT (id) DO UPDATE SET");
+			for (int i = 1; i < cols.length; i++) { // skip id
+				if (i > 1) b.append(",");
+				b.append(" ").append(cols[i]).append("=EXCLUDED.").append(cols[i]);
+			}
+			sql = b.toString();
+		} else {
+			StringBuilder b = new StringBuilder("INSERT OR REPLACE INTO items (");
+			for (int i = 0; i < cols.length; i++) {
+				if (i > 0) b.append(", ");
+				b.append(cols[i]);
+			}
+			b.append(") VALUES (");
+			for (int i = 0; i < cols.length; i++) {
+				if (i > 0) b.append(", ");
+				b.append("?");
+			}
+			b.append(")");
+			sql = b.toString();
+		}
 		try (PreparedStatement ps = conn.prepareStatement(sql)) {
-			ps.setLong(1, it.getId());
-			ps.setInt(2, contId);
-			ps.setInt(3, it.getTypeId());
-			// slot = the packed inventory position so exact grid
-			// layout (F2 slot + X/Y origin, or QB slot index) survives
-			// a server restart.
-			ps.setInt(4, it.getInventoryPos());
-			ps.setInt(5, it.getFlags());
-			ps.setBytes(6, it.serializeTokens());
+			int p = 1;
+			ps.setLong(p++, it.getId());
+			ps.setInt(p++, contId);
+			ps.setInt(p++, it.getTypeId());
+			ps.setInt(p++, it.getFlags());
+			ps.setInt(p++, tokens[Item.TOKENS_CURRCOND]);
+			ps.setInt(p++, tokens[Item.TOKENS_MAXCOND]);
+			ps.setInt(p++, tokens[Item.TOKENS_DMG]);
+			ps.setInt(p++, tokens[Item.TOKENS_FREQUENCY]);
+			ps.setInt(p++, tokens[Item.TOKENS_HANDLING]);
+			ps.setInt(p++, tokens[Item.TOKENS_RANGE]);
+			ps.setInt(p++, tokens[Item.TOKENS_CLIPSIZE]);
+			ps.setInt(p++, tokens[Item.TOKENS_AMMOUSES]);
+			ps.setInt(p++, tokens[Item.TOKENS_ITEMSONSTACK]);
+			ps.setInt(p++, tokens[Item.TOKENS_SLOTS]);
+			ps.setInt(p++, tokens[Item.TOKENS_SLOTSINUSE]);
+			ps.setInt(p++, tokens[Item.TOKENS_CONSTER]);
+			ps.setInt(p++, slotIndex);
+			ps.setInt(p++, slotX);
+			ps.setInt(p++, slotY);
 			ps.executeUpdate();
-			return true;
+		}
+
+		// Upsert the mod-slot side table for tokens[11..15]. Only
+		// non-zero mods get rows; zero mods are deleted so the LEFT JOIN
+		// reassembles them back to 0 on load.
+		writeModSlots(conn, pg, it.getId(), tokens);
+		return true;
+	}
+
+	/**
+	 * Persist the five mod-slot values (tokens[11..15] → slot_no 1..5)
+	 * into {@code item_mod_slot}. Non-zero values are upserted; zero
+	 * values are deleted so absence == 0 on reload.
+	 */
+	private static void writeModSlots(Connection conn, boolean pg, long itemId,
+			short[] tokens) throws SQLException {
+		for (int slotNo = 1; slotNo <= 5; slotNo++) {
+			int mod = tokens[Item.TOKENS_MOD1 + (slotNo - 1)];
+			if (mod == 0) {
+				try (PreparedStatement del = conn.prepareStatement(
+						"DELETE FROM item_mod_slot WHERE item_id = ? AND slot_no = ?")) {
+					del.setLong(1, itemId);
+					del.setInt(2, slotNo);
+					del.executeUpdate();
+				}
+				continue;
+			}
+			String sql = pg
+					? "INSERT INTO item_mod_slot (item_id, slot_no, mod_value)"
+						+ " VALUES (?, ?, ?) ON CONFLICT (item_id, slot_no)"
+						+ " DO UPDATE SET mod_value=EXCLUDED.mod_value"
+					: "INSERT OR REPLACE INTO item_mod_slot"
+						+ " (item_id, slot_no, mod_value) VALUES (?, ?, ?)";
+			try (PreparedStatement ps = conn.prepareStatement(sql)) {
+				ps.setLong(1, itemId);
+				ps.setInt(2, slotNo);
+				ps.setInt(3, mod);
+				ps.executeUpdate();
+			}
 		}
 	}
 	

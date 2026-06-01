@@ -34,7 +34,7 @@ public final class SqliteDatabase {
      *           faction_sympathies (JSON) and per-skill xp/rate/max.</li>
      * </ul>
      */         
-    public static final int CURRENT_SCHEMA_VERSION = 8;
+    public static final int CURRENT_SCHEMA_VERSION = 9;
 
     /**
      * CharInfo fidelity columns added in schema v1. Each entry is
@@ -331,28 +331,48 @@ public final class SqliteDatabase {
 
             stmt.execute(pcSql.toString());
 
-            // Items table
-            // flags + tokens columns added in schema v6 (2026-05-10) to
-            // support ItemManager persistence. tokens stores 17 LE16
-            // shorts (= 34 bytes) for weapon/spell state.
-            String tokensType = isPostgres() ? "BYTEA" : "BLOB";
+            // Items table — named-columns schema (2026-06-01). The old
+            // opaque `tokens` bytea (17 LE16 shorts) and packed `slot` int
+            // were decomposed into editable/validatable named columns.
+            // ItemManager reassembles the in-memory short[17] tokens +
+            // packed inventorypos from these, so the wire serialization is
+            // byte-identical. `quality` is retained but currently unused.
+            // Per-item mod-slot values (tokens[11..15]) live in the
+            // item_mod_slot side table below.
             stmt.execute(
                 "CREATE TABLE IF NOT EXISTS items (" +
                 "  id INTEGER PRIMARY KEY," +
                 "  container_id INTEGER NOT NULL," +
                 "  type_id INTEGER NOT NULL," +
-                "  slot INTEGER DEFAULT 0," +
                 "  quality INTEGER DEFAULT 0," +
                 "  flags INTEGER DEFAULT 0," +
-                "  tokens " + tokensType +
+                "  curr_cond INTEGER DEFAULT 0," +
+                "  max_cond INTEGER DEFAULT 0," +
+                "  damage INTEGER DEFAULT 0," +
+                "  frequency INTEGER DEFAULT 0," +
+                "  handling INTEGER DEFAULT 0," +
+                "  range INTEGER DEFAULT 0," +
+                "  clip_size INTEGER DEFAULT 0," +
+                "  ammo_uses INTEGER DEFAULT 0," +
+                "  stack_count INTEGER DEFAULT 0," +
+                "  mod_slots INTEGER DEFAULT 0," +
+                "  mod_slots_used INTEGER DEFAULT 0," +
+                "  constructor_char_id INTEGER DEFAULT 0," +
+                "  slot_index SMALLINT DEFAULT 0," +
+                "  slot_x SMALLINT DEFAULT 0," +
+                "  slot_y SMALLINT DEFAULT 0" +
                 ")"
             );
 
-            // Item containers table
+            // Per-item mod-slot table — tokens[11..15] → slot_no 1..5.
+            // Only non-zero mods get rows; ItemManager reassembles absent
+            // slots back to 0 on load via a LEFT JOIN.
             stmt.execute(
-                "CREATE TABLE IF NOT EXISTS item_containers (" +
-                "  id INTEGER PRIMARY KEY," +
-                "  type INTEGER NOT NULL" +
+                "CREATE TABLE IF NOT EXISTS item_mod_slot (" +
+                "  item_id INTEGER NOT NULL," +
+                "  slot_no INTEGER NOT NULL," +
+                "  mod_value INTEGER NOT NULL," +
+                "  PRIMARY KEY (item_id, slot_no)" +
                 ")"
             );
 
@@ -370,16 +390,9 @@ public final class SqliteDatabase {
                 ")"
             );
 
-            // Item definitions imported from NC2 client's defs/pak_items.def
-            stmt.execute(
-                "CREATE TABLE IF NOT EXISTS item_defs (" +
-                "  id INTEGER PRIMARY KEY," +
-                "  name TEXT," +
-                "  type INTEGER," +
-                "  tech_level INTEGER," +
-                "  stats_json TEXT" +
-                ")"
-            );
+            // NOTE: the dead `item_defs` table was removed 2026-06-01. Item
+            // type metadata is sourced from the separate `item_type` table
+            // (populated from defs\items.def), not managed here.
 
             // NPC spawn definitions — where NPCs appear in each zone.
             // Schema mirrors TinNS npc_spawns. mapID must be in the
@@ -525,44 +538,25 @@ public final class SqliteDatabase {
         }
 
         if (currentVersion < 6) {
-            // v5 → v6: add `flags` and `tokens` columns to the items
-            // table so ItemManager.save() / load() can round-trip
-            // weapon/spell state. Existing rows default to flags=0
-            // and tokens=NULL (treated as zero-filled by Item.deserializeTokens).
-            //
-            // Closes the inventory-persistence gap documented in
-            // zone_handoff_and_inventory_gaps memory — items table
-            // was empty because save() / load() were empty stubs.
+            // v5 → v6 (HISTORICAL): originally added `flags` + `tokens`
+            // (bytea) to the items table. As of the 2026-06-01
+            // named-columns refactor the items table is created directly
+            // with named columns by createTables(), and any legacy
+            // `tokens`/`slot` columns are decomposed by the v9 block below.
+            // Only `flags` (still a live column) is ensured here for the
+            // edge case of a legacy DB at version < 6.
             Set<String> existing = getExistingColumns("items");
-            String tokensType = isPostgres() ? "BYTEA" : "BLOB";
             try (Statement stmt = connection.createStatement()) {
                 if (!existing.contains("flags")) {
                     stmt.execute(
                         "ALTER TABLE items ADD COLUMN flags INTEGER DEFAULT 0");
                 }
-                if (!existing.contains("tokens")) {
-                    stmt.execute(
-                        "ALTER TABLE items ADD COLUMN tokens " + tokensType);
-                }
             }
         }
 
-        if (currentVersion < 7) {
-            // v6 → v7: ensure the `slot` column exists on the items
-            // table so ItemManager can round-trip the EXACT grid
-            // position (packed F2-slot/X/Y, or QB slot index). Fresh
-            // DBs get `slot` from createTables(); this guards legacy
-            // DBs whose items table predates the column. Existing rows
-            // default to slot=0 (treated as "unknown" by loadall, which
-            // then re-flows them via auto-placement).
-            Set<String> existing = getExistingColumns("items");
-            try (Statement stmt = connection.createStatement()) {
-                if (!existing.contains("slot")) {
-                    stmt.execute(
-                        "ALTER TABLE items ADD COLUMN slot INTEGER DEFAULT 0");
-                }
-            }
-        }
+        // v6 → v7 (the old `slot` ALTER) is intentionally omitted: the
+        // packed `slot` column is replaced by slot_index/slot_x/slot_y in
+        // the v9 named-columns migration below.
 
         if (currentVersion < 8) {
             // v7 → v8: add `gm_level` INTEGER to the accounts table for
@@ -580,9 +574,124 @@ public final class SqliteDatabase {
             }
         }
 
+        if (currentVersion < 9) {
+            // v8 → v9 (2026-06-01): named-columns items refactor. Legacy
+            // SQLite DBs still carry the opaque `tokens` BLOB and packed
+            // `slot` INTEGER. Decompose them into the named columns +
+            // item_mod_slot side table, then drop `tokens`/`slot`. Fresh
+            // DBs created by createTables() already have the named columns
+            // and no `tokens`/`slot`, so each step is guarded and becomes a
+            // no-op there. The Postgres equivalent ships as
+            // sql/migrations/2026-06-01_items_named_columns.sql.
+            migrateItemsToNamedColumns();
+        }
+
         writeSchemaVersion(CURRENT_SCHEMA_VERSION);
 
         Out.writeln(Out.Info, "Schema migrated to version " + CURRENT_SCHEMA_VERSION);
+    }
+
+    /**
+     * v8 → v9 SQLite migration: convert a legacy {@code items} table
+     * (opaque {@code tokens} BLOB + packed {@code slot} INTEGER) into the
+     * named-columns schema and populate {@code item_mod_slot}.
+     *
+     * <p>Idempotent and self-guarding: if the {@code tokens} column is
+     * absent (fresh DB from {@link #createTables()}) the whole method is a
+     * no-op. The named columns are ADD-guarded against
+     * {@link #getExistingColumns}.
+     */
+    private static void migrateItemsToNamedColumns() throws SQLException {
+        Set<String> cols = getExistingColumns("items");
+        // Ensure the side table exists (fresh DBs already have it).
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute(
+                "CREATE TABLE IF NOT EXISTS item_mod_slot (" +
+                "  item_id INTEGER NOT NULL," +
+                "  slot_no INTEGER NOT NULL," +
+                "  mod_value INTEGER NOT NULL," +
+                "  PRIMARY KEY (item_id, slot_no)" +
+                ")"
+            );
+        }
+
+        // If there is no legacy `tokens` column there is nothing to
+        // decompose — fresh DBs already have the named columns.
+        if (!cols.contains("tokens")) return;
+
+        // 1. ADD the named columns if missing.
+        String[][] adds = {
+            {"curr_cond", "INTEGER DEFAULT 0"}, {"max_cond", "INTEGER DEFAULT 0"},
+            {"damage", "INTEGER DEFAULT 0"}, {"frequency", "INTEGER DEFAULT 0"},
+            {"handling", "INTEGER DEFAULT 0"}, {"range", "INTEGER DEFAULT 0"},
+            {"clip_size", "INTEGER DEFAULT 0"}, {"ammo_uses", "INTEGER DEFAULT 0"},
+            {"stack_count", "INTEGER DEFAULT 0"}, {"mod_slots", "INTEGER DEFAULT 0"},
+            {"mod_slots_used", "INTEGER DEFAULT 0"},
+            {"constructor_char_id", "INTEGER DEFAULT 0"},
+            {"slot_index", "SMALLINT DEFAULT 0"}, {"slot_x", "SMALLINT DEFAULT 0"},
+            {"slot_y", "SMALLINT DEFAULT 0"},
+        };
+        try (Statement stmt = connection.createStatement()) {
+            for (String[] a : adds) {
+                if (!cols.contains(a[0])) {
+                    stmt.execute("ALTER TABLE items ADD COLUMN "
+                        + a[0] + " " + a[1]);
+                }
+            }
+        }
+
+        // 2. BACKFILL named columns + item_mod_slot from tokens/slot, row
+        //    by row, reusing the exact LE16 / packed-slot math the runtime
+        //    uses so the values round-trip identically.
+        boolean hasSlot = cols.contains("slot");
+        try (PreparedStatement sel = connection.prepareStatement(
+                "SELECT id, tokens" + (hasSlot ? ", slot" : "") + " FROM items");
+             ResultSet rs = sel.executeQuery()) {
+            while (rs.next()) {
+                long id = rs.getLong("id");
+                short[] t = server.database.items.Item.deserializeTokens(
+                        rs.getBytes("tokens"));
+                int slot = hasSlot ? rs.getInt("slot") : 0;
+                int slotIndex = slot / 65536;
+                int slotY = (slot - slotIndex * 65536) / 256;
+                int slotX = (slot - slotIndex * 65536 - slotY * 256);
+
+                try (PreparedStatement up = connection.prepareStatement(
+                        "UPDATE items SET curr_cond=?, max_cond=?, damage=?,"
+                        + " frequency=?, handling=?, range=?, clip_size=?,"
+                        + " ammo_uses=?, stack_count=?, mod_slots=?,"
+                        + " mod_slots_used=?, constructor_char_id=?,"
+                        + " slot_index=?, slot_x=?, slot_y=? WHERE id=?")) {
+                    up.setInt(1, t[0]); up.setInt(2, t[1]); up.setInt(3, t[2]);
+                    up.setInt(4, t[3]); up.setInt(5, t[4]); up.setInt(6, t[5]);
+                    up.setInt(7, t[6]); up.setInt(8, t[7]); up.setInt(9, t[8]);
+                    up.setInt(10, t[9]); up.setInt(11, t[10]); up.setInt(12, t[16]);
+                    up.setInt(13, slotIndex); up.setInt(14, slotX);
+                    up.setInt(15, slotY); up.setLong(16, id);
+                    up.executeUpdate();
+                }
+                for (int slotNo = 1; slotNo <= 5; slotNo++) {
+                    int mod = t[10 + slotNo]; // tokens[11..15]
+                    if (mod == 0) continue;
+                    try (PreparedStatement ins = connection.prepareStatement(
+                            "INSERT OR REPLACE INTO item_mod_slot"
+                            + " (item_id, slot_no, mod_value) VALUES (?, ?, ?)")) {
+                        ins.setLong(1, id); ins.setInt(2, slotNo);
+                        ins.setInt(3, mod); ins.executeUpdate();
+                    }
+                }
+            }
+        }
+
+        // 3. DROP the legacy tokens/slot columns. SQLite has supported
+        //    ALTER TABLE DROP COLUMN since 3.35 (2021); the bundled JDBC
+        //    driver is well past that.
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute("ALTER TABLE items DROP COLUMN tokens");
+            if (hasSlot) {
+                stmt.execute("ALTER TABLE items DROP COLUMN slot");
+            }
+        }
     }
 
     /**
