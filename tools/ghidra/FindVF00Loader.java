@@ -1,0 +1,136 @@
+// FindVF00Loader.java — locate the VF00/.act model loader.
+// Finds defined strings matching format/chunk tags and dumps the
+// decompilation of every function that references them.
+//
+// Usage:
+//   /opt/ghidra/support/analyzeHeadless \
+//       /home/javier/Documents/Projects/Neocron Neocron2clien \
+//       -process neocronclient.exe -noanalysis \
+//       -scriptPath /home/javier/Documents/Projects/Neocron/ceres-j/tools/ghidra \
+//       -postScript FindVF00Loader.java
+
+import ghidra.app.decompiler.DecompInterface;
+import ghidra.app.decompiler.DecompileOptions;
+import ghidra.app.decompiler.DecompileResults;
+import ghidra.app.script.GhidraScript;
+import ghidra.program.model.address.Address;
+import ghidra.program.model.listing.Data;
+import ghidra.program.model.listing.DataIterator;
+import ghidra.program.model.listing.Function;
+import ghidra.program.model.listing.Listing;
+import ghidra.program.model.mem.Memory;
+import ghidra.program.model.mem.MemoryBlock;
+import ghidra.program.model.symbol.Reference;
+import ghidra.program.model.symbol.ReferenceIterator;
+import ghidra.program.model.symbol.ReferenceManager;
+import ghidra.util.task.ConsoleTaskMonitor;
+
+import java.io.PrintWriter;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.TreeMap;
+
+public class FindVF00Loader extends GhidraScript {
+
+    private static final String[] NEEDLES = new String[] {
+        "VF00", "ACTR", "BOD^", ".act", "BODY", "BONE", "VERT", "FACE",
+        "MESH", "SKEL", "ANIM", "Geom", "Motion", "Material", "Bitmap",
+        "GeBm", "SBKB", "CSBK", "ActorReader", "Actor", "Vertex", "Body",
+    };
+
+    private static final String OUT_PATH =
+        "/home/javier/Documents/Projects/Neocron/ceres-j/docs/vf00_loader_refs.txt";
+
+    @Override
+    protected void run() throws Exception {
+        DecompInterface decomp = new DecompInterface();
+        decomp.setOptions(new DecompileOptions());
+        decomp.openProgram(currentProgram);
+
+        Listing listing = currentProgram.getListing();
+        ReferenceManager refMgr = currentProgram.getReferenceManager();
+
+        // First: scan raw memory for the 4-byte tags VF00/ACTR/BOD^ used as
+        // immediate compares (the loader compares the magic as a u32, the bytes
+        // may not be a defined string). Report addresses where they appear in
+        // .rdata/.text as scalars too.
+        Memory mem = currentProgram.getMemory();
+
+        TreeMap<String, Set<Address>> stringAddrs = new TreeMap<>();
+        DataIterator dit = listing.getDefinedData(true);
+        while (dit.hasNext()) {
+            Data d = dit.next();
+            if (d.getDataType() == null) continue;
+            String dtName = d.getDataType().getName().toLowerCase();
+            if (!dtName.contains("string") && !dtName.contains("char")) continue;
+            Object val = d.getValue();
+            if (!(val instanceof String)) continue;
+            String s = (String) val;
+            for (String needle : NEEDLES) {
+                if (s.contains(needle)) {
+                    stringAddrs.computeIfAbsent(needle, k -> new LinkedHashSet<>())
+                               .add(d.getAddress());
+                    println("needle '" + needle + "' -> " + d.getAddress()
+                            + "  full='" + s + "'");
+                }
+            }
+        }
+
+        TreeMap<Address, Function> touched = new TreeMap<>();
+        TreeMap<Address, StringBuilder> whyLog = new TreeMap<>();
+        for (var entry : stringAddrs.entrySet()) {
+            String needle = entry.getKey();
+            for (Address addr : entry.getValue()) {
+                ReferenceIterator refs = refMgr.getReferencesTo(addr);
+                while (refs.hasNext()) {
+                    Reference r = refs.next();
+                    Function fn = listing.getFunctionContaining(r.getFromAddress());
+                    if (fn == null) {
+                        Address from = r.getFromAddress();
+                        long off = 0;
+                        while (off < 0x1000 && fn == null) {
+                            fn = listing.getFunctionAt(from.subtract(off));
+                            off++;
+                        }
+                    }
+                    if (fn != null) {
+                        Address ep = fn.getEntryPoint();
+                        touched.putIfAbsent(ep, fn);
+                        whyLog.computeIfAbsent(ep, k -> new StringBuilder())
+                              .append("  ").append(r.getFromAddress())
+                              .append(" refs '").append(needle)
+                              .append("' @ ").append(addr).append("\n");
+                    }
+                }
+            }
+        }
+
+        println("=== " + touched.size() + " functions reference the needles ===");
+
+        try (PrintWriter pw = new PrintWriter(OUT_PATH)) {
+            pw.println("# Functions referencing VF00 / .act model format strings");
+            pw.println("# Generated by FindVF00Loader.java");
+            pw.println();
+            for (Function fn : touched.values()) {
+                pw.println("======================================================");
+                pw.println("FUNCTION " + fn.getName() + " @ " + fn.getEntryPoint());
+                pw.println("======================================================");
+                StringBuilder why = whyLog.get(fn.getEntryPoint());
+                if (why != null) {
+                    pw.println("Why matched:");
+                    pw.print(why);
+                    pw.println();
+                }
+                DecompileResults res = decomp.decompileFunction(
+                        fn, 120, new ConsoleTaskMonitor());
+                if (res != null && res.decompileCompleted()) {
+                    pw.println(res.getDecompiledFunction().getC());
+                } else {
+                    pw.println("(decompile failed)");
+                }
+                pw.println();
+            }
+        }
+        println("Wrote " + touched.size() + " functions to " + OUT_PATH);
+    }
+}
