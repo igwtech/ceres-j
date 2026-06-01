@@ -205,8 +205,11 @@ public class ClientFrameDecoderTest {
     }
 
     /**
-     * Single-packet {@code 0x03/0x2c} CharInfo (body ≤ 900B):
-     * one reliable sub, body[0] == 0x2c, Size: == body length.
+     * Single-packet {@code 0x03/0x2c} CharInfo (body ≤ the 60-byte
+     * single-packet threshold): one reliable sub, body[0] == 0x2c,
+     * Size: == body length. (Threshold lowered from 900 to 60 on
+     * 2026-06-01 so a single 0x2c datagram stays under the 82-byte
+     * receive ceiling; bodies above 60B multipart instead.)
      */
     @Test
     public void singlePacketCharInfoFramesAsType0x2c() {
@@ -215,7 +218,9 @@ public class ClientFrameDecoderTest {
         server.networktools.PacketBuilderUDP130307 pb =
                 new server.networktools.PacketBuilderUDP130307(pl);
         pb.newSection(1);
-        for (int i = 0; i < 64; i++) {
+        // 40-byte section body (+3B section header = 43B complete body) keeps
+        // the builder under the 60B single-packet threshold.
+        for (int i = 0; i < 40; i++) {
             pb.write(i & 0xFF);
         }
         DatagramPacket[] dps = pb.getDatagramPackets();

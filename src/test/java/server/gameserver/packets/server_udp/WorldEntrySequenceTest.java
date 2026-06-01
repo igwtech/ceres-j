@@ -88,29 +88,29 @@ public class WorldEntrySequenceTest {
     }
 
     @Test
-    public void charInfoUsesSinglePacketForSmallBody() {
-        // A fresh character (no inventory, no quest log, no faction reps)
-        // produces a CharInfo body well under the ~900-byte multipart
-        // threshold. Verified retail behavior 2026-05-01: small bodies ride
-        // reliable_type 0x2c as a single packet (Dr.Stone fresh char in
-        // Genesis Dungeon AND Plaza Sec-1 both used 0x2c).
+    public void charInfoFragmentsStayUnderReceiveCeiling() {
+        // Revised 2026-06-01. A real CharInfo body (even a fresh character's)
+        // exceeds the 60-byte single-packet threshold, so it multiparts. The
+        // invariant that matters on Ceres's Docker-bridge ↔ Wine transport is
+        // that EVERY emitted datagram stays ≤82 bytes — the measured hard
+        // receive ceiling, above which the client silently drops the packet
+        // (which is what left the F1 skill screen rendering garbage). The old
+        // "small CharInfo = single 0x2c packet" assertion no longer holds and
+        // is not the goal; deliverability is.
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
         DatagramPacket[] dps = new CharInfo(pl).getDatagramPackets();
 
-        assertEquals("small CharInfo must be a single packet, got "
-                + dps.length + " datagram(s)", 1, dps.length);
-
-        // Frame: 0x13 + counter + size + 0x03 reliable wrapper + 0x2c sub-type.
-        byte[] data = dps[0].getData();
-        assertEquals(0x13, data[0] & 0xFF);
-        assertEquals("reliable wrapper at offset 7", 0x03, data[7] & 0xFF);
-        assertEquals("single-packet sub-type at offset 10", 0x2c, data[10] & 0xFF);
-
-        // Inner data starts immediately after offset 10. Retail single-mode
-        // prefix is `02 01` (replaces multipart's `00 22 02 01` chain_key+magic).
-        assertEquals("single-mode prefix byte 0", 0x02, data[11] & 0xFF);
-        assertEquals("single-mode prefix byte 1", 0x01, data[12] & 0xFF);
-        // Section 1 ID immediately follows the 2-byte prefix.
-        assertEquals("section 1 id at offset 13", 0x01, data[13] & 0xFF);
+        assertTrue("CharInfo must emit ≥1 datagram", dps.length >= 1);
+        for (DatagramPacket dp : dps) {
+            byte[] data = dp.getData();
+            assertEquals("0x13 outer frame", 0x13, data[0] & 0xFF);
+            assertEquals("reliable wrapper at offset 7", 0x03, data[7] & 0xFF);
+            int subTag = data[10] & 0xFF;
+            assertTrue("sub-tag is 0x2c (single) or 0x07 (multipart), got 0x"
+                    + Integer.toHexString(subTag),
+                    subTag == 0x2c || subTag == 0x07);
+            assertTrue("datagram must be ≤82B (receive ceiling), got "
+                    + dp.getLength() + "B", dp.getLength() <= 82);
+        }
     }
 }

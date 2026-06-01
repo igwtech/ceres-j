@@ -64,31 +64,39 @@ public class PacketBuilderUDP130307SizeDispatchTest {
     public void smallBodyEmitsAsSingle0x2c() {
         Player pl = PacketTestFixture.newPlayer();
         PacketBuilderUDP130307 pb = new PacketBuilderUDP130307(pl);
-        // 100B body — well under the 900-byte threshold.
-        writeBody(pb, 100);
+        // 40B body — under the 60-byte single-packet threshold, so the
+        // resulting single 0x2c datagram stays ≤82B (the receive ceiling).
+        writeBody(pb, 40);
         DatagramPacket[] dps = pb.getDatagramPackets();
 
-        assertEquals("100B body must emit exactly 1 datagram",
+        assertEquals("40B body must emit exactly 1 datagram",
                 1, dps.length);
-        assertEquals("100B body sub-tag must be 0x2c (single)",
+        assertEquals("40B body sub-tag must be 0x2c (single)",
                 SUB_TAG_SINGLE, subTag(dps[0]));
+        // The single datagram must itself fit under the 82B receive ceiling.
+        assertTrue("single 0x2c datagram must be ≤82B (" + dps[0].getLength()
+                + "B)", dps[0].getLength() <= 82);
     }
 
     @Test
-    public void atThresholdBodyEmitsAsSingle0x2c() {
+    public void aboveThresholdBodyEmitsAsMultipart0x07() {
         Player pl = PacketTestFixture.newPlayer();
         PacketBuilderUDP130307 pb = new PacketBuilderUDP130307(pl);
-        // The body added to `complete` is 3 bytes of section
-        // header + 900 body bytes = 903B total. The threshold
-        // applies to `complete.size()`, so we need 900 - 3 = 897
-        // body bytes to land at the 900 boundary. Use 850 to be
-        // conservatively well under and definitively single.
+        // 850B body — well over the 60-byte threshold. The previous 900-byte
+        // threshold sent this as one oversized 0x2c datagram the client
+        // silently dropped (>82B receive ceiling); it must now multipart so
+        // every fragment stays deliverable.
         writeBody(pb, 850);
         DatagramPacket[] dps = pb.getDatagramPackets();
 
-        assertEquals(1, dps.length);
-        assertEquals("850B body must still be single",
-                SUB_TAG_SINGLE, subTag(dps[0]));
+        assertTrue("850B body must multipart, got " + dps.length,
+                dps.length >= 2);
+        for (DatagramPacket dp : dps) {
+            assertEquals("every fragment carries sub-tag 0x07",
+                    SUB_TAG_MULTIPART, subTag(dp));
+            assertTrue("fragment datagram ≤82B (" + dp.getLength() + "B)",
+                    dp.getLength() <= 82);
+        }
     }
 
     @Test
@@ -146,12 +154,14 @@ public class PacketBuilderUDP130307SizeDispatchTest {
      * greys out (the client's skill-requirement check runs on uninitialised
      * CHARSYS data). Every received datagram in that trace was ≤ 86 bytes.
      *
-     * <p><b>Fix:</b> shrink {@code FRAGMENT_CHUNK_BYTES} to 214 so each
-     * fragment datagram lands in the size class that reliably traverses the
-     * bridge. A 2201-byte CharInfo then splits into 11 fragments
-     * (10×214 + 61). This test pins that count + the per-fragment payload
-     * sizes so the chunk can't silently inflate back to the un-deliverable
-     * 1000-byte value.
+     * <p><b>Fix:</b> the client on this transport NEVER receives an S→C
+     * plaintext datagram larger than 82 bytes (measured across live traces),
+     * so {@code FRAGMENT_CHUNK_BYTES} is 48 — each fragment datagram is
+     * ≈70 B plaintext (22 B framing + 48 chunk), comfortably ≤82. A
+     * 2201-byte CharInfo then splits into 46 fragments (45×48 + 41). This
+     * test pins that count + the per-fragment payload sizes + the ≤82 B
+     * datagram ceiling so the chunk can't silently inflate back to an
+     * un-deliverable value.
      */
     @Test
     public void chunkSizeProducesDeliverableFragmentCount() {
@@ -162,8 +172,9 @@ public class PacketBuilderUDP130307SizeDispatchTest {
         writeBody(pb, 2198);
         DatagramPacket[] dps = pb.getDatagramPackets();
 
-        assertEquals("2201B CharInfo must split into 11 deliverable fragments",
-                11, dps.length);
+        // ceil(2201 / 48) = 46 fragments; last = 2201 - 45*48 = 41.
+        assertEquals("2201B CharInfo must split into 46 deliverable fragments",
+                46, dps.length);
         for (DatagramPacket dp : dps) {
             assertEquals(SUB_TAG_MULTIPART, subTag(dp));
         }
@@ -176,14 +187,13 @@ public class PacketBuilderUDP130307SizeDispatchTest {
         final int FRAMING = 7 + 4 + 11;
         for (int i = 0; i < dps.length; i++) {
             int chunk = dps[i].getLength() - FRAMING;
-            int expected = (i < 10) ? 214 : 61; // 2201 - 10*214 = 61
+            int expected = (i < 45) ? 48 : 41; // 2201 - 45*48 = 41
             assertEquals("fragment[" + i + "] payload size",
                     expected, chunk);
-            // Each fragment datagram must stay small enough to deliver:
-            // 214 chunk + 22 framing + 4 cipher header = 240B, well under
-            // the ~86B-and-below class that arrived AND under any MTU.
-            assertTrue("fragment[" + i + "] datagram must be small ("
-                    + dps[i].getLength() + "B)", dps[i].getLength() <= 260);
+            // Each fragment datagram must stay ≤82B plaintext — the hard
+            // receive ceiling measured on the bridge ↔ Wine transport.
+            assertTrue("fragment[" + i + "] datagram must be ≤82B ("
+                    + dps[i].getLength() + "B)", dps[i].getLength() <= 82);
         }
     }
 

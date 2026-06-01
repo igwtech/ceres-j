@@ -31,11 +31,19 @@ public class PacketBuilderUDP130307 extends PacketBuilderUDP {
 	/**
 	 * Maximum body size that fits in a single {@code 0x03/0x2c} packet.
 	 * Above this threshold, the body is split into multipart fragments.
-	 * Conservative value derived from UDP MTU (~1450 B usable) minus the
-	 * cipher header (4 B), 0x13/0x03 wrapping (~5 B), reliable_type (1 B)
-	 * and the 2-byte single-mode prefix.
+	 *
+	 * <p><b>Constrained by the 82-byte receive ceiling (2026-06-01).</b> On
+	 * the Docker-bridge ↔ Wine-client transport the client never receives an
+	 * S→C plaintext datagram larger than 82 bytes (see
+	 * {@link #FRAGMENT_CHUNK_BYTES}). A single {@code 0x2c} datagram's
+	 * plaintext is {@code 10 + body.length} (7 outer + 3 reliable + 1 sub-tag
+	 * minus the dropped {@code 0x22}). For ≤82 B the body must be ≤72; we use
+	 * 60 for margin. Bodies above 60 B take the multipart path so their
+	 * fragments stay ≤82 B and actually reach the client. (The previous 900
+	 * value let a ~200–900 B CharInfo go out as one oversized {@code 0x2c}
+	 * datagram that the client silently dropped.)
 	 */
-	private static final int SINGLE_PACKET_THRESHOLD = 900;
+	private static final int SINGLE_PACKET_THRESHOLD = 60;
 
 	/**
 	 * Body bytes carried per multipart fragment.
@@ -59,16 +67,27 @@ public class PacketBuilderUDP130307 extends PacketBuilderUDP {
 	 * uninitialised CHARSYS data). Every datagram that DID arrive in that
 	 * trace was ≤ 86 bytes.
 	 *
-	 * <p>So the chunk is 214 (not retail's 1000): a 2201-byte CharInfo splits
-	 * into 11 fragments (datagram ≈ 240 B each) that reliably traverse the
-	 * bridge. The earlier "1000B = retail shape" rationale was correct about
-	 * the wire bytes but wrong about delivery on this transport — the
-	 * client-side reassembler ({@code FUN_0055c270}) is discriminator/total-
-	 * size driven and reassembles N fragments regardless of N, so the smaller
-	 * chunk costs only a few extra reliable seqs (all of which do commit at
-	 * this size, unlike the single oversized seq=1 that never did).
+	 * <p><b>Hard receive-size ceiling (measured 2026-06-01).</b> On this
+	 * Docker-bridge ↔ Wine-client transport the client NEVER receives an
+	 * S→C plaintext datagram larger than <b>82 bytes</b> — across multiple
+	 * live Frida traces the set of received sizes tops out at exactly 82,
+	 * and every CharInfo fragment above it (240 B at chunk=214, 1018 B at
+	 * chunk=1000) is dropped before reaching the client's recv hook while
+	 * the ≤82 B reliable packets interleaved around it all arrive. So the
+	 * fragment DATAGRAM must stay ≤82 B plaintext.
+	 *
+	 * <p>Fragment datagram plaintext = 22 B framing
+	 * ({@code 7 outer + 4 reliable/op + 11 fragment header}) + chunk. For a
+	 * ≤82 B datagram the chunk must be ≤60; we use <b>48</b> for margin
+	 * (≈70 B datagrams, comfortably in the proven-deliverable class). A
+	 * 2201-byte CharInfo then splits into 46 fragments, a 992-byte CharInfo
+	 * (Krafteo, 35 items) into 21 — more reliable seqs, but the client-side
+	 * reassembler ({@code FUN_0055c270}) is discriminator/total-size driven
+	 * and reassembles N fragments regardless of N, and every ≤82 B reliable
+	 * seq commits (unlike the oversized fragments that never did, leaving
+	 * the F1 skill screen garbage and the toolbelt greyed).
 	 */
-	private static final int FRAGMENT_CHUNK_BYTES = 214;
+	private static final int FRAGMENT_CHUNK_BYTES = 48;
 
 	/** Reliable sub-type IDs (verified retail). */
 	private static final int RELIABLE_MULTIPART = 0x07;

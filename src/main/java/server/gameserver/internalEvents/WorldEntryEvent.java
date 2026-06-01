@@ -111,6 +111,29 @@ public class WorldEntryEvent extends DummyEvent {
         Out.writeln(Out.Info, "WorldEntryEvent: streaming world state for "
                 + pc.getName() + " mapId=" + mapId);
 
+        // Sector-security diagnostic. The client derives the on-screen
+        // sector message ("Secure Sector / City Sector / Outskirt Sector
+        // / …") LOCALLY from worldinfo.def[zoneId].f4 (worldType), keyed
+        // by the zone id we send in TCP 0x83/0x0c Location. Log the
+        // resolved worldType so a wrong/secure sector flag is visible in
+        // the server log without needing a wire capture. zoneId here is
+        // the live sector the player will actually load (= MISC_LOCATION
+        // = the Location-packet id). worldType 0/1 → client shows a
+        // secure no-weapon zone; 3 (Outskirt: Pepper Park / Outzone) →
+        // weapons allowed.
+        {
+            int locZoneId = pc.getMisc(PlayerCharacter.MISC_LOCATION);
+            server.gameserver.Zone secZone = pl.getZone();
+            int worldType = (secZone == null) ? -1 : secZone.getWorldType();
+            boolean secure = (secZone != null) && secZone.isSecureSector();
+            Out.writeln(Out.Info, "WorldEntryEvent: sector-security for "
+                    + pc.getName() + " zoneId=" + locZoneId
+                    + " worldType=" + worldType
+                    + " (client msg id=" + (worldType < 0 ? "?" : (3200 + worldType))
+                    + ", " + (secure ? "SECURE no-weapon"
+                                     : "combat/weapons-allowed") + ")");
+        }
+
         // ── Keepalive ─────────────────────────────────────────────────
         safeSend(pl, () -> new UDPAlive(pl), "UDPAlive (pre-stream)");
 

@@ -82,9 +82,22 @@ public class RequestPositionUpdateTest {
 
         java.util.List<byte[]> raws = cap.rawBytes();
         assertTrue("≥3 raw datagrams captured", raws.size() >= 3);
-        // raws[2] is the InfoResponse — 17B total (7B 0x13 wrapper +
-        // 1B 0x03 + 2B seq + 1B 0x23 + 6B body).
-        byte[] ir = raws.get(2);
+        // Find the InfoResponse zoneInfo datagram by content. (It used to be
+        // raws[2], but CharInfo now multiparts into many small ≤82B fragment
+        // datagrams between the PositionUpdate and the InfoResponse, so a
+        // fixed index no longer points at it.) The zoneInfo datagram is 17B:
+        // 7B 0x13 wrapper + 1B 0x03 + 2B seq + 1B 0x23 + 6B body.
+        byte[] ir = null;
+        for (byte[] r : raws) {
+            if (r.length == 17 && (r[0] & 0xFF) == 0x13
+                    && (r[7] & 0xFF) == 0x03 && (r[10] & 0xFF) == 0x23) {
+                ir = r;
+                break;
+            }
+        }
+        org.junit.Assert.assertNotNull(
+                "zoneInfo InfoResponse datagram (17B, sub-op 0x23) present",
+                ir);
         assertEquals("zoneInfo total wire size = 17B",
                 17, ir.length);
         assertEquals("0x13 outer", 0x13, ir[0] & 0xFF);

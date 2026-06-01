@@ -88,6 +88,50 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 	private Integer defaultSpawnIdxCache; // lazy
 
 	/**
+	 * Per-sector world type — drives the client's sector-security
+	 * message ("Secure Sector / City Sector / Outskirt Sector / …").
+	 *
+	 * <p>The native client computes the message <em>locally</em> as
+	 * text-resource {@code 3200 + worldType} (see
+	 * {@code language/<lang>/pak_text.ini} ids 3200-3206), keyed by the
+	 * zone id the server sends in TCP {@code 0x83/0x0c Location}. There
+	 * is no separate "secure flag" on the wire: a zone is a no-weapon
+	 * safe zone iff its world type is one the client treats as secure
+	 * (type {@code 0} Secure and type {@code 1} City). Combat/anarchy
+	 * sectors — Pepper Park, Outzone (type {@code 3} Outskirt) — let the
+	 * client draw weapons.
+	 *
+	 * <p>Read from {@code client_defs[worldinfo][zoneId].f4} via
+	 * {@link PortalResolver#lookupWorldType(int)}. Returns {@code -1}
+	 * when the zone has no worldinfo row (caller should treat that as
+	 * "unknown", NOT as the secure default).
+	 *
+	 * @return the world type (0-6) for this zone, or {@code -1} if
+	 *         unknown.
+	 */
+	public int getWorldType() {
+		if (worldTypeCache == null) {
+			worldTypeCache = PortalResolver.lookupWorldType(zoneId);
+		}
+		return worldTypeCache;
+	}
+
+	private Integer worldTypeCache; // lazy
+
+	/**
+	 * Whether this sector is a "secure" no-weapon safe zone from the
+	 * client's perspective — i.e. the client will show the
+	 * "Secure Sector — you can neither draw any weapons here" line and
+	 * block weapon-drawing. True only for the city/secure world types
+	 * (0 Secure, 1 City). Combat sectors (Pepper Park / Outzone, type 3
+	 * Outskirt) return {@code false}.
+	 */
+	public boolean isSecureSector() {
+		int wt = getWorldType();
+		return wt == 0 || wt == 1;
+	}
+
+	/**
 	 * District map-id used as the LE16 field after {@code 0x1f}
 	 * event byte in many C→S / S→C sub-packets (LocalChat,
 	 * posture broadcasts, state-poll, etc.).

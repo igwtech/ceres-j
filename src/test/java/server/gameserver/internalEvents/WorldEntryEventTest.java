@@ -350,9 +350,15 @@ public class WorldEntryEventTest {
                 + "emitted 0x08 at seq=1 stalls the client window base "
                 + "and triggers the NAK storm (retail never does this)",
                 0x08, firstOp[0]);
-        assertEquals("retail sends CharInfo (0x2c) as the first login "
-                + "reliable; Ceres must match so the client windows it "
-                + "and advances", 0x2c, firstOp[0]);
+        // CharInfo is the first login reliable so the client windows it and
+        // advances. It rides 0x2c (single) for a tiny body or 0x07
+        // (multipart) once the body exceeds the 60B single-packet threshold —
+        // which any real character does (revised 2026-06-01: fragments are
+        // kept ≤82B to clear the bridge↔Wine receive ceiling). Either is real
+        // windowed DATA, which is the property that matters here.
+        assertTrue("first login reliable must be CharInfo — single 0x2c or "
+                + "multipart 0x07, got 0x" + Integer.toHexString(firstOp[0]),
+                firstOp[0] == 0x2c || firstOp[0] == 0x07);
     }
 
     /**

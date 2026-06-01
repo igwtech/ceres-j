@@ -301,15 +301,27 @@ public final class GamePacketReaderUDP {
 					return pd;
 				}
 			case 0x24:
-				// Client's "ready for world state" trigger. Previously
-				// responded with a full zone-population re-burst
-				// (ReadyForWorldState) but that re-sends InfoResponse +
-				// ChatList + TimeSync + PlayerInfo which appears to
-				// push the client's state machine back to state 1→2
-				// (joining session), triggering a 15 s timeout. The
-				// WorldEntryEvent initial burst already sends everything
-				// the client needs. Treat this as a no-op.
-				return null;
+				// Client's "ready for world state" trigger. We do NOT
+				// replay the full zone-population re-burst here — the old
+				// ReadyForWorldState handler re-sent InfoResponse +
+				// ChatList + TimeSync + PlayerInfo, which pushed the
+				// client's state machine back to state 1→2 (joining
+				// session) and triggered a 15 s timeout.
+				//
+				// We DO re-send CharInfo only. On Ceres's Docker-bridge ↔
+				// Wine transport the client's UDP recv path is not live for
+				// the first ~1.27 s, so the CharInfo multipart sent at the
+				// very start of WorldEntryEvent (reliable seqs 1..5) is
+				// dropped before the client can receive it (live Frida
+				// traces: first received seq is 6). The 0x24 trigger fires
+				// AFTER the client's recv path is live, so a CharInfo
+				// re-sent in response lands in the live window and the
+				// client reassembles it — fixing the garbage F1 skill
+				// screen ("Ceres Wisdom" / negative rank) and the greyed
+				// toolbelt. CharInfo is a pure CHARSYS data packet and does
+				// not touch the world-entry state machine, so it is safe to
+				// re-send here (unlike the disabled full burst).
+				return new ResendCharInfoOnReady(subPacket);
 			case 0x27:
 				return new RequestInfoAboutWordlID(subPacket);
 			case 0x2d: {
