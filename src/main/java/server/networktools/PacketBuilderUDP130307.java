@@ -37,11 +37,38 @@ public class PacketBuilderUDP130307 extends PacketBuilderUDP {
 	 */
 	private static final int SINGLE_PACKET_THRESHOLD = 900;
 
-	/** Per-fragment header size (frag_idx + total_frags + disc + data_size) for 0x07 multipart. */
-	private static final int FRAGMENT_HEADER_BYTES = 6;
-
-	/** Body bytes per fragment after subtracting the per-fragment header. */
-	private static final int FRAGMENT_CHUNK_BYTES = 220 - FRAGMENT_HEADER_BYTES;
+	/**
+	 * Body bytes carried per multipart fragment.
+	 *
+	 * <p>Each fragment prepends an 11-byte header
+	 * {@code [frag_idx LE2][total_frags LE4][disc 1B][total_size LE4]}
+	 * (see {@link #emitMultipart}) before this many chunk bytes.
+	 *
+	 * <p><b>Revised 2026-06-01 — delivery, not byte-fidelity, drives this.</b>
+	 * Retail splits Krafteo's 2201-byte CharInfo into 3 fragments of ~1000B
+	 * each, and the retail client reassembles them on retail's network. On
+	 * Ceres's Docker-bridge ↔ Wine-client path a ~1018-byte S→C reliable
+	 * datagram is <em>consistently dropped</em> before it reaches the client's
+	 * UDP recv hook — proven live (Frida trace
+	 * {@code tools/frida_re/runs/pos_ceres_20260601_012154}): the client
+	 * received reliable seqs 2..46 but NEVER seq=1 (the 1018B CharInfo
+	 * fragment), NAK'd it 3×, the server re-sent the same 1018B datagram, it
+	 * was dropped again, the client gave up. With no CharInfo the F1 skill
+	 * screen renders garbage (bogus "Ceres Wisdom" slot + negative rank) and
+	 * the toolbelt greys out (the client's skill-requirement check runs on
+	 * uninitialised CHARSYS data). Every datagram that DID arrive in that
+	 * trace was ≤ 86 bytes.
+	 *
+	 * <p>So the chunk is 214 (not retail's 1000): a 2201-byte CharInfo splits
+	 * into 11 fragments (datagram ≈ 240 B each) that reliably traverse the
+	 * bridge. The earlier "1000B = retail shape" rationale was correct about
+	 * the wire bytes but wrong about delivery on this transport — the
+	 * client-side reassembler ({@code FUN_0055c270}) is discriminator/total-
+	 * size driven and reassembles N fragments regardless of N, so the smaller
+	 * chunk costs only a few extra reliable seqs (all of which do commit at
+	 * this size, unlike the single oversized seq=1 that never did).
+	 */
+	private static final int FRAGMENT_CHUNK_BYTES = 214;
 
 	/** Reliable sub-type IDs (verified retail). */
 	private static final int RELIABLE_MULTIPART = 0x07;

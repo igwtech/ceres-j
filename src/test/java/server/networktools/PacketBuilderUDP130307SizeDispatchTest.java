@@ -129,6 +129,64 @@ public class PacketBuilderUDP130307SizeDispatchTest {
         }
     }
 
+    /**
+     * Fragmentation shape pin (revised 2026-06-01).
+     *
+     * <p><b>Why not retail's 1000-byte chunk:</b> retail splits Krafteo's
+     * 2201-byte CharInfo into 3 fragments of ~1000B each, and the retail
+     * client reassembles them fine on retail's network. On Ceres's
+     * Docker-bridge ↔ Wine-client path, however, a ~1018-byte S→C reliable
+     * datagram is <em>consistently dropped</em> before it reaches the
+     * client's UDP recv hook — proven live (Frida trace
+     * {@code pos_ceres_20260601_012154}): the client received reliable
+     * seqs 2..46 but NEVER seq=1 (the 1018B CharInfo fragment), NAK'd it 3×,
+     * the server re-sent the same 1018B datagram, it was dropped again, and
+     * the client gave up. With no CharInfo the F1 skill screen renders
+     * garbage (bogus "Ceres Wisdom" slot + negative rank) and the toolbelt
+     * greys out (the client's skill-requirement check runs on uninitialised
+     * CHARSYS data). Every received datagram in that trace was ≤ 86 bytes.
+     *
+     * <p><b>Fix:</b> shrink {@code FRAGMENT_CHUNK_BYTES} to 214 so each
+     * fragment datagram lands in the size class that reliably traverses the
+     * bridge. A 2201-byte CharInfo then splits into 11 fragments
+     * (10×214 + 61). This test pins that count + the per-fragment payload
+     * sizes so the chunk can't silently inflate back to the un-deliverable
+     * 1000-byte value.
+     */
+    @Test
+    public void chunkSizeProducesDeliverableFragmentCount() {
+        Player pl = PacketTestFixture.newPlayer();
+        PacketBuilderUDP130307 pb = new PacketBuilderUDP130307(pl);
+        // Section header is 3 bytes (id + LE2 len); 2198 body bytes makes
+        // the `complete` buffer 2201 — the exact retail CharInfo size.
+        writeBody(pb, 2198);
+        DatagramPacket[] dps = pb.getDatagramPackets();
+
+        assertEquals("2201B CharInfo must split into 11 deliverable fragments",
+                11, dps.length);
+        for (DatagramPacket dp : dps) {
+            assertEquals(SUB_TAG_MULTIPART, subTag(dp));
+        }
+
+        // Per-fragment payload = datagram length minus the fixed framing:
+        //   [13][ctr2][ctr+sk2][subLen2] = 7 outer
+        //   [03][seq2][07]               = 4 reliable+op
+        //   [frag_idx2][total_frags4][disc1][total_size4] = 11 header
+        // => 22 bytes of framing before the chunk.
+        final int FRAMING = 7 + 4 + 11;
+        for (int i = 0; i < dps.length; i++) {
+            int chunk = dps[i].getLength() - FRAMING;
+            int expected = (i < 10) ? 214 : 61; // 2201 - 10*214 = 61
+            assertEquals("fragment[" + i + "] payload size",
+                    expected, chunk);
+            // Each fragment datagram must stay small enough to deliver:
+            // 214 chunk + 22 framing + 4 cipher header = 240B, well under
+            // the ~86B-and-below class that arrived AND under any MTU.
+            assertTrue("fragment[" + i + "] datagram must be small ("
+                    + dps[i].getLength() + "B)", dps[i].getLength() <= 260);
+        }
+    }
+
     @Test
     public void singleSubTagIsCanonicalNotAccidentalDefault() {
         // Catch a regression that might silently switch the
