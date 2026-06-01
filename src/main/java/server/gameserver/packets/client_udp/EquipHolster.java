@@ -1,8 +1,13 @@
 package server.gameserver.packets.client_udp;
 
+import server.database.items.Item;
+import server.database.items.ItemContainer;
+import server.database.items.ItemInfoManager;
+import server.database.playerCharacters.PlayerCharacter;
 import server.gameserver.Player;
 import server.gameserver.packets.GamePacketDecoderUDP;
 import server.gameserver.packets.server_udp.EquipStateAck;
+import server.gameserver.packets.server_udp.UpdateModel;
 import server.tools.Out;
 
 /**
@@ -100,9 +105,68 @@ public final class EquipHolster extends GamePacketDecoderUDP {
 		// players is still unpinned (single-player capture).
 		pl.setEquippedSlot(slot);
 		pl.send(new EquipStateAck(pl, slot));
+
+		// Weapon-draw: the slot-state ack alone does NOT tell the
+		// client which weapon MODEL to render. Retail emits a reliable
+		// 0x03/0x2f UpdateModel delta in the same burst right after the
+		// ack, carrying the in-hand model id (0xffff = unarmed).
+		//
+		// Slot semantics (retail draw pcap 2026-06-01, capture pressed
+		// quickbelt keys 1/2/3 → C→S slot bytes 0x00/0x01/0x02): the
+		// slot byte is the 0-BASED quickbelt index (key N → slot N-1).
+		// Per-slot lookup: an empty slot (Krafteo's slot 0) renders
+		// hand=ffff, a weapon slot (Krafteo's slot 1) renders the model
+		// in hand. So resolveHandModelId(pl, slot) with the raw slot as
+		// the container index is correct.
+		//
+		// THE FIX: retail's draw delta is HAND-ONLY
+		// (2f 0100 02 02 0000 02 0a [model]) — it carries NO trailing
+		// 02 0b on-back record. Ceres previously appended `02 0b ffff`,
+		// producing a 15-byte body where retail sends 11. Sending the
+		// hand-only shape matches retail draw1 byte-for-byte (modulo the
+		// model id) so the client renders the weapon in hand.
+		int handModelId = resolveHandModelId(pl, slot);
+		pl.send(new UpdateModel(pl, handModelId));
+
 		Out.writeln(Out.Info,
 			"EquipHolster: player=" + pl.getName()
 				+ " slot=0x" + Integer.toHexString(slot)
-				+ " → EquipStateAck sent");
+				+ " → EquipStateAck + UpdateModel(hand=0x"
+				+ Integer.toHexString(handModelId) + ") sent");
+	}
+
+	/**
+	 * Resolve the in-hand weapon model id for the equipped quickbelt
+	 * slot. The {@code slot} byte is the 0-based quickbelt index
+	 * (retail capture pressed keys 1/2/3 → slot bytes 0x00/0x01/0x02).
+	 * An empty slot (or a slot that holds no item) means "unarmed", so
+	 * we return {@link UpdateModel#MODEL_NONE}.
+	 *
+	 * <p>The on-wire in-hand value is the item's {@code defs.weapons.id}
+	 * (the weapon DEF id), NOT {@code defs.items.modelid}. Decisive
+	 * retail evidence (Krafteo draw pcap, 2026-05-31): the
+	 * {@code 02 0a} in-hand tag carried {@code 290 = defs.weapons.id}
+	 * of the Lazar Gun ({@code itemid 390}); {@code items.modelid} would
+	 * have been a different value, and {@code weapons.id != itemid} in
+	 * 724/781 rows so the id space is not interchangeable. Hence we
+	 * resolve via {@link ItemInfoManager#getWeaponDefId(int)}.
+	 *
+	 * @return the {@code defs.weapons.id} for the equipped item, or
+	 *         {@code 0xffff} when the slot is empty / unresolvable
+	 */
+	private static int resolveHandModelId(Player pl, int slot) {
+		PlayerCharacter pc = pl.getCharacter();
+		if (pc == null) {
+			return UpdateModel.MODEL_NONE;
+		}
+		ItemContainer qb = pc.getContainer(PlayerCharacter.PLAYERCONTAINER_QB);
+		if (qb == null || slot < 0 || slot > 46) {
+			return UpdateModel.MODEL_NONE;
+		}
+		Item it = qb.getItem(slot, 0);
+		if (it == null) {
+			return UpdateModel.MODEL_NONE;
+		}
+		return ItemInfoManager.getWeaponDefId(it.getTypeId());
 	}
 }
