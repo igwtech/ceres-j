@@ -105,8 +105,10 @@ def main():
         sess.type_text('msn3wolf')
         sess.key(K.TAB)
         sess.type_text('sprlnk2kk')
-        if not shot("login_1_creds.png", "username+password typed"):
-            raise Exception("D3D9 capture failed, please try again")            
+        # Screenshots are diagnostic, not required for the pass — a flaky
+        # frame must not abort the login (the input path is a separate
+        # Frida script and keeps working). shot() already logs [FAILED].
+        shot("login_1_creds.png", "username+password typed")
         # Buttons: RESUME ENTER OPTIONS CREDITS. RESUME is 1 Tab from the
         # password field; ENTER is 1 more Tab to the right.
         sess.keys([K.TAB, K.TAB])

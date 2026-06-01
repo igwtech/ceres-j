@@ -164,22 +164,48 @@ class Session:
                 self.mouse_button("right", False)
 
     # ── Visual ───────────────────────────────────────────────────────
-    def screenshot(self, path: str, device: str) -> bool:
-        """Capture the D3D9 backbuffer from `device` (heap ptr) to PNG.
-        Never raises — returns False if the capture (or the Frida
-        session) fails, so one bad frame can't abort a whole pass."""
+    def _wait_frame(self, timeout: float) -> bool:
+        end = time.time() + timeout
+        while self._frame is None and time.time() < end:
+            time.sleep(0.05)
+        return self._frame is not None
+
+    def _save_frame(self, path: str):
+        meta, data = self._frame
+        save_image(data, meta["w"], meta["h"], meta["pitch"], path)
+
+    def screenshot(self, path: str, device: str, *,
+                   settle: float = 0.15, tries: int = 3) -> bool:
+        """Capture the D3D9 backbuffer to PNG. Never raises — returns
+        False if the capture (or the Frida session) fails, so one bad
+        frame can't abort a whole pass.
+
+        Primary path captures on the next Present (a complete frame on a
+        device that is not mid-Reset), which avoids the native fault that
+        used to destroy the session on the fast local-server timing. A
+        short settle + a few retries absorb transient misses; if no
+        Present lands at all it falls back to the direct device read."""
+        for _ in range(max(1, tries)):
+            self._frame = None
+            time.sleep(settle)
+            try:
+                self.d3d.exports_sync.capture_on_present()
+            except Exception as e:
+                # Session/script is gone — nothing will recover this pass.
+                self.last_error = f"screenshot(present): {e}"
+                return False
+            if self._wait_frame(1.8):
+                self._save_frame(path)
+                return True
+        # Fallback: direct capture from the stored device pointer.
         self._frame = None
         try:
             self.d3d.exports_sync.capture_dev(device)
         except Exception as e:
-            self.last_error = f"screenshot: {e}"
+            self.last_error = f"screenshot(direct): {e}"
             return False
-        end = time.time() + 1.5
-        while self._frame is None and time.time() < end:
-            time.sleep(0.05)
-        if self._frame:
-            meta, data = self._frame
-            save_image(data, meta["w"], meta["h"], meta["pitch"], path)
+        if self._wait_frame(1.5):
+            self._save_frame(path)
             return True
         return False
 

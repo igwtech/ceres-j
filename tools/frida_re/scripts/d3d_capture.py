@@ -31,6 +31,12 @@ JS = r"""
 const D3D9 = 'd3d9.dll';
 globalThis.__DEV = null;
 globalThis.__presentListener = null;
+// One-shot "capture on the next Present" state. Reading the backbuffer
+// from INSIDE a Present call guarantees a complete frame and a device
+// that is NOT mid-Reset() — so GetRenderTargetData/LockRect can't fault
+// on invalidated surfaces (the crash that destroyed the Frida session).
+globalThis.__capPending = false;
+globalThis.__capListener = null;
 
 function findDeviceVtable() {
     // DXVK's d3d9.dll has many r-x ranges and its device-method
@@ -134,7 +140,36 @@ function captureOneDevice(device) {
     } catch (e) { return { err:'exception', msg:String(e) }; }
 }
 
+// Attach (once) a Present hook that, when a capture is pending, reads
+// the backbuffer from the LIVE device passed to Present (args[0]) — a
+// guaranteed-valid, mid-frame device. Idempotent: reuses the listener.
+function ensureCaptureHook() {
+    if (globalThis.__capListener) return { ok:true, reused:true };
+    const vt = findDeviceVtable();
+    if (!vt) return { ok:false, err:'device vtable not found' };
+    const present = vt.add(17 * 4).readPointer();
+    globalThis.__capListener = Interceptor.attach(present, {
+        onEnter(args) {
+            if (!globalThis.__capPending) return;
+            globalThis.__capPending = false;
+            // Frame is fully rendered, about to be presented; the device
+            // is not being Reset() right now -> safe to copy the surface.
+            try { captureOneDevice(args[0]); } catch (e) {
+                send({ ev:'cap_err', msg:String(e) });
+            }
+        }
+    });
+    return { ok:true, present:'0x'+present.toString(16) };
+}
+
 rpc.exports = {
+    // Robust path: capture on the next rendered frame (reset-safe).
+    captureOnPresent() {
+        const h = ensureCaptureHook();
+        if (!h.ok) return h;
+        globalThis.__capPending = true;
+        return { ok:true, armed:true };
+    },
     armPresentHook() {
         const vt = findDeviceVtable();
         if (!vt) return { ok:false, err:'device vtable not found' };
