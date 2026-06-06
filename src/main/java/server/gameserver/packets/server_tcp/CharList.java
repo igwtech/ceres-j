@@ -4,6 +4,7 @@ import server.database.accounts.Account;
 import server.database.playerCharacters.PlayerCharacter;
 import server.database.playerCharacters.PlayerCharacterManager;
 import server.networktools.PacketBuilderTCP;
+import server.tools.Config;
 
 public class CharList extends PacketBuilderTCP {
 
@@ -29,10 +30,26 @@ public class CharList extends PacketBuilderTCP {
 		// to the catalog's representative sample.
 		write(0x00);
 		write(0x00);
-		writeShort(4); // number of chars
+		// Slot count is driven by the CharsPerAccount config (was a
+		// hardcoded 4). Verified against retail: this field is the
+		// fixed slot-array size, not the live character count — empty
+		// slots are CHARDUMMY-filled. Clamp to [1,4] for safety.
+		int slotCount = 4;
+		try {
+			slotCount = Integer.parseInt(Config.getProperty("CharsPerAccount"));
+		} catch (NumberFormatException | NullPointerException ignored) {
+		}
+		if (slotCount < 1) slotCount = 1;
+		// HARD CAP 4: the retail client crashes during login on a
+		// CharList with char_count > 4 (verified 2026-06-06 — count=5
+		// killed the client before char-select; count=4 logged in
+		// fine). Account holds only 4 char ids and retail never sends
+		// more. Never emit > 4.
+		if (slotCount > 4) slotCount = 4;
+		writeShort(slotCount); // number of chars (slot-array size)
 		writeShort(0x29); //size of charstructure??
 
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < slotCount; i++) {
 			PlayerCharacter pc = PlayerCharacterManager.getCharacter(account.getChar(i));
 			if (pc == null) {
 				write(CHARDUMMY);

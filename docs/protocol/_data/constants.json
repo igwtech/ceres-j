@@ -1,0 +1,857 @@
+{
+  "_doc": "kind per constant field; see tools/constants_audit.py",
+  "entries": [
+    {
+      "packet": "tcp_c2s_8000.md",
+      "line": "[0..1] 80 00 TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_c2s_8000.md",
+      "line": "[2] 0x78 handshake-start constant ('x' ASCII)",
+      "kind": "magic",
+      "note": ""
+    },
+    {
+      "packet": "tcp_c2s_8301.md",
+      "line": "[6..9] reserved 4B zero — was labelled \"client_port\"",
+      "kind": "reserved",
+      "note": ""
+    },
+    {
+      "packet": "tcp_c2s_8480.md",
+      "line": "[0..1] 84 80 TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_c2s_8480.md",
+      "line": "[21..22] reserved u16 usually 0x0000 (rand LE16 in some",
+      "kind": "reserved",
+      "note": ""
+    },
+    {
+      "packet": "tcp_c2s_8482.md",
+      "line": "[19..22] 1f 00 00 00 CONSTANT",
+      "kind": "UNVERIFIED",
+      "note": ""
+    },
+    {
+      "packet": "tcp_c2s_8737.md",
+      "line": "[0..1] 87 37 TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_c2s_8737.md",
+      "line": "[2..5] 00 00 00 00 CONSTANT padding",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "tcp_c2s_873c.md",
+      "line": "[0..1] 87 3c TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_c2s_873c.md",
+      "line": "[2..5] 00 00 00 00 CONSTANT padding",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "tcp_c2s_a003.md",
+      "line": "[0..1] a0 03 TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8001.md",
+      "line": "[0..1] 80 01 TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8001.md",
+      "line": "[2] 0x66 handshake-A constant byte (= 'f' ASCII)",
+      "kind": "magic",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8003.md",
+      "line": "[0..1] 80 03 TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8003.md",
+      "line": "[2] 0x68 handshake-C constant ('h' ASCII)",
+      "kind": "magic",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8305.md",
+      "line": "[0..1] 83 05 TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8305.md",
+      "line": "[16..19] flags LE32 CONSTANT 0x00890000 (=",
+      "kind": "UNVERIFIED",
+      "note": "flags/version field — echo, don't freeze"
+    },
+    {
+      "packet": "tcp_s2c_830c.md",
+      "line": "[10..13] 4-byte zero field padding — must be present or",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_830d.md",
+      "line": "[0..1] 83 0d TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_830d.md",
+      "line": "[2..3] 00 00 CONSTANT padding",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8317.md",
+      "line": "[0..1] 83 17 TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8318.md",
+      "line": "[0..1] 83 18 TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8318.md",
+      "line": "[2] 0x01 CONSTANT (event-type / status?)",
+      "kind": "UNVERIFIED",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8381.md",
+      "line": "[0..1] 83 81 TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8381.md",
+      "line": "[10..11] session_len LE16 CONSTANT 0x0012 (=18)",
+      "kind": "recordsize",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8381.md",
+      "line": "[6..9] reserved LE32 CONSTANT 0x00000000",
+      "kind": "reserved",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8385.md",
+      "line": "[0..1] 83 85 TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8385.md",
+      "line": "[25..29] unknown 5×u8 CONSTANT `01 01 01 01 01`",
+      "kind": "UNVERIFIED",
+      "note": "per-char block invariant across 9 chars; locked/banned state untested"
+    },
+    {
+      "packet": "tcp_s2c_8385.md",
+      "line": "[34] 0x00 reserved",
+      "kind": "reserved",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8385.md",
+      "line": "[37..40] unknown LE32 CONSTANT 0x00000000",
+      "kind": "UNVERIFIED",
+      "note": "per-char block invariant across 9 chars; locked/banned state untested"
+    },
+    {
+      "packet": "tcp_s2c_8385.md",
+      "line": "[6..7] struct_size LE16 CONSTANT 0x0029 (=41 — body size",
+      "kind": "recordsize",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8386.md",
+      "line": "[2] 01 CONSTANT (success path)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8386.md",
+      "line": "[2] 06 CONSTANT (error path)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8386.md",
+      "line": "[3..5] 00 00 00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_8386.md",
+      "line": "[3] 00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_838f.md",
+      "line": "[0..1] 83 8f TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_838f.md",
+      "line": "[2..6] 00 00 00 00 00 padding (constant)",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_873a.md",
+      "line": "[0..1] 87 3a TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "tcp_s2c_a002.md",
+      "line": "[0..1] a0 02 TCP opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_00.md",
+      "line": "00 07 08 00 09 00 00 00 [01|02|04] 07 20 00 [zero pad to 211]",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_00.md",
+      "line": "00 07 08 00 [reliable_subop] 00 00 00 [body...] [zero pad to 211]",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_03.md",
+      "line": "[0] 0x03 opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_03_00.md",
+      "line": "[0..3] magic LE32 CONSTANT 0x00000009",
+      "kind": "magic",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_03_00.md",
+      "line": "[16..17] ascii_marker LE16 CONSTANT 0x0100 — start-of-ASCII",
+      "kind": "magic",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_03_00.md",
+      "line": "[5] const u8 CONSTANT 0x07",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_03_00.md",
+      "line": "[6..7] field_size LE16 CONSTANT 0x0020 (=32) — max script",
+      "kind": "recordsize",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_03_1f.md",
+      "line": "[0] 0x1f sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_03_1f.md",
+      "line": "[1..2] 0x0001 LE16 CONSTANT prefix (67/67 samples) —",
+      "kind": "UNVERIFIED",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_03_1f.md",
+      "line": "[4..5] 0x0001 LE16 CONSTANT envelope prefix",
+      "kind": "UNVERIFIED",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_03_22.md",
+      "line": "[0] 0x22 sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_03_27.md",
+      "line": "[0] 0x27 sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_03_2b.md",
+      "line": "[0] 0x2b sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_05.md",
+      "line": "[1] 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_05.md",
+      "line": "[2] 0x1f CONSTANT (= GamePackets sub-tag id)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_07.md",
+      "line": "[1..2] 00 00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_07.md",
+      "line": "[11] 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_0b.md",
+      "line": "[0] 0x0b sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_0c.md",
+      "line": "[0] 0x0c sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_1f.md",
+      "line": "[2] 0x01 CONSTANT",
+      "kind": "UNVERIFIED",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_1f.md",
+      "line": "[3] 0x55 CONSTANT",
+      "kind": "UNVERIFIED",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_27.md",
+      "line": "[0] 0x27 sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_27.md",
+      "line": "[3..4] 00 00 CONSTANT — possibly reserved",
+      "kind": "reserved",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_2d.md",
+      "line": "[0] 0x2d sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_2d.md",
+      "line": "[2..4] 0x00 0x00 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_2d.md",
+      "line": "[5] 0x3f CONSTANT (= '?' ASCII)",
+      "kind": "UNVERIFIED",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_32.md",
+      "line": "[3..5] 3-byte zero pad CONSTANT 0x000000",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_3c.md",
+      "line": "[0] 0x3c sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_3c.md",
+      "line": "[1] 0x01 CONSTANT (44/45 samples; 0x02 in",
+      "kind": "UNVERIFIED",
+      "note": "PROVEN VARIABLE (0x02 seen)"
+    },
+    {
+      "packet": "udp_c2s_3c.md",
+      "line": "[2] 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_55.md",
+      "line": "[0] 0x55 sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_c2s_55.md",
+      "line": "[3..4] 00 00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_02.md",
+      "line": "[0] 0x02 sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_07_02.md",
+      "line": "[0x00] chain_key (always 0x00 for retail)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_1b.md",
+      "line": "[ 0] 1B 0x1b CONSTANT (sub-opcode)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_1b.md",
+      "line": "[ 3..4] 2B 0x00 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_1b.md",
+      "line": "[ 3..4] 2B 0x00 0x80 CONSTANT (marker B)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_1b.md",
+      "line": "[ 5] 1B 0x09 CONSTANT (variant marker)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_1b.md",
+      "line": "[ 5] 1B 0x20 CONSTANT (marker — distinguishes",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_1b.md",
+      "line": "[10] 1B 0xff CONSTANT",
+      "kind": "UNVERIFIED",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_1b.md",
+      "line": "[18..27] 10B 0x00 padding CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_1b.md",
+      "line": "[36..39] 4B 0x00 0x00 0x00 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_1b.md",
+      "line": "[40..46] 7B 0x16 0x03 0x05 0x87 0x03 CONSTANT trailer (5B",
+      "kind": "UNVERIFIED",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_1f.md",
+      "line": "[0] 0x1f sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_23.md",
+      "line": "[0] 0x23 sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_25.md",
+      "line": "[10] 0x02 CONSTANT",
+      "kind": "UNVERIFIED",
+      "note": "inventory placeholder / packed state — needs populated-inv capture"
+    },
+    {
+      "packet": "udp_s2c_03_25.md",
+      "line": "[11..12] 0x40 0x40 CONSTANT",
+      "kind": "UNVERIFIED",
+      "note": "inventory placeholder / packed state — needs populated-inv capture"
+    },
+    {
+      "packet": "udp_s2c_03_25.md",
+      "line": "[13] 0xc4 CONSTANT",
+      "kind": "UNVERIFIED",
+      "note": "inventory placeholder / packed state — needs populated-inv capture"
+    },
+    {
+      "packet": "udp_s2c_03_25.md",
+      "line": "[15] 0x00 reserved (CR placeholder)",
+      "kind": "reserved",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_25.md",
+      "line": "[17] 0x00 reserved",
+      "kind": "reserved",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_25.md",
+      "line": "[18..21] ff ff ff ff CONSTANT (placeholder for inv)",
+      "kind": "UNVERIFIED",
+      "note": "inventory placeholder / packed state — needs populated-inv capture"
+    },
+    {
+      "packet": "udp_s2c_03_25.md",
+      "line": "[28..31] ff ff ff ff CONSTANT",
+      "kind": "UNVERIFIED",
+      "note": "inventory placeholder / packed state — needs populated-inv capture"
+    },
+    {
+      "packet": "udp_s2c_03_25.md",
+      "line": "[32] 0x0f CONSTANT",
+      "kind": "UNVERIFIED",
+      "note": "inventory placeholder / packed state — needs populated-inv capture"
+    },
+    {
+      "packet": "udp_s2c_03_25.md",
+      "line": "[38..43] 6× 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_25.md",
+      "line": "[6] 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_25.md",
+      "line": "[7] 0x08 CONSTANT",
+      "kind": "UNVERIFIED",
+      "note": "inventory placeholder / packed state — needs populated-inv capture"
+    },
+    {
+      "packet": "udp_s2c_03_25.md",
+      "line": "[8] 0x09 CONSTANT",
+      "kind": "UNVERIFIED",
+      "note": "inventory placeholder / packed state — needs populated-inv capture"
+    },
+    {
+      "packet": "udp_s2c_03_25.md",
+      "line": "[9] 0x6c CONSTANT",
+      "kind": "UNVERIFIED",
+      "note": "inventory placeholder / packed state — needs populated-inv capture"
+    },
+    {
+      "packet": "udp_s2c_03_26.md",
+      "line": "[0] 0x26 sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_28.md",
+      "line": "[0] 0x28 sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_28.md",
+      "line": "[1..2] 0x0001 LE16 CONSTANT prefix (83/83 samples)",
+      "kind": "UNVERIFIED",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_28.md",
+      "line": "[5..6] 0x0000 reserved padding",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_2c.md",
+      "line": "[0..2] 2c 01 01 CONSTANT (4/4 retail captures)",
+      "kind": "UNVERIFIED",
+      "note": "variant discriminator collapse (0x01/0x02)"
+    },
+    {
+      "packet": "udp_s2c_03_2c.md",
+      "line": "[0] 0x2c sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_2c.md",
+      "line": "[19..28] 10 zero bytes CONSTANT padding",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_2d.md",
+      "line": "[0] 0x2d sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_2d.md",
+      "line": "[4] 00 flag/pad",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_2e.md",
+      "line": "[0] 0x2e sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_2e.md",
+      "line": "[1] 0x01 CONSTANT (63/63 samples)",
+      "kind": "UNVERIFIED",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_2e.md",
+      "line": "[3] 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_2f.md",
+      "line": "[0] 0x2f sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_2f.md",
+      "line": "[2] 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_30.md",
+      "line": "[2..3] 00 00 CONSTANT padding",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_32.md",
+      "line": "[0] 0x32 sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_03_33.md",
+      "line": "[0] 0xff CONSTANT — channel-list bitmap or \"all channels\" sentinel",
+      "kind": "UNVERIFIED",
+      "note": "channel bitmap/count — needs multi-channel capture"
+    },
+    {
+      "packet": "udp_s2c_03_33.md",
+      "line": "[1] 0x00 CONSTANT — terminator / count = 0",
+      "kind": "UNVERIFIED",
+      "note": "channel bitmap/count — needs multi-channel capture"
+    },
+    {
+      "packet": "udp_s2c_04.md",
+      "line": "[0] 0x04 sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_07.md",
+      "line": "1 1 0x00 envelope flag (always zero)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_07.md",
+      "line": "8 1 0x4a sub-tag (constant across the 4 hits)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_0b.md",
+      "line": "[0] 0x0b sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_0d.md",
+      "line": "1 1 0x00 envelope flag (always zero)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_0d.md",
+      "line": "8 1 0x2d sub-tag (constant — NPC-data on C→S)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_0f.md",
+      "line": "6 4 tail constant `82 00 00 00 00` (sample padding)",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_0f.md",
+      "line": "8 1 0x38 sub-tag (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_0f.md",
+      "line": "9 1 0x04 value byte (constant in this variant)",
+      "kind": "UNVERIFIED",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_11.md",
+      "line": "9 1 0x01 value byte (constant in this variant)",
+      "kind": "UNVERIFIED",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_1b.md",
+      "line": "[ 0] 1B 0x1b CONSTANT (sub-opcode)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_1b.md",
+      "line": "[ 3] 1B 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_1b.md",
+      "line": "[ 4] 1B 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_1b.md",
+      "line": "[ 5] 1B 0x1f CONSTANT (inner opcode)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_1b.md",
+      "line": "[15] 1B 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_1b.md",
+      "line": "[16] 1B 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_1d.md",
+      "line": "[1] 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_1d.md",
+      "line": "[4] 0x00 reserved",
+      "kind": "reserved",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_1f.md",
+      "line": "[1..2] 0x0001 LE16 CONSTANT (matches the 0x03/0x1f",
+      "kind": "UNVERIFIED",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_1f.md",
+      "line": "[3] 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_2d.md",
+      "line": "[0] 0x2d sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_2d.md",
+      "line": "[1] 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_2d.md",
+      "line": "[4] 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_2d.md",
+      "line": "[5] 0x0a CONSTANT TRAILER (= 10)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_3c.md",
+      "line": "[0] 0x3c sub-opcode (constant)",
+      "kind": "discriminator",
+      "note": ""
+    },
+    {
+      "packet": "udp_s2c_3c.md",
+      "line": "[1] 0x01 CONSTANT (42/43); 0x02 in DRSTONE,",
+      "kind": "UNVERIFIED",
+      "note": "PROVEN VARIABLE (0x02 in DRSTONE)"
+    },
+    {
+      "packet": "udp_s2c_3c.md",
+      "line": "[2] 0x00 CONSTANT",
+      "kind": "padding",
+      "note": ""
+    }
+  ]
+}

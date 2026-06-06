@@ -1,0 +1,31 @@
+name: constants-audit
+
+# Guards the protocol catalog: every "CONSTANT" field in docs/protocol/packets/
+# must be classified (kind=) in docs/protocol/_data/constants.json, and no
+# UNVERIFIED field may be frozen as a literal in a Ceres-J emitter.
+# See docs/protocol/CONSTANTS_AUDIT.md.
+
+on:
+  push:
+    paths:
+      - "docs/protocol/packets/**"
+      - "docs/protocol/_data/constants.json"
+      - "src/main/java/server/gameserver/packets/**"
+      - "tools/constants_audit.py"
+  pull_request:
+    paths:
+      - "docs/protocol/packets/**"
+      - "docs/protocol/_data/constants.json"
+      - "src/main/java/server/gameserver/packets/**"
+      - "tools/constants_audit.py"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify every catalog constant is classified
+        run: python3 tools/constants_audit.py --check
