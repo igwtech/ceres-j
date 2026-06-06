@@ -2,10 +2,6 @@ package server.database.importer;
 
 import java.io.InputStream;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -15,6 +11,9 @@ import java.util.Map;
 import com.google.gson.Gson;
 
 import server.database.DefReader;
+import server.database.adapter.JdbcRepositories;
+import server.database.port.ClientDefRepository;
+import server.database.port.RepositoryException;
 import server.tools.Out;
 import server.tools.VirtualFileSystem;
 
@@ -102,7 +101,13 @@ public final class DefImporter {
             Out.writeln(Out.Warning, "DefImporter: no DB connection, skipping");
             return;
         }
-        if (!ensureTable(conn)) return;
+        ClientDefRepository repo = JdbcRepositories.clientDefs(conn);
+        try {
+            repo.ensureSchema();
+        } catch (RepositoryException e) {
+            Out.writeln(Out.Error, "DefImporter: create table failed: " + e.getMessage());
+            return;
+        }
         int fileCount = 0;
         int totalEntries = 0;
         for (String defName : CORE_DEFS) {
@@ -118,6 +123,8 @@ public final class DefImporter {
 
     /** Returns row count (0+) on success, -1 on missing/error. */
     public static int importOne(Connection conn, String defName) {
+        ClientDefRepository repo = JdbcRepositories.clientDefs(conn);
+
         InputStream in;
         try {
             in = VirtualFileSystem.getFileInputStream("defs\\" + defName + ".def");
@@ -132,15 +139,10 @@ public final class DefImporter {
         // optimization is: if there's ANY row for this def_name, skip.
         // For a full re-import, manually DELETE FROM client_defs WHERE
         // def_name = '...'.
-        try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT COUNT(*) FROM client_defs WHERE def_name = ?")) {
-            ps.setString(1, defName);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next() && rs.getInt(1) > 0) {
-                    return rs.getInt(1);
-                }
-            }
-        } catch (SQLException e) {
+        try {
+            int existing = repo.countForDef(defName);
+            if (existing > 0) return existing;
+        } catch (RepositoryException e) {
             Out.writeln(Out.Warning, "DefImporter: probe failed for "
                     + defName + ": " + e.getMessage());
         }
@@ -176,25 +178,17 @@ public final class DefImporter {
 
         if (rows.isEmpty()) return 0;
 
-        boolean isPostgres = isPostgres(conn);
-        String upsertSql = isPostgres
-                ? "INSERT INTO client_defs (def_name, entry_id, fields) "
-                  + "VALUES (?, ?, ?::jsonb) "
-                  + "ON CONFLICT (def_name, entry_id) DO UPDATE SET fields = EXCLUDED.fields"
-                : "INSERT OR REPLACE INTO client_defs (def_name, entry_id, fields) "
-                  + "VALUES (?, ?, ?)";
+        List<ClientDefRepository.Row> portRows = new ArrayList<>(rows.size());
+        for (Map<String, Object> row : rows) {
+            portRows.add(new ClientDefRepository.Row(
+                    (Integer) row.get("id"),
+                    GSON.toJson(row.get("fields"))));
+        }
 
-        int inserted = 0;
-        try (PreparedStatement ps = conn.prepareStatement(upsertSql)) {
-            for (Map<String, Object> row : rows) {
-                ps.setString(1, defName);
-                ps.setInt(2, (Integer) row.get("id"));
-                ps.setString(3, GSON.toJson(row.get("fields")));
-                ps.addBatch();
-                inserted++;
-            }
-            ps.executeBatch();
-        } catch (SQLException e) {
+        int inserted;
+        try {
+            inserted = repo.upsertAll(defName, portRows);
+        } catch (RepositoryException e) {
             Out.writeln(Out.Error, "DefImporter: insert failed for "
                     + defName + ": " + e.getMessage());
             return -1;
@@ -218,37 +212,14 @@ public final class DefImporter {
     /** Run import for any subset of def files. */
     public static void importAll(Connection conn, List<String> defNames) {
         if (conn == null) return;
-        if (!ensureTable(conn)) return;
+        try {
+            JdbcRepositories.clientDefs(conn).ensureSchema();
+        } catch (RepositoryException e) {
+            Out.writeln(Out.Error, "DefImporter: create table failed: " + e.getMessage());
+            return;
+        }
         for (String name : defNames) {
             importOne(conn, name);
-        }
-    }
-
-    /** Ensure the {@code client_defs} table exists. Returns true on
-     *  success. */
-    private static boolean ensureTable(Connection conn) {
-        boolean isPostgres = isPostgres(conn);
-        String fieldsType = isPostgres ? "JSONB" : "TEXT";
-        String sql = "CREATE TABLE IF NOT EXISTS client_defs ("
-                + "  def_name TEXT NOT NULL,"
-                + "  entry_id INTEGER NOT NULL,"
-                + "  fields " + fieldsType + " NOT NULL,"
-                + "  PRIMARY KEY (def_name, entry_id))";
-        try (Statement st = conn.createStatement()) {
-            st.execute(sql);
-            return true;
-        } catch (SQLException e) {
-            Out.writeln(Out.Error, "DefImporter: create table failed: " + e.getMessage());
-            return false;
-        }
-    }
-
-    private static boolean isPostgres(Connection conn) {
-        try {
-            String url = conn.getMetaData().getURL();
-            return url != null && url.startsWith("jdbc:postgresql");
-        } catch (SQLException e) {
-            return false;
         }
     }
 }

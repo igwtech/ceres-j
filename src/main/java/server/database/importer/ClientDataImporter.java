@@ -5,19 +5,22 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 
+import server.database.adapter.JdbcRepositories;
+import server.database.port.RepositoryException;
+import server.database.port.WorldDefRepository;
 import server.tools.Out;
 import server.tools.VirtualFileSystem;
 
 /**
- * One-shot importer that populates the SQLite {@code world_defs} (and,
- * eventually, {@code item_defs}) tables from the NC2 client's
- * PAK-extracted resource files.
+ * One-shot importer that populates the {@code world_defs} table from the
+ * NC2 client's PAK-extracted resource files.
+ *
+ * <p>Persistence is delegated to a {@link WorldDefRepository} port, so the
+ * importer is agnostic to the backend (SQLite, PostgreSQL or MySQL): the
+ * adapter resolves the SQL dialect from the {@link Connection} it is given.
  *
  * <p>Safe to call unconditionally on every server startup: it detects
  * already-populated tables and skips. If the client is not mounted (no
@@ -43,13 +46,13 @@ public final class ClientDataImporter {
             return;
         }
 
-        try (Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM world_defs")) {
-            if (rs.next() && rs.getInt(1) > 0) {
+        WorldDefRepository repo = JdbcRepositories.worldDefs(conn);
+        try {
+            if (repo.isPopulated()) {
                 Out.writeln(Out.Info, "World defs already populated, skipping import");
                 return;
             }
-        } catch (SQLException e) {
+        } catch (RepositoryException e) {
             Out.writeln(Out.Error, "ClientDataImporter: failed to probe world_defs: " + e.getMessage());
             return;
         }
@@ -82,15 +85,16 @@ public final class ClientDataImporter {
      * {@link VirtualFileSystem} mount.
      */
     static void runIfNeeded(Connection conn, InputStream worldsIni) {
+        WorldDefRepository repo = JdbcRepositories.worldDefs(conn);
+
         // Re-check world_defs so this overload is also idempotent.
-        try (Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM world_defs")) {
-            if (rs.next() && rs.getInt(1) > 0) {
+        try {
+            if (repo.isPopulated()) {
                 Out.writeln(Out.Info, "World defs already populated, skipping import");
                 try { worldsIni.close(); } catch (IOException ignore) { /* best effort */ }
                 return;
             }
-        } catch (SQLException e) {
+        } catch (RepositoryException e) {
             Out.writeln(Out.Error, "ClientDataImporter: failed to probe world_defs: " + e.getMessage());
             try { worldsIni.close(); } catch (IOException ignore) { /* best effort */ }
             return;
@@ -109,35 +113,12 @@ public final class ClientDataImporter {
             return;
         }
 
-        // Cross-backend upsert: SQLite supports `INSERT OR REPLACE` while
-        // PostgreSQL requires `ON CONFLICT (...) DO UPDATE`. Both forms are
-        // semantically equivalent for this id-keyed table.
-        String sql = server.database.SqliteDatabase.isPostgres()
-            ? "INSERT INTO world_defs (id, path, bsp_name) VALUES (?, ?, ?) "
-              + "ON CONFLICT (id) DO UPDATE SET path = EXCLUDED.path, bsp_name = EXCLUDED.bsp_name"
-            : "INSERT OR REPLACE INTO world_defs (id, path, bsp_name) VALUES (?, ?, ?)";
-        boolean prevAutoCommit = true;
+        // Dialect-correct upsert is the adapter's responsibility; this layer
+        // just hands over the parsed domain entries.
         try {
-            prevAutoCommit = conn.getAutoCommit();
-            conn.setAutoCommit(false);
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                for (WorldsIniParser.Entry e : entries) {
-                    ps.setInt(1, e.id);
-                    ps.setString(2, e.path);
-                    ps.setString(3, e.bspName);
-                    ps.addBatch();
-                }
-                ps.executeBatch();
-                conn.commit();
-            } catch (SQLException e) {
-                conn.rollback();
-                Out.writeln(Out.Error, "ClientDataImporter: world_defs insert failed: " + e.getMessage());
-                return;
-            } finally {
-                conn.setAutoCommit(prevAutoCommit);
-            }
-        } catch (SQLException e) {
-            Out.writeln(Out.Error, "ClientDataImporter: transaction error: " + e.getMessage());
+            repo.upsertAll(entries);
+        } catch (RepositoryException e) {
+            Out.writeln(Out.Error, "ClientDataImporter: world_defs insert failed: " + e.getMessage());
             return;
         }
 

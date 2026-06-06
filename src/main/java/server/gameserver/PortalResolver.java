@@ -14,7 +14,7 @@ import server.tools.Out;
 
 /**
  * Resolves a Neocron 2 furniture/portal "world-change actor" to its
- * destination zone, mirroring the TinNS NC1 emulator's 2-table
+ * destination zone, mirroring the 2-table
  * indirection (the identical {@code .dat}/world-data format).
  *
  * <p>Mechanism (see {@code ceres-j/docs/zone_portal_params.md} and
@@ -499,53 +499,5 @@ public final class PortalResolver {
         }
         Integer f3 = jsonInt(row, "f3");
         return f3 == null ? 0 : f3;
-    }
-
-    /**
-     * Look up the per-sector <em>world type</em> — the {@code f4} field
-     * of {@code client_defs[worldinfo][zoneId]}.
-     *
-     * <p>This is the value the native client uses to pick the on-screen
-     * sector-security message (text-resource id {@code 3200 + worldType}
-     * in {@code language/<lang>/pak_text.ini}). The client reads it
-     * <strong>locally</strong> from its own {@code worldinfo.def},
-     * keyed by the zone id the server sends in TCP {@code 0x83/0x0c
-     * Location}. Verified against a retail AUGUSTO capture: spawning in
-     * Outzone Sec-1 (zone 9, {@code f4=3}) makes the client print
-     * "Outskirt Sector" (weapons allowed), while Plaza Sec-1 (zone 1,
-     * {@code f4=1}) prints "City Sector" + the "Secure Sector — you can
-     * neither draw any weapons here" line.
-     *
-     * <p>World-type table (from {@code pak_text.ini} ids 3200-3206):
-     * <ul>
-     *   <li>{@code 0} — Secure (no weapons; client default when no
-     *       worldinfo row is found)</li>
-     *   <li>{@code 1} — City (Plaza; secure no-weapon city sector)</li>
-     *   <li>{@code 2} — Wasteland / Hacknet</li>
-     *   <li>{@code 3} — Outskirt / Anarchy (Pepper Park, Outzone — weapons
-     *       <strong>allowed</strong>, PvP open)</li>
-     *   <li>{@code 4} — Dungeon</li>
-     *   <li>{@code 5} — Battlefield</li>
-     *   <li>{@code 6} — Apartment</li>
-     * </ul>
-     *
-     * @param zoneId Ceres-J zone id (= {@code MISC_LOCATION} =
-     *               {@code worldinfo} {@code entry_id})
-     * @return the {@code f4} world type, or {@code -1} when no worldinfo
-     *         row exists (caller decides the fallback). Note: returning
-     *         the client default {@code 0} (Secure) here would be wrong
-     *         for unknown combat zones, so {@code -1} signals "unknown".
-     */
-    public static int lookupWorldType(int zoneId) {
-        Connection conn = SqliteDatabase.getConnection();
-        if (conn == null) {
-            return -1;
-        }
-        JsonObject row = lookupDefFields(conn, "worldinfo", zoneId);
-        if (row == null) {
-            return -1;
-        }
-        Integer f4 = jsonInt(row, "f4");
-        return f4 == null ? -1 : f4;
     }
 }

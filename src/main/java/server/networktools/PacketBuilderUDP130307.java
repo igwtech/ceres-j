@@ -32,18 +32,17 @@ public class PacketBuilderUDP130307 extends PacketBuilderUDP {
 	 * Maximum body size that fits in a single {@code 0x03/0x2c} packet.
 	 * Above this threshold, the body is split into multipart fragments.
 	 *
-	 * <p><b>Constrained by the 82-byte receive ceiling (2026-06-01).</b> On
-	 * the Docker-bridge ↔ Wine-client transport the client never receives an
-	 * S→C plaintext datagram larger than 82 bytes (see
-	 * {@link #FRAGMENT_CHUNK_BYTES}). A single {@code 0x2c} datagram's
-	 * plaintext is {@code 10 + body.length} (7 outer + 3 reliable + 1 sub-tag
-	 * minus the dropped {@code 0x22}). For ≤82 B the body must be ≤72; we use
-	 * 60 for margin. Bodies above 60 B take the multipart path so their
-	 * fragments stay ≤82 B and actually reach the client. (The previous 900
-	 * value let a ~200–900 B CharInfo go out as one oversized {@code 0x2c}
-	 * datagram that the client silently dropped.)
+	 * <p><b>Retail value 900 (2026-06-06).</b> Retail is size-based: ≤~900 B
+	 * CharInfo ships as one {@code 0x03/0x2c} packet, larger goes multipart
+	 * {@code 0x03/0x07}. The client only routes the SINGLE-packet form to the
+	 * inventory grid parser; multipart CharInfo fires events that never
+	 * populate the grid (see memory {@code inventory_multipart_charinfo_not_parsed}).
+	 * So a char whose CharInfo fits under this threshold renders its inventory;
+	 * one that overflows to multipart shows an empty grid. (The earlier "82-byte
+	 * ceiling" that forced everything multipart was a misdiagnosis — a 230 B
+	 * datagram was observed delivered.)
 	 */
-	private static final int SINGLE_PACKET_THRESHOLD = 60;
+	private static final int SINGLE_PACKET_THRESHOLD = 900;
 
 	/**
 	 * Body bytes carried per multipart fragment.

@@ -82,11 +82,9 @@ public class PacketBuilderUDP130307SizeDispatchTest {
     public void aboveThresholdBodyEmitsAsMultipart0x07() {
         Player pl = PacketTestFixture.newPlayer();
         PacketBuilderUDP130307 pb = new PacketBuilderUDP130307(pl);
-        // 850B body — well over the 60-byte threshold. The previous 900-byte
-        // threshold sent this as one oversized 0x2c datagram the client
-        // silently dropped (>82B receive ceiling); it must now multipart so
-        // every fragment stays deliverable.
-        writeBody(pb, 850);
+        // 1000B body — over the 900-byte single-packet threshold, so it must
+        // split into multipart 0x07 fragments.
+        writeBody(pb, 1000);
         DatagramPacket[] dps = pb.getDatagramPackets();
 
         assertTrue("850B body must multipart, got " + dps.length,

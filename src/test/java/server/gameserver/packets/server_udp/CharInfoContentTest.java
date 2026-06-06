@@ -2,9 +2,11 @@ package server.gameserver.packets.server_udp;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Field;
+import java.net.DatagramPacket;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.HashMap;
@@ -15,6 +17,9 @@ import org.junit.Before;
 import org.junit.Test;
 
 import server.database.SqliteDatabase;
+import server.database.items.Item;
+import server.database.items.ItemContainer;
+import server.database.items.ItemManager;
 import server.database.playerCharacters.PlayerCharacter;
 import server.database.playerCharacters.PlayerCharacterManager;
 import server.gameserver.Player;
@@ -409,6 +414,108 @@ public class CharInfoContentTest {
         assertEquals((e1 >> 8) & 0xff, sec2[21] & 0xff);
         assertEquals(e2 & 0xff, sec2[22] & 0xff);
         assertEquals((e2 >> 8) & 0xff, sec2[23] & 0xff);
+    }
+
+    // ---------- inventory delivery (F2 items reach the client) ----------
+
+    private static short[] itemTokens(int curr, int max, int stack) {
+        short[] t = new short[17];
+        t[Item.TOKENS_CURRCOND]     = (short) curr;
+        t[Item.TOKENS_MAXCOND]      = (short) max;
+        t[Item.TOKENS_ITEMSONSTACK] = (short) stack;
+        return t;
+    }
+
+    /**
+     * Fill a character's F2 container with {@code count} SIMPLE items at
+     * distinct grid positions (the same shape as Krafteo's persisted
+     * inventory). Returns the player. The F2 container id from
+     * {@link #newCharacter()} is 90000.
+     */
+    private Player playerWithF2Items(int count) throws Exception {
+        ItemManager.resetForTesting();
+        // newPlayer() wires a real GameServerUDPConnection (so the
+        // per-packet session counter getDatagramPackets() needs is live)
+        // AND a PlayerCharacter whose F2/QB/Gogu containers are already
+        // initialised + registered.
+        Player p = PacketTestFixture.newPlayer();
+        PlayerCharacter pc = p.getCharacter();
+        ItemContainer f2 = pc.getContainer(PlayerCharacter.PLAYERCONTAINER_F2);
+        assertNotNull("F2 container must exist", f2);
+        for (int i = 0; i < count; i++) {
+            Item it = new Item(/*type*/ 5 + i, ItemManager.getFreeItemId(),
+                    f2, Item.ITEMFLAG_SIMPLE, itemTokens(255, 255, 1));
+            // restoreItemAtPos keys the F2 map[] by the slot index
+            // (packed/65536) and falls back to a 1×1 footprint when
+            // ItemInfoManager (client defs) is absent — as in unit tests.
+            // Give each item a distinct slot index AND a distinct X/Y
+            // origin so neither the map[] nor the xymap collides.
+            int x = i % 8;
+            int y = i / 8;
+            int packed = x + y * 256 + i * 65536; // slot index = i
+            assertTrue("item " + i + " placed", f2.restoreItemAtPos(packed, it));
+        }
+        assertEquals(count, f2.getNumberofItems());
+        return p;
+    }
+
+    /**
+     * REGRESSION (inventory-empty-on-load, 2026-06-01). A populated F2
+     * inventory pushes CharInfo over the 60-byte single-packet threshold,
+     * so it multiparts. On Ceres's Docker-bridge ↔ Wine transport the
+     * client silently DROPS any S→C datagram &gt;82 bytes, so EVERY emitted
+     * datagram must stay ≤82B or the inventory never reaches the client
+     * (the symptom: F2 shows nothing).
+     *
+     * <p>This pins the deliverability contract that a working-tree revert
+     * (SINGLE_PACKET_THRESHOLD 60→900, FRAGMENT_CHUNK_BYTES 48→214) had
+     * broken: with chunk=214 every fragment was ~240B and dropped, leaving
+     * the inventory empty.
+     */
+    @Test
+    public void f2InventoryCharInfoStaysUnderReceiveCeiling() throws Exception {
+        // 35 items = Krafteo's live F2 (container_id 1), CharInfo body ≈ 992B.
+        Player p = playerWithF2Items(35);
+        DatagramPacket[] dps = new CharInfo(p).getDatagramPackets();
+
+        assertTrue("a 35-item CharInfo must fragment (≥2 datagrams), got "
+                + dps.length, dps.length >= 2);
+        for (int i = 0; i < dps.length; i++) {
+            DatagramPacket dp = dps[i];
+            byte[] data = dp.getData();
+            assertEquals("0x13 outer frame", 0x13, data[0] & 0xFF);
+            int subTag = data[10] & 0xFF;
+            assertEquals("fragment[" + i + "] must be multipart 0x07",
+                    0x07, subTag);
+            assertTrue("fragment[" + i + "] datagram must be ≤82B "
+                    + "(receive ceiling) — a larger value is silently "
+                    + "dropped and the inventory never loads; got "
+                    + dp.getLength() + "B", dp.getLength() <= 82);
+        }
+        ItemManager.resetForTesting();
+    }
+
+    /**
+     * The fragment count must scale with inventory size while every
+     * fragment stays deliverable — i.e. adding items never produces an
+     * un-deliverable oversized datagram (which is what the reverted
+     * 214-byte chunk did).
+     */
+    @Test
+    public void biggerInventoryStillFullyDeliverable() throws Exception {
+        Player small = playerWithF2Items(10);
+        int smallFrags = new CharInfo(small).getDatagramPackets().length;
+
+        Player big = playerWithF2Items(60);
+        DatagramPacket[] bigDps = new CharInfo(big).getDatagramPackets();
+
+        assertTrue("more items -> more fragments",
+                bigDps.length > smallFrags);
+        for (DatagramPacket dp : bigDps) {
+            assertTrue("every fragment ≤82B regardless of inventory size, got "
+                    + dp.getLength() + "B", dp.getLength() <= 82);
+        }
+        ItemManager.resetForTesting();
     }
 
     /** poolBucket helper edge cases (clamp, zero, rounding). */

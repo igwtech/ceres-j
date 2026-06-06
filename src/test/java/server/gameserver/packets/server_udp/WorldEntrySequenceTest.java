@@ -89,14 +89,13 @@ public class WorldEntrySequenceTest {
 
     @Test
     public void charInfoFragmentsStayUnderReceiveCeiling() {
-        // Revised 2026-06-01. A real CharInfo body (even a fresh character's)
-        // exceeds the 60-byte single-packet threshold, so it multiparts. The
-        // invariant that matters on Ceres's Docker-bridge ↔ Wine transport is
-        // that EVERY emitted datagram stays ≤82 bytes — the measured hard
-        // receive ceiling, above which the client silently drops the packet
-        // (which is what left the F1 skill screen rendering garbage). The old
-        // "small CharInfo = single 0x2c packet" assertion no longer holds and
-        // is not the goal; deliverability is.
+        // Revised 2026-06-06. The "82-byte receive ceiling" was a
+        // misdiagnosis (a 230B datagram was observed delivered). Retail is
+        // size-based: a CharInfo ≤ SINGLE_PACKET_THRESHOLD (900B) ships as ONE
+        // 0x03/0x2c packet — the ONLY form the client routes to the inventory
+        // grid parser — and larger goes multipart 0x03/0x07. A fresh
+        // character's CharInfo fits, so it is a single 0x2c datagram. Every
+        // datagram must stay under the real IP limit (MTU 1500).
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
         DatagramPacket[] dps = new CharInfo(pl).getDatagramPackets();
 
@@ -109,8 +108,8 @@ public class WorldEntrySequenceTest {
             assertTrue("sub-tag is 0x2c (single) or 0x07 (multipart), got 0x"
                     + Integer.toHexString(subTag),
                     subTag == 0x2c || subTag == 0x07);
-            assertTrue("datagram must be ≤82B (receive ceiling), got "
-                    + dp.getLength() + "B", dp.getLength() <= 82);
+            assertTrue("datagram must be under MTU (1500B), got "
+                    + dp.getLength() + "B", dp.getLength() <= 1500);
         }
     }
 }

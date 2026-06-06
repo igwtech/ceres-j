@@ -98,7 +98,7 @@ public final class GamePacketReaderTCP {
 			default :
 				return new UnknownClientTCPPacket(readbuffer);
 			}
-		case (byte) 0xa0:
+		case 0xa0:
 			switch (packet.read()) {
 			case 0x03:
 				// Modern (May 2026) retail client's "ready probe" sent

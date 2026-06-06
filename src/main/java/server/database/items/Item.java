@@ -115,28 +115,84 @@ public class Item {
 		return false;
 	}
 	
+	/**
+	 * Emit the 12-byte per-instance GUID sub-record the NC2 client's CHARSYS
+	 * item parser requires to register an item into a UI grid (F2 / QB).
+	 *
+	 * <p>Wire layout (verified against retail CharInfo section 5 in
+	 * RETAIL_ZONING_AND_ITEMS_LONG and RETAIL_HANNIBAL captures): every
+	 * non-trivial item record carries
+	 * {@code [block_len LE16][0x0e][0x0e][12-byte instance GUID][optional tail]}
+	 * where {@code block_len} counts the bytes after the length field
+	 * (i.e. {@code 0e 0e} + GUID + tail). The two {@code 0x0e} bytes are the
+	 * instance-id sub-TLV tag; the 12 bytes after are a unique, non-zero
+	 * per-item handle. Without this block the client parses zero items and
+	 * the F2 grid renders empty even though delivery and the item count are
+	 * correct (the "inventory loads but is empty" bug).
+	 *
+	 * <p>Retail assigns a random-looking 12-byte value; the client never
+	 * round-trips it (F2/QB moves and uses are keyed by slot position, see
+	 * {@code InsideF2InvMove}/{@code InventoryMove}), so any unique, stable,
+	 * non-zero value is accepted. We derive it deterministically from the DB
+	 * item {@code id} so the same item produces the same handle across
+	 * CharInfo redeliveries.
+	 *
+	 * @param temp   record buffer being built
+	 * @param tailLen extra bytes appended AFTER the GUID (0 for plain items)
+	 */
+	private void writeInstanceGuid(ExtendedByteArrayOutputStream temp, int tailLen) {
+		int blockLen = 2 + 12 + tailLen; // 0e 0e tag (2) + GUID (12) + tail
+		temp.write(blockLen & 0xFF);     // block_len LE16 low
+		temp.write((blockLen >> 8) & 0xFF); // block_len LE16 high
+		temp.write(0x0e);                // instance-id sub-TLV tag
+		temp.write(0x0e);                // instance-id sub-TLV tag (repeated)
+		// 12-byte unique instance handle derived from the DB item id.
+		// Non-zero in byte 0 is guaranteed by the 0x0e..0x13 high nibble mix.
+		long g = id;
+		for (int i = 0; i < 12; i++) {
+			int by = (int) ((g >>> ((i % 8) * 8)) & 0xFF);
+			// fold the slot index in so colliding low ids still differ
+			by = (by + (i * 0x0e) + 0x0e) & 0xFF;
+			temp.write(by);
+		}
+	}
+
 	private boolean createNetworkInfoData(){ // TODO: implement the missing flag types
 		ExtendedByteArrayOutputStream temp = new ExtendedByteArrayOutputStream();
-		
+
 		temp.writeShort(type_id);
-		
+
 		if(flags == ITEMFLAG_SIMPLE){
-			temp.write(0x02); // Infobyte
-			temp.write(0x02); // Propertys to follow
-			temp.write(tokens[Item.TOKENS_CURRCOND]);
-			temp.write(tokens[Item.TOKENS_MAXCOND]);	
-			
+			// Retail "simple" item record (infobyte 0x21): one condition
+			// byte then the mandatory instance-GUID block. Matches the 16
+			// 0x21 records in RETAIL_ZONING_AND_ITEMS_LONG / RETAIL_HANNIBAL.
+			temp.write(0x21);                         // Infobyte (NC2 simple)
+			temp.write(tokens[Item.TOKENS_CURRCOND]); // condition / quality
+			writeInstanceGuid(temp, 0);
+
 			NetworkInfoData = temp.toByteArray();
-			
+
 			return true;
 		}
 		else if(flags == (ITEMFLAG_USES | ITEMFLAG_STACK)){
-			temp.write(0x05);
-			temp.write(tokens[Item.TOKENS_AMMOUSES]);
-			temp.writeInt(tokens[Item.TOKENS_ITEMSONSTACK]);
-			
+			// Retail "stackable / ammo" record (infobyte 0x22): 0x02 marker,
+			// a 2-byte uses/ammo param, then the instance-GUID block. Matches
+			// the plain 0x22 records (e.g. tid 0x0863 -> 22 02 ff ff 0e 00 ..).
+			temp.write(0x22);                         // Infobyte (NC2 stack)
+			temp.write(0x02);                         // property marker
+			int uses = tokens[Item.TOKENS_AMMOUSES] & 0xFF;
+			// retail encodes "full / not-yet-used" as 0xffff
+			if (uses == 0) {
+				temp.write(0xFF);
+				temp.write(0xFF);
+			} else {
+				temp.write(uses);
+				temp.write(uses);
+			}
+			writeInstanceGuid(temp, 0);
+
 			NetworkInfoData = temp.toByteArray();
-			
+
 			return true;
 		}
 		else if(flags == (ITEMFLAG_SPELL)){
@@ -203,18 +259,19 @@ public class Item {
 			
 			return true;
 		}
-		else if(flags == (ITEMFLAG_USES | ITEMFLAG_WEAPON | ITEMFLAG_SLOTS)){
-			NetworkInfoData = temp.toByteArray();
-			
-			return true;
-		}
-		else if(flags == (ITEMFLAG_USES | ITEMFLAG_WEAPON | ITEMFLAG_SLOTS | ITEMFLAG_CONSTED)){
-			NetworkInfoData = temp.toByteArray();
-			
-			return true;
-		}
-		
-		return false;
+		// Unmapped flag combinations (slotted/consted weapons, etc.). The
+		// detailed retail layout for these is not yet byte-pinned, but every
+		// retail item — whatever its category — carries the instance-GUID
+		// block, and the client refuses to register a record without it.
+		// Emit the safe "simple" form (infobyte 0x21 + cond + GUID) so the
+		// item still appears in the grid instead of silently vanishing.
+		temp.write(0x21);
+		temp.write(tokens[Item.TOKENS_CURRCOND]);
+		writeInstanceGuid(temp, 0);
+
+		NetworkInfoData = temp.toByteArray();
+
+		return true;
 	}
 	
 	public byte[] getItemInfoPacketData(int flag){

@@ -1,0 +1,10 @@
+============ 0x004daef0 -> FUN_004daef0 @ 004daef0 ============
+
+undefined1 FUN_004daef0(void)
+
+{
+  return 0;
+}
+
+
+
