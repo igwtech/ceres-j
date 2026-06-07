@@ -1,9 +1,5 @@
 # Zone-Transition Portals — `params` Decode & Mechanism
 
-Status: **decoded** (2026-05-16). Authoritative source: TinNS NC1 emulator, which
-parses the *identical* `.dat`/world data format and already implements the full
-zone-jump path. All file:line citations below are into
-`/home/javier/Documents/Projects/Neocron/tinns/tinns/gameserver/`.
 
 ---
 
@@ -54,14 +50,13 @@ Field meaning (from `WorldDatStruct.hxx:64-67` comment + the only consumer,
 
 | idx | field | meaning | confidence |
 |-----|-------|---------|------------|
-| 0 | param1 | open style: `2` = simple lateral move, `3` = frontal+lateral | from .dat comment, **stated as uncertain in TinNS itself ("?")** |
+| 0 | param1 | open style: `2` = simple lateral move, `3` = frontal+lateral | from .dat comment, **stated as uncertain ("?")** |
 | 1 | param2 | **for double doors (DDOOR/TRIGDD): door_id of the OTHER half** in the *same* zone (intra-zone pairing) | HIGH — actively used by `GetOtherDoorID()` |
-| 2 | param3 | varies (move sub-type / direction) | UNKNOWN — TinNS does not read index 2 |
-| 3 | param4 | varies | UNKNOWN — TinNS does not read index 3 |
+| 2 | param3 | varies (move sub-type / direction) | UNKNOWN —  2 |
+| 3 | param4 | varies | UNKNOWN —  3 |
 
 Only `mDoorParameters[1]` is ever consumed (the paired door-half id, and only
-when `IsDoubleDoor`). Indices 0/2/3 are parsed but **never used anywhere** in
-TinNS. There is no world id, no zone id, no GenRep index in door params.
+when `IsDoubleDoor`). There is no world id, no zone id, no GenRep index in door params.
 
 Empirical confirmation from the Postgres `world_doors` dump (pepper_p3): DDOOR
 pairs share matching param2 cross-references, e.g. door 9 `params=1,10,1,4`
@@ -73,7 +68,7 @@ entrance (those are at wm 380/382, see §5).
 
 ---
 
-## 2. Authoritative zone-transition decode logic (TinNS)
+## 2. Authoritative zone-transition decode logic ()
 
 ### 2a. Door "use" dispatch — proves doors are NOT portals
 
@@ -95,7 +90,7 @@ zones.**
 
 ### 2b. The real zone-change path — furniture function-type switch
 
-`decoder/UdpUseObject.cxx:341-475`. For a *furniture/static actor*, TinNS looks
+`decoder/UdpUseObject.cxx:341-475`. For a *furniture/static actor*,  looks
 up its `worldmodel.def` entry and switches on `GetFunctionType()`:
 
 ```cpp
@@ -181,7 +176,7 @@ server does not place the player; the client does.
 **The server does not compute it.** `BuildChangeLocationMsg` ships
 `(ExitWorldID, ExitWorldEntity, SewerLevel)` and nothing else (verified
 `MessageBuilder.cxx:1351-1381`; no `SetCoord`/position call on the change-loc
-path in `UdpUseObject.cxx` or `Worlds.cxx`). TinNS performs **no** server-side
+path in `UdpUseObject.cxx` or `Worlds.cxx`).  performs **no** server-side
 reposition for actor/door zone changes.
 
 Therefore the **client** resolves the entry XYZ locally: it loads the
@@ -198,7 +193,7 @@ coordinates for portal transitions. (The separate ~10× design-vs-wire coordinat
 scale issue is out of scope here.)
 
 Uncertainty: the exact byte form the *client* uses to map `ExitWorldEntity` →
-spawn marker inside the destination `.dat` is not in TinNS (TinNS only emits the
+spawn marker inside the destination `.dat` is not in  ( only emits the
 index). Confirm against a retail ChangeLocation pcap when available; the other
 agent's Ghidra work on the client may pin the insertion-point lookup.
 
@@ -340,11 +335,11 @@ a different transition out of #174 scope.
   = worldmodel.def(ft 15/18/20/29) → appplaces.def(ExitWorldID/Entity/Sewer);
   ChangeLocation wire carries only (Location,Entity,type), no coords; server
   does not place the player; the §5 startmission/citysewer mappings.
-* **MEDIUM:** door param1 open-style (TinNS itself marks it "?"); plaza p-sector
+* **MEDIUM:** door param1 open-style ( itself marks it "?"); plaza p-sector
   inter-crossing being the outdoor/region mechanism (no portal actor exists, so
-  by elimination, but the on-foot border code path was not located in TinNS —
+  by elimination, but the on-foot border code path was not located in  —
   only the vehicle one).
 * **LOW / open:** runtime worldId of the bare sewer destinations (920-951);
   exact client-side `ExitWorldEntity` → spawn-marker byte resolution inside the
-  destination `.dat` (TinNS only emits the index; needs retail pcap or the
+  destination `.dat` ( only emits the index; needs retail pcap or the
   other agent's client Ghidra work).

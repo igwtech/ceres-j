@@ -2,16 +2,27 @@
 
 _Derived 2026-05-23 from a live Postgres dump (`neocron-postgres`, 43 imported
 def files, 24,594 entry rows) cross-referenced against the Ceres-J Java
-consumers and the TinNS NC1 authoritative `LoadFromDef` parsers (which Ceres-J
-inherits the field semantics from — NC1 and NC2 share the `.def` text format
-1:1)._
+consumers and the NC1 TinNS `LoadFromDef` parsers that the field **names**
+originally came from._
+
+> **First-principles caveat (do not assume).** What is **verifiable** here is the
+> `.def` text itself (the actual token positions `f0..fN` in `client_defs`) and how
+> `neocronclient.exe` parses those tokens (Ghidra). What is **NOT** verified is the
+> *meaning/name* of each field: those labels are an inherited hypothesis from the
+> NC1 **TinNS** parsers — a predecessor codebase that is **not authoritative for
+> NC2.5** (now removed from this repo; the `tinns/...` paths below are historical
+> citations, not live files). NC1↔NC2 are **not** guaranteed 1:1 — the body of this
+> doc repeatedly flags NC2-only fields and divergent layouts. Trust the per-field
+> "NOT verified / NC2-only / derived from data" notes; treat any other TinNS-sourced
+> name as a starting guess to confirm against client def values + Ghidra. See
+> `docs/METODOLOGIA_INGENIERIA_REVERSA.md`._
 
 This document is the canonical map between the **client `.def` files**
 (imported into `client_defs(def_name, entry_id, fields JSONB)`) and the
 **runtime tables** (`world_objects`, `world_defs`, `npc_spawns`, …). It
 exists because zone-cross routing, item creation, NPC spawn and mission
 resolution all chain through these tables, and the relationships were
-previously documented only piecemeal across source comments and TinNS sources.
+previously documented only piecemeal across source comments and sources.
 
 > **Field-index convention.** The importer writes JSON keys `f0..fN` starting
 > at the token AFTER the directive (`setentry` / `setfrac` / `setdef`) AND the
@@ -23,9 +34,7 @@ previously documented only piecemeal across source comments and TinNS sources.
 >           entry_id  f0         f1         f2
 > ```
 >
-> When citing TinNS, TinNS's `Idx` iterator counts the directive as `case 0`
-> and the id as `case 1`, so **TinNS `case N` ⇔ Ceres-J `f(N-2)`** for
-> `N ≥ 2`. The translation is applied in the per-def tables below.
+
 
 ---
 
@@ -154,7 +163,7 @@ items(entry_id)  f0=name  f1=model  f2=type  f3=TL  f10=mResStart f11=resCount �
        │                       NPC / SPAWN                            │
        └──────────────────────────────────────────────────────────────┘
 
-npc(entry_id) — "NPC type" (= NameID, the entity class) — see TinNS PDefNpc
+npc(entry_id) — "NPC type" (= NameID, the entity class) — Needs improvement
   f0=model  f2=NGT  f3=gender  f4=faction  f5=health  f6=armorId
   f7=weaponId  f8=dialogScript  f10=loot(=itemcontainer id)
   f12=functionType  f16=standardScript  f17=standardParameter
@@ -397,7 +406,8 @@ For each def the table below uses this template:
 
 - **Represents** — what this def is for.
 - **Field shape** — semantic mapping of every `fN` slot.
-- **TinNS source** — authoritative parser the field names came from.
+- **TinNS source** — NC1 parser the field names were *guessed* from (not
+  authoritative for NC2.5; verify against client def values + Ghidra).
 - **Java consumers** — code in `ceres-j/src/main/java/` that reads it.
 - **FK out** — `fN → other_def`.
 - **FK in** — other defs / runtime tables that point AT this one.
@@ -1485,16 +1495,25 @@ WHERE a.def_name = '<def_a>';
 
 ## Source / authority footnotes
 
-Every claim about field semantics in this document cites at least one of:
+Verifiable sources (a field meaning is "confirmed" only when it traces to one of
+these):
 
-- **TinNS** (`/home/javier/Documents/Projects/Neocron/tinns/tinns/gameserver/definitions/*.{hxx,cxx}`)
-  — NC1 reference implementation that parses the same .def text format.
-- **Ceres-J Java consumer** — file:line references in `src/main/java/`.
-- **Live Postgres sample** — every per-def "Sample" line was produced by
+- **Live Postgres sample** — the actual `.def` token positions; every per-def
+  "Sample" line was produced by
   `SELECT entry_id, fields::text FROM client_defs WHERE def_name=… LIMIT N`.
-- **`docs/zone_portal_params.md`** — authoritative for the portal chain.
-- **`docs/CLIENT_DATA_IMPORT.md`** — for the import pipeline (worlds.ini, .dat).
+- **`neocronclient.exe` (Ghidra)** — how the client itself parses each token.
+- **Ceres-J Java consumer** — file:line references in `src/main/java/` (shows how
+  the running server interprets the field; not proof of the *retail* meaning).
+- **`docs/zone_portal_params.md`** — the portal chain. **`docs/CLIENT_DATA_IMPORT.md`**
+  — the import pipeline (worlds.ini, .dat).
 
-If a field is marked "unknown" or "open" it is **not** in any of those
-sources and requires a new RE pass (pcap analysis, Ghidra of
-`neocronclient.exe`, or TinNS extension).
+NON-authoritative (starting hypothesis only, must be verified before trusting):
+
+- **TinNS** (formerly `tinns/tinns/gameserver/definitions/*.{hxx,cxx}` — directory
+  removed) — NC1 reference implementation. The `.def` text format is *similar*, but
+  NC1≠NC2.5: field names/indices here are where the labels came from, not a spec.
+  See [[feedback_only_verifiable_sources]].
+
+If a field is marked "unknown" or "open" it is **not** in a verifiable source and
+requires a new RE pass — pcap analysis or Ghidra of `neocronclient.exe`. Do not
+"resolve" it by reading TinNS.

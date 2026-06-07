@@ -287,7 +287,7 @@ bytes need verification.
 ## Where the formula likely lives
 
 The client's max_HP / max_PSI / max_STA are computed from primary skills
-and subskills via a class-specific formula. TinNS source code or the
-retail client's `FUN_0055c270` (CharSystem state machine) are the most
+and subskills via a class-specific formula. The
+retail client's `FUN_0055c270` (CharSystem state machine) is the most
 likely references. We have Ghidra dumps in `docs/state_string_refs.txt`
 that may help locate the function.

@@ -17,7 +17,8 @@ import time
 
 class Lifecycle:
     def __init__(self, server_ip, run_dir, *, scripts_dir, frida_re_dir,
-                 py, nc2_dir="/home/javier/Neocron2", port=27042):
+                 py, nc2_dir="/home/javier/Neocron2", port=27042,
+                 compat_path=None):
         self.server_ip = server_ip
         self.run_dir = run_dir
         self.scripts_dir = scripts_dir
@@ -25,6 +26,9 @@ class Lifecycle:
         self.py = py
         self.nc2_dir = nc2_dir
         self.port = port
+        # Per-instance Wine prefix (lets a 2nd instrumented client run
+        # alongside the first). None → launch_nc2.sh default.
+        self.compat_path = compat_path
         self.trace = os.path.join(run_dir, "trace.jsonl")
         self.cmds = os.path.join(run_dir, "cmds.txt")
         self._client = None
@@ -65,10 +69,15 @@ class Lifecycle:
 
     def launch_client(self):
         log = open(os.path.join(self.run_dir, "launch.log"), "w")
+        env = os.environ.copy()
+        env["NC2_DIR"] = self.nc2_dir          # gadget port comes from this dir's config
+        if self.compat_path:
+            env["COMPAT_DATA_PATH"] = self.compat_path
         self._client = subprocess.Popen(
             [os.path.join(self.scripts_dir, "launch_nc2.sh")],
-            stdout=log, stderr=subprocess.STDOUT)
-        self._log(f"launched client (pid {self._client.pid})")
+            stdout=log, stderr=subprocess.STDOUT, env=env)
+        self._log(f"launched client (pid {self._client.pid}) "
+                  f"dir={self.nc2_dir} port={self.port}")
 
     def wait_gadget(self, timeout=90) -> bool:
         end = time.time() + timeout

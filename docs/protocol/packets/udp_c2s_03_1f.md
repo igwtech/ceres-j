@@ -172,7 +172,7 @@ skip(2)s past `01 00` and reads the act_tag.
 | `0x1a` | (none yet) | dialog choice | 87 retail obs; not handled |
 | `0x1b` | LocalChat | text body | |
 | `0x1e` | InventoryMove | `1e [src_cont:1][src_pos:LE16][dst_cont:1][dst_pos:LE16][flags:LE16]` | F2 drag/drop, vendor sell |
-| `0x1f` | **EquipHolster (NEW)** | `1f [slot:1]` | Toolbelt equip — slot is bitmask: 0x00=holster, 0x01/02/04/08=slots 1-4, 0xff=sentinel. **Task #195 closed**. |
+| `0x1f` | **EquipHolster** | `1f [slot:1]` | Quickbelt draw/holster TOGGLE — body = **0-based slot index** (key N → N-1). Same cmd draws & holsters; server tracks state. Retail-pinned 2026-06-06 (keys 1-4 → 0x00/01/02/03). |
 | `0x22` | ExitSeatRequest | (no body) | Stand without moving |
 | `0x25` | InsideF2InvMove / InventoryCombineItems | `25 14 …` / `25 17 …` | F2 inner sub-actions |
 | `0x26` | (none yet) | varies (vendor/loot) | S→C side has 821 B variants |
@@ -200,21 +200,56 @@ Retail samples decoded:
 - `1e 04 01 00 03 ff ff 02 00 0f 00` — src=cont4/slot1 → dst=cont3/slot0xffff,
   flags=2, with trailing extension `0f 00` (rare longer variant)
 
-### EquipHolster byte map (retail-pinned 2026-05-22, task #195)
+### EquipHolster byte map (retail-pinned 2026-06-06, controlled capture)
 
-Body after envelope: 2 bytes total `1f [slot]`.
+Body after envelope `03 [seq2] 1f 01 00`: 2 bytes total `1f [slot]`.
+`[slot]` is a **0-based quickbelt slot index** (number key N → `N-1`).
+Pressing a quickbelt key TOGGLES draw/holster for that slot — the
+client sends the **same** `1f [slot]` for both the draw and the
+holster; the server tracks current state. There is no separate
+"holster" value.
 
-| slot | hits | meaning |
-|---:|---:|---|
-| `0x00` | 12 | Holster / unarmed |
-| `0x01` | 8 | Toolbelt slot 1 |
-| `0x02` | 3 | Toolbelt slot 2 |
-| `0x04` | 1 | Toolbelt slot 3 (bitmask form) |
-| `0x08` | 2 | Toolbelt slot 4 |
-| `0xff` | 1 | Sentinel / reset |
+Controlled `equip_probe` capture (`runs/equip_retail_1`, msn3wolf),
+keys 1→4 pressed in sequence, each drawn then holstered ≥2×:
 
-Slot is a **bitmask**, not a 0-based index. Total 28 retail
-observations across all captures.
+| key pressed | body `[slot]` | samples |
+|---:|---:|---:|
+| 1 | `0x00` | 4 |
+| 2 | `0x01` | 4 |
+| 3 | `0x02` | 3 |
+| 4 | `0x03` | 3 |
+
+This **supersedes the 2026-05-22 task-#195 "bitmask" reading**
+(`0x00=holster`, `0x01/02/04/08`=slots). That was a misread: key 4 →
+`0x03` is impossible for a single-slot bitmask, and `0x00` *draws*
+slot 0 (it is not "holster"). The old `0x04`/`0x08` observations are
+just slot indices 4/8 (keys 5/9) — the powers-of-two were
+coincidental. `0xff` remains a sentinel/reset (unconfirmed here).
+
+**S→C confirmation (server is authoritative).** Each equip/holster
+produces a paired exchange, found by byte-diffing the equip windows
+against idle (it was hidden under the 30×/window `0x25/0x23/0x1b`
+heartbeat):
+
+```
+C->S  03 [seq2] 1f 01 00 25 22                 (empty body — client signal)
+S->C  03 [seq2] 1f 01 00 25 22 [7× LE16]       (server confirm, WEAPON-SPECIFIC)
+```
+
+The S→C `0x25/0x22` body is the 7×LE16 packet [[s2c_1f_subtag_wave]]
+pinned as "HUD pool maxes" — now shown **weapon-dependent**:
+- slot-1 weapon → `2155 917 917 400 686 851 0`
+- slot-3 weapon → `219 100 100 400 100 100 0`  (field[3]=400 constant)
+
+Field meanings not fully mapped (need more weapons); likely the active
+weapon's HUD stat bars / recomputed maxes. This is the **self/HUD**
+confirmation. The separate **nearby-player weapon-VISUAL broadcast**
+(`0x03/0x30` ShortPlayer carrying the equipped-weapon model, and/or the
+`0x1f/0x10`+`0x1f/0x30`+`0x03/0x2f` draw "triad") cannot fire in a solo
+capture — that still needs a **2-client capture** (observer sees actor
+draw). Periodic non-equip S→C in these windows: `0x25/0x23/0x1b`
+self-heartbeat, `raw 0x1f/0x30` ShortPlayer (constant body), `0x03/0x2e`
+(monotonic counter — periodic, NOT equip).
 
 ### CloseDialog byte map (retail-pinned 2026-05-22)
 

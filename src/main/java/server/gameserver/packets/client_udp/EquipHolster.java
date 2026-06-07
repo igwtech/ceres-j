@@ -128,11 +128,22 @@ public final class EquipHolster extends GamePacketDecoderUDP {
 		int handModelId = resolveHandModelId(pl, slot);
 		pl.send(new UpdateModel(pl, handModelId));
 
+		// Cross-player broadcast (CONFIRMED retail 2026-06-06, two real
+		// clients): tell every OTHER client in the zone to render this
+		// weapon on the acting player's entity, so nearby players see the
+		// equipped item. Addressed by the subject's runtime entity id
+		// (pl.getMapID()), NOT the self localId. See Zone.sendPlayerEquip
+		// + docs/protocol/packets/udp_s2c_03_2f.md.
+		server.gameserver.Zone z = pl.getZone();
+		if (z != null) {
+			z.sendPlayerEquip(pl, handModelId);
+		}
+
 		Out.writeln(Out.Info,
 			"EquipHolster: player=" + pl.getName()
 				+ " slot=0x" + Integer.toHexString(slot)
 				+ " → EquipStateAck + UpdateModel(hand=0x"
-				+ Integer.toHexString(handModelId) + ") sent");
+				+ Integer.toHexString(handModelId) + ") + zone broadcast");
 	}
 
 	/**

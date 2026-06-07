@@ -425,7 +425,36 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 			}
 		}
 	}
-	
+
+	/**
+	 * Broadcast a weapon/equip change ({@code 0x03/0x2f} UpdateModel) for
+	 * {@code pl} to every OTHER client in the zone, so they render the
+	 * equipped item on {@code pl}. The acting player already got the SELF
+	 * UpdateModel (localId 1) from {@link
+	 * server.gameserver.packets.client_udp.EquipHolster}; this is the
+	 * nearby-player broadcast addressed by {@code pl.getMapID()} — the
+	 * runtime entity id observers see (CONFIRMED retail 2026-06-06, two
+	 * real clients; see docs/protocol/packets/udp_s2c_03_2f.md).
+	 *
+	 * @param pl          player who equipped/holstered.
+	 * @param handModelId weapon def id now in hand, or
+	 *                    {@code UpdateModel.MODEL_NONE} for holster.
+	 */
+	public void sendPlayerEquip(Player pl, int handModelId){
+		int mapId = pl.getMapID();
+		synchronized(playerList){
+			for (Player reciever : playerList.values()) {
+				if (reciever == null
+						|| reciever.getUdpConnection() == null) continue;
+				if (reciever.getMapID() == mapId) continue;   // skip the actor
+				reciever.send(new server.gameserver.packets.server_udp
+						.UpdateModel(reciever, mapId, handModelId,
+							server.gameserver.packets.server_udp
+								.UpdateModel.TAG_HAND_MODEL));
+			}
+		}
+	}
+
 	/**
 	 * Broadcast a chair-sit posture ({@code 0x03/0x1f/<localId>/0x21})
 	 * for {@code pl} to every client in the zone, including

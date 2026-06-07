@@ -54,7 +54,7 @@ public final class PortalResolver {
     private PortalResolver() {}
 
     /** Function types in worldmodel.def that mark a zone-change
-     *  actor (TinNS UdpUseObject.cxx: 15 HOLOMATCH EXIT,
+     *  actor (UdpUseObject.cxx: 15 HOLOMATCH EXIT,
      *  18 WORLDCHANGEACTOR, 20 DATFILE WORLDCHANGE ACTOR,
      *  29 Underground Exit). */
     public static boolean isZoneChangeFunctionType(int ft) {

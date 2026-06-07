@@ -107,6 +107,53 @@ public class UpdateModel extends PacketBuilderUDP1303 {
 		writeShort(handModelId & 0xffff);
 	}
 
+	/**
+	 * NEARBY-PLAYER BROADCAST form of {@code 0x03/0x2f} UpdateModel — the
+	 * cross-player weapon-visual broadcast (CONFIRMED retail 2026-06-06,
+	 * two real clients; see {@code docs/protocol/packets/udp_s2c_03_2f.md}
+	 * and the {@code equip_broadcast_2f_confirmed} memory).
+	 *
+	 * <p>Unlike the self forms above (constant localId {@code 0x0001}),
+	 * the broadcast addresses the packet with the ACTING player's runtime
+	 * entity id ({@code pl.getMapID()}) — the same id observers see in the
+	 * {@code 0x30} ShortPlayer registration and in {@link
+	 * PlayerPositionUpdate}. Each receiver renders the item on that entity.
+	 *
+	 * <p>Captured observer wire (Krafteo = entity 0x0002):
+	 * <pre>
+	 *   DRAW    2f [entity] 02 02 [defId] 02 0a ffff   (model in hand, slot empty)
+	 *   HOLSTER 2f [entity] 02 02 0000  02 0a 0000    (hand cleared)
+	 * </pre>
+	 * The in-hand value is a {@code defs.weapons.id} (e.g. 290 = Lazar Gun
+	 * pistol). The draw also carries {@code 02 03 / 02 04} sub-model
+	 * records on retail (barrel/attachment, not yet field-mapped) — omitted
+	 * here; the in-hand record is what makes the weapon appear/vanish.
+	 *
+	 * @param receiver       the OTHER player who receives this (reliable
+	 *                       wrapper is keyed to their connection)
+	 * @param subjectEntityId acting player's runtime entity id
+	 *                       ({@code pl.getMapID()})
+	 * @param handModelId    weapon def id to render in-hand, or
+	 *                       {@link #MODEL_NONE} for holster (hand cleared)
+	 * @param beltSlotTag    belt slot record tag ({@link #TAG_HAND_MODEL}
+	 *                       0x0a / {@link #TAG_BACK_MODEL} 0x0b)
+	 */
+	public UpdateModel(Player receiver, int subjectEntityId, int handModelId,
+			int beltSlotTag) {
+		super(receiver);
+		boolean holster = (handModelId == MODEL_NONE);
+		write(0x2f);
+		writeShort(subjectEntityId & 0xffff);   // observer-visible entity id
+		// in-hand record
+		write(0x02);
+		write(0x02);
+		writeShort(holster ? 0x0000 : (handModelId & 0xffff));
+		// belt-slot record: 0xffff (empty) while drawn, 0x0000 on holster
+		write(0x02);
+		write(beltSlotTag);
+		writeShort(holster ? 0x0000 : MODEL_NONE);
+	}
+
 	public UpdateModel(Player player) {
 		super(player);
 		PlayerCharacter pc = player.getCharacter();

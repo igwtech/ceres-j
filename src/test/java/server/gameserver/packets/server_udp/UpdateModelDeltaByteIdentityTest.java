@@ -93,6 +93,45 @@ public class UpdateModelDeltaByteIdentityTest {
                 expected, body);
     }
 
+    // ── Cross-player EQUIP broadcast (CONFIRMED retail 2026-06-06) ──────
+    // The broadcast form addresses the packet with the SUBJECT's runtime
+    // entity id (Krafteo = 0x0002 in the observer's view), NOT the self
+    // localId 0x0001 the self-deltas above use. Captured Krafteo draw of a
+    // Lazar pistol (defs.weapons.id 0x0122): observer received
+    //   2f 0200 02 02 2201 02 0a ffff   (+ 02 03/02 04 sub-models omitted).
+
+    @Test
+    public void equipBroadcastDrawBytesByteEqual() {
+        Player receiver = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
+        byte[] body = extractInnerBody(datagramBytes(
+                new UpdateModel(receiver, 0x0002, 0x0122,
+                        UpdateModel.TAG_HAND_MODEL)), 11);
+        byte[] expected = {
+                0x2f,
+                0x02, 0x00,             // SUBJECT entity id 0x0002 (not self 0x0001)
+                0x02, 0x02, 0x22, 0x01, // in-hand = Lazar def 0x0122
+                0x02, 0x0a, (byte) 0xff, (byte) 0xff // belt slot empty (item in hand)
+        };
+        assertArrayEquals("equip broadcast DRAW must match retail capture",
+                expected, body);
+    }
+
+    @Test
+    public void equipBroadcastHolsterBytesByteEqual() {
+        Player receiver = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
+        byte[] body = extractInnerBody(datagramBytes(
+                new UpdateModel(receiver, 0x0002, UpdateModel.MODEL_NONE,
+                        UpdateModel.TAG_HAND_MODEL)), 11);
+        byte[] expected = {
+                0x2f,
+                0x02, 0x00,             // subject entity id
+                0x02, 0x02, 0x00, 0x00, // hand cleared (holstered)
+                0x02, 0x0a, 0x00, 0x00  // belt slot cleared
+        };
+        assertArrayEquals("equip broadcast HOLSTER must clear the hand",
+                expected, body);
+    }
+
     @Test
     public void legacyHandAndBackDeltaStillByteEqual() {
         // The three-arg hand+back form is retained for callers that need

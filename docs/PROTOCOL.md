@@ -893,7 +893,7 @@ Schema migration: `src/main/java/server/database/SqliteDatabase.java`
 
 ## Server Configuration
 
-### irata.cfg
+### ceres.cfg
 
 | Setting | Default | Description |
 |---------|---------|-------------|
