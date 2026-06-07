@@ -6,11 +6,6 @@ import server.networktools.PacketBuilderUDP1303;
 
 public class UpdateModel extends PacketBuilderUDP1303 {
 
-	/** Self localId — the constant {@code 01 00} every retail
-	 *  {@code 0x1f}/{@code 0x2f} packet addressed at the acting player
-	 *  uses (NOT the map id). Same constant {@link EquipStateAck}
-	 *  writes. */
-	private static final int SELF_LOCAL_ID = 0x0001;
 
 	/** TLV tag for the weapon model rendered IN HAND
 	 *  ({@code 02 0a [modelId LE2]}). */
@@ -54,9 +49,10 @@ public class UpdateModel extends PacketBuilderUDP1303 {
 	 */
 	public UpdateModel(Player player, int handModelId, int backModelId) {
 		super(player);
-		// 0x2f sub-op + self localId (constant 01 00, NOT mapId).
+		// 0x2f sub-op + self localId = the id the CLIENT uses for itself
+		// (Player.getClientSelfId; retail=1, Ceres client currently 0).
 		write(0x2f);
-		writeShort(SELF_LOCAL_ID);
+		writeShort(player.getClientSelfId());
 
 		// Stance / posture record — retail draw1 = 02 02 0000.
 		write(0x02);
@@ -92,9 +88,10 @@ public class UpdateModel extends PacketBuilderUDP1303 {
 	 */
 	public UpdateModel(Player player, int handModelId) {
 		super(player);
-		// 0x2f sub-op + self localId (constant 01 00, NOT mapId).
+		// 0x2f sub-op + self localId = the id the CLIENT uses for itself
+		// (Player.getClientSelfId; retail=1, Ceres client currently 0).
 		write(0x2f);
-		writeShort(SELF_LOCAL_ID);
+		writeShort(player.getClientSelfId());
 
 		// Stance / posture record — retail draw1 = 02 02 0000.
 		write(0x02);

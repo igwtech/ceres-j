@@ -97,12 +97,34 @@ public final class EquipHolster extends GamePacketDecoderUDP {
 		return read() & 0xff;
 	}
 
+	/**
+	 * The entity id the client put in this request as ITS OWN id — the
+	 * 2-byte localId at envelope offset 4..5 ({@code 03 [seq2] 1f
+	 * [localId LE2] 1f [slot]}). Retail clients use 1; the Ceres client
+	 * currently uses 0. Self-targeted S→C replies must echo THIS value or
+	 * the client drops them (addressed to an entity it doesn't see as
+	 * itself) — which is why the equip/holster never rendered.
+	 */
+	public int parseLocalId() {
+		reset();
+		skip(4);
+		int lo = read() & 0xff;
+		int hi = read() & 0xff;
+		return lo | (hi << 8);
+	}
+
 	@Override
 	public void execute(Player pl) {
 		int slot = parseSlot();
+		// Capture the entity id the client uses for itself, so the
+		// self-targeted replies below are addressed to the SAME entity
+		// the client recognises as itself. Retail self=1; Ceres client
+		// currently sends 0 — addressing the replies to the hardcoded
+		// 0x0001 made the client drop them (wrong entity) → no equip
+		// render. Echoing the client's own id fixes the addressing.
+		pl.setClientSelfId(parseLocalId());
 		// Record the equipped slot and reply with the byte-pinned
-		// S→C state-ack (0x25/0x13/0x0b). Peer broadcast to nearby
-		// players is still unpinned (single-player capture).
+		// S→C state-ack (0x25/0x13/0x0b).
 		pl.setEquippedSlot(slot);
 		pl.send(new EquipStateAck(pl, slot));
 

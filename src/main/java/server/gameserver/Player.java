@@ -377,6 +377,22 @@ public class Player extends Thread {
 		MapID = ID;
 	}
 
+	// The entity id the CLIENT uses for ITSELF in its own C→S packets.
+	// On retail this is 1; on Ceres the client currently believes it is 0
+	// (world-entry self-registration gap). Self-targeted S→C packets
+	// (EquipStateAck, self UpdateModel) MUST be addressed with the value
+	// the client actually uses, or the client drops them (wrong entity).
+	// Captured from the client's EquipHolster request. Default 1 (retail).
+	private int clientSelfId = 1;
+
+	public int getClientSelfId(){
+		return clientSelfId;
+	}
+
+	public void setClientSelfId(int id){
+		clientSelfId = id & 0xFFFF;
+	}
+
 	/** @return the currently-equipped toolbelt slot (see
 	 *  {@link #setEquippedSlot(int)}). */
 	public int getEquippedSlot() {

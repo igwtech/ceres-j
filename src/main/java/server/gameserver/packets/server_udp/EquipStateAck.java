@@ -64,17 +64,13 @@ public class EquipStateAck extends PacketBuilderUDP1303 {
     public EquipStateAck(Player pl, int slot) {
         super(pl);
         write(0x1f);
-        // Self localId (constant 0x0001), NOT the map id. Retail emits
-        // `1f 01 00 25 13 …` in EVERY 0x1f packet (both directions) —
-        // 01 00 is the acting player's own local entity id (always 1
-        // from their client's view), the same constant CashUpdate and
-        // PoolUpdate write. The earlier `getMapID()` only matched retail
-        // by coincidence in the apartment (mapid==1); on a map where
-        // getMapID()!=1 (e.g. Krafteo=2) the client received the ack
-        // addressed to entity 2, not itself, and dropped it → weapon
-        // never drew. (Retail draw pcap 2026-06-01.)
-        write(0x01);                        // localId LE2 = self
-        write(0x00);
+        // localId LE2 = the entity id the CLIENT uses for ITSELF, echoed
+        // from its EquipHolster request (Player.getClientSelfId). Retail
+        // self=1; the Ceres client currently sends 0. Hardcoding 0x0001
+        // made the Ceres client drop this ack (addressed to entity 1, but
+        // its self is 0) → equip never rendered. Echoing the client's own
+        // id makes the ack land on the entity the client sees as itself.
+        writeShort(pl.getClientSelfId());
         write(0x25);
         write(0x13);
         int txn = pl.getUdpConnection().nextStateAckTxn();
