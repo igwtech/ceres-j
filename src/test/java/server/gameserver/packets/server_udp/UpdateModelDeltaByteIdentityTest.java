@@ -61,35 +61,37 @@ public class UpdateModelDeltaByteIdentityTest {
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
         pl.setMapID(0x1234);
 
-        // Stiletto: defs.items id 19 → defs.weapons.id 19 (0x13). The
-        // in-hand TLV carries the weapon DEF id, not items.modelid (25).
-        // Hand-only delta (retail draw1 shape) — NO trailing 02 0b record.
+        // Stiletto: defs.weapons.id 19 (0x13). DRAW → the IN-HAND
+        // rendered model goes in slot 0x02 (NOT 0x0a — corrected
+        // 2026-06-13 from the retail_draw_v3 pcap); belt slot 0x0a is
+        // cleared (0xffff) while drawn. The 2-arg form defaults to DRAW.
         byte[] body = extractInnerBody(datagramBytes(
                 new UpdateModel(pl, 19)), 11);
         byte[] expected = {
                 0x2f,
-                0x01, 0x00,            // self localId LE2 (constant)
-                0x02, 0x02, 0x00, 0x00, // stance record 02 02 0000
-                0x02, 0x0a, 0x13, 0x00  // in-hand = weapons.id 19 (Stiletto)
+                0x01, 0x00,             // self localId LE2 (constant)
+                0x02, 0x02, 0x13, 0x00, // IN-HAND = weapons.id 19 (drawn)
+                0x02, 0x0a, (byte) 0xff, (byte) 0xff // belt slot 0x0a empty
         };
-        assertArrayEquals("Stiletto draw delta must match pinned bytes",
+        assertArrayEquals("Stiletto DRAW delta: weapon in slot 0x02",
                 expected, body);
     }
 
     @Test
-    public void unarmedDeltaBytesByteEqual() {
+    public void stilettoHolsterDeltaBytesByteEqual() {
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
 
-        // Holster: hand-only delta with hand = none (0xffff).
+        // HOLSTER (drawn=false) → in-hand slot 0x02 cleared (0000), the
+        // weapon returns to belt slot 0x0a. Matches retail holster.
         byte[] body = extractInnerBody(datagramBytes(
-                new UpdateModel(pl, 0xffff)), 11);
+                new UpdateModel(pl, 19, false)), 11);
         byte[] expected = {
                 0x2f,
                 0x01, 0x00,
-                0x02, 0x02, 0x00, 0x00,
-                0x02, 0x0a, (byte) 0xff, (byte) 0xff // hand = none
+                0x02, 0x02, 0x00, 0x00, // hand empty (holstered)
+                0x02, 0x0a, 0x13, 0x00  // weapon back in belt slot 0x0a
         };
-        assertArrayEquals("unarmed delta must match pinned bytes",
+        assertArrayEquals("Stiletto HOLSTER delta: hand cleared, weapon in belt",
                 expected, body);
     }
 

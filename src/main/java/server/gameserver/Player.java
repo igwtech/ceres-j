@@ -404,6 +404,22 @@ public class Player extends Thread {
 	public void setEquippedSlot(int slot) {
 		equippedSlot = slot & 0xff;
 	}
+
+	/** QB slot whose weapon is currently DRAWN in-hand, or -1 if
+	 *  holstered/unarmed. Drives the draw/holster toggle: the C→S
+	 *  equip command is the same byte for draw and holster, so the
+	 *  server tracks which slot is out and alternates. */
+	private int drawnSlot = -1;
+
+	/** @return the QB slot currently drawn in-hand, or -1 if holstered. */
+	public int getDrawnSlot() {
+		return drawnSlot;
+	}
+
+	/** Set the QB slot currently drawn in-hand (-1 = holstered). */
+	public void setDrawnSlot(int slot) {
+		drawnSlot = slot;
+	}
 	
 	public void setloggedin(){
 		isloggedin = true;

@@ -131,41 +131,53 @@ public final class EquipHolster extends GamePacketDecoderUDP {
 		// Weapon-draw: the slot-state ack alone does NOT tell the
 		// client which weapon MODEL to render. Retail emits a reliable
 		// 0x03/0x2f UpdateModel delta in the same burst right after the
-		// ack, carrying the in-hand model id (0xffff = unarmed).
+		// ack, carrying the in-hand model in slot 0x02.
 		//
-		// Slot semantics (retail draw pcap 2026-06-01, capture pressed
-		// quickbelt keys 1/2/3 → C→S slot bytes 0x00/0x01/0x02): the
-		// slot byte is the 0-BASED quickbelt index (key N → slot N-1).
-		// Per-slot lookup: an empty slot (Krafteo's slot 0) renders
-		// hand=ffff, a weapon slot (Krafteo's slot 1) renders the model
-		// in hand. So resolveHandModelId(pl, slot) with the raw slot as
-		// the container index is correct.
-		//
-		// THE FIX: retail's draw delta is HAND-ONLY
-		// (2f 0100 02 02 0000 02 0a [model]) — it carries NO trailing
-		// 02 0b on-back record. Ceres previously appended `02 0b ffff`,
-		// producing a 15-byte body where retail sends 11. Sending the
-		// hand-only shape matches retail draw1 byte-for-byte (modulo the
-		// model id) so the client renders the weapon in hand.
-		int handModelId = resolveHandModelId(pl, slot);
-		pl.send(new UpdateModel(pl, handModelId));
+		// The C→S equip command is a TOGGLE — the SAME slot byte is sent
+		// for both draw and holster; the server tracks which slot is out
+		// and alternates. The first press of a weapon slot DRAWS it
+		// (weapon → in-hand slot 0x02, belt 0x0a cleared); pressing the
+		// same slot again HOLSTERS it (in-hand 0x02 = 0000, weapon back
+		// to belt 0x0a). Verified against retail (retail_draw_v3 vs the
+		// old ceres wgate64_v5 trace, 2026-06-13).
+		int weaponModel = resolveHandModelId(pl, slot);
+		boolean drawn;
+		if (weaponModel == UpdateModel.MODEL_NONE) {
+			// Empty/unarmed slot → holster (nothing to draw).
+			drawn = false;
+			pl.setDrawnSlot(-1);
+		} else if (pl.getDrawnSlot() == slot) {
+			// Pressing the currently-drawn slot again → holster.
+			drawn = false;
+			pl.setDrawnSlot(-1);
+		} else {
+			// Draw this slot's weapon into hand.
+			drawn = true;
+			pl.setDrawnSlot(slot);
+		}
+
+		// Self first-person render: the IN-HAND model lives in slot 0x02
+		// (NOT 0x0a — the historical mislabel that left the hand empty).
+		pl.send(new UpdateModel(pl, weaponModel, drawn));
 
 		// Cross-player broadcast (CONFIRMED retail 2026-06-06, two real
-		// clients): tell every OTHER client in the zone to render this
-		// weapon on the acting player's entity, so nearby players see the
-		// equipped item. Addressed by the subject's runtime entity id
-		// (pl.getMapID()), NOT the self localId. See Zone.sendPlayerEquip
-		// + docs/protocol/packets/udp_s2c_03_2f.md.
+		// clients): tell every OTHER client in the zone to render/clear
+		// this weapon on the acting player's entity. Addressed by the
+		// subject's runtime entity id (pl.getMapID()). On holster, pass
+		// MODEL_NONE so observers clear the weapon. See
+		// Zone.sendPlayerEquip + docs/protocol/packets/udp_s2c_03_2f.md.
 		server.gameserver.Zone z = pl.getZone();
 		if (z != null) {
-			z.sendPlayerEquip(pl, handModelId);
+			z.sendPlayerEquip(pl, drawn ? weaponModel : UpdateModel.MODEL_NONE);
 		}
 
 		Out.writeln(Out.Info,
 			"EquipHolster: player=" + pl.getName()
 				+ " slot=0x" + Integer.toHexString(slot)
-				+ " → EquipStateAck + UpdateModel(hand=0x"
-				+ Integer.toHexString(handModelId) + ") + zone broadcast");
+				+ " → " + (drawn ? "DRAW" : "HOLSTER")
+				+ " EquipStateAck + UpdateModel(inhand=0x"
+				+ Integer.toHexString(drawn ? weaponModel : 0)
+				+ ") + zone broadcast");
 	}
 
 	/**

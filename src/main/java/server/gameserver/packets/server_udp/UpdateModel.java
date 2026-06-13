@@ -87,21 +87,54 @@ public class UpdateModel extends PacketBuilderUDP1303 {
 	 *                    {@code 0xffff} for none
 	 */
 	public UpdateModel(Player player, int handModelId) {
+		// Back-compat: a bare handModelId is treated as a DRAW of that
+		// model (weapon in-hand). Holster uses the (Player,int,boolean)
+		// form with drawn=false.
+		this(player, handModelId, true);
+	}
+
+	/**
+	 * SELF first-person draw/holster delta — the form that actually
+	 * makes the weapon appear in the acting player's OWN hand.
+	 *
+	 * <p>CRITICAL slot correction (retail draw pcap 2026-06-13,
+	 * {@code retail_draw_v3} vs {@code wgate64_v5}): the IN-HAND
+	 * RENDERED model lives in the {@code 02 02 [model]} record — slot
+	 * tag {@code 0x02} — NOT {@code 0x0a}. Slot {@code 0x0a} is the
+	 * BELT slot. The previous code wrote {@code 02 02 0000} as a
+	 * constant "stance" and put the weapon in {@code 02 0a}, so the
+	 * client's in-hand slot was always empty and no weapon ever drew
+	 * first-person (QB slot selected, but no model). The cross-player
+	 * broadcast form below was already correct (weapon in {@code 02 02}),
+	 * which is why OTHERS could see the weapon but the actor couldn't.
+	 *
+	 * <p>Retail, byte-for-byte (entity = self localId):
+	 * <pre>
+	 *   DRAW    2f [self] 02 02 [weapon] 02 0a ffff    (weapon in hand, belt empty)
+	 *   HOLSTER 2f [self] 02 02 0000     02 0a [weapon] (hand empty, weapon in belt)
+	 * </pre>
+	 *
+	 * @param player      acting player (localId is the client's own id)
+	 * @param weaponModel the weapon's {@code defs.weapons.id}
+	 * @param drawn       true = draw (weapon to hand); false = holster
+	 *                    (weapon back to belt)
+	 */
+	public UpdateModel(Player player, int weaponModel, boolean drawn) {
 		super(player);
-		// 0x2f sub-op + self localId = the id the CLIENT uses for itself
-		// (Player.getClientSelfId; retail=1, Ceres client currently 0).
 		write(0x2f);
 		writeShort(player.getClientSelfId());
 
-		// Stance / posture record — retail draw1 = 02 02 0000.
+		// 02 02 [model] — the IN-HAND rendered model. Weapon on draw,
+		// 0x0000 (empty hand) on holster.
 		write(0x02);
 		write(0x02);
-		writeShort(0x0000);
+		writeShort(drawn ? (weaponModel & 0xffff) : 0x0000);
 
-		// In-hand weapon model only: 02 0a [modelId LE2]. No 02 0b.
+		// 02 0a [model] — the BELT slot. Cleared (0xffff) while drawn;
+		// holds the weapon again on holster.
 		write(0x02);
-		write(TAG_HAND_MODEL);
-		writeShort(handModelId & 0xffff);
+		write(TAG_HAND_MODEL);   // 0x0a = belt slot (historically mis-named)
+		writeShort(drawn ? MODEL_NONE : (weaponModel & 0xffff));
 	}
 
 	/**
