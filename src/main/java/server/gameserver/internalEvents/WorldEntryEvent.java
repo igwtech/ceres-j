@@ -178,8 +178,10 @@ public class WorldEntryEvent extends DummyEvent {
                 .WorldInfoSrv(pl), "WorldInfoSrv (0x19/0x04 handoff)");
 
         // ── Phase 3: InfoResponse + TimeSync (retail pkt #11) ────────
-        // InfoResponse zone variant (0x03→0x23): 20 00 10 00 00 00
-        // Observed in retail right after CharInfo multipart completes.
+        // InfoResponse zone variant (0x03→0x23): 20 00 [worldflags
+        // LE32] — the per-zone SECURITY carrier (0x10=secure; pepper
+        // =0x00). Observed in retail right after CharInfo multipart
+        // completes; value resolved per zone since 2026-06-12.
         safeSend(pl, () -> InfoResponse.zoneInfo(pl), "InfoResponse (zone info)");
 
         // TimeSync — server time baseline.

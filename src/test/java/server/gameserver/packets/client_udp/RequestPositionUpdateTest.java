@@ -103,10 +103,14 @@ public class RequestPositionUpdateTest {
         assertEquals("0x13 outer", 0x13, ir[0] & 0xFF);
         assertEquals("0x03 reliable", 0x03, ir[7] & 0xFF);
         assertEquals("sub-op 0x23", 0x23, ir[10] & 0xFF);
-        // Body at ir[11..16] = `20 00 10 00 00 00`.
+        // Body at ir[11..16] = `20 00 [worldflags LE32]`. The
+        // fixture player is at MISC_LOCATION 7 (PEPPER PARK SEC-3,
+        // PvP) → worldflags 0, so the body is `20 00 00 00 00 00`.
+        // (Pre-2026-06-12 this hardcoded 0x10, marking every zone a
+        // Secure Sector and blocking weapon draw.)
         assertEquals(0x20, ir[11] & 0xFF);
         assertEquals(0x00, ir[12] & 0xFF);
-        assertEquals(0x10, ir[13] & 0xFF);
+        assertEquals("worldflags=0 for PvP pepper_p3", 0x00, ir[13] & 0xFF);
         assertEquals(0x00, ir[14] & 0xFF);
         assertEquals(0x00, ir[15] & 0xFF);
         assertEquals(0x00, ir[16] & 0xFF);

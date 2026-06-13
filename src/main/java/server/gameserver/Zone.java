@@ -43,49 +43,27 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 	}
 
 	/**
-	 * Default appplaces spawn-row index for this zone's destination
-	 * entry point. The TCP {@code 0x83/0x0c Location} packet carries
-	 * this as its 3rd LE32 field — the client uses it to pick a
-	 * spawn position inside the loaded BSP.
-	 *
-	 * <p>Values pinned from live retail captures
-	 * (2026-05-29 iter 45 + earlier #252 work):
-	 * <ul>
-	 *   <li>{@code 16} — plaza_p1 / city default</li>
-	 *   <li>{@code  1} — startmissions/reaktor dungeon</li>
-	 *   <li>{@code 0x100 = 256} — sewer/sewer_p4 dungeon
-	 *       (cellar-door entry)</li>
-	 *   <li>{@code 0} — generic fallback (back-compat)</li>
-	 * </ul>
-	 *
-	 * <p>Cross-types per Zoning1's {@code crossKind} discriminator:
-	 * dungeon-class destinations use larger spawn indices than city
-	 * zones. See {@code memory/dungeon_cross_wire.md} +
-	 * {@code memory/interzone_elevator_cross.md} for the byte map.
-	 */
-	/**
-	 * Per-zone default spawn index — the appplaces row pointing
-	 * at this zone's primary entry point. Read from the canonical
-	 * source: {@code defs.worldinfo[zoneId].f3} via
-	 * {@link PortalResolver#lookupSpawnIdx(int)}.
-	 *
-	 * <p>Replaced the bsp-prefix heuristic 2026-05-30 03:30 UTC
-	 * (the heuristic returned 16 for ALL {@code plaza/} zones,
-	 * but the DB correctly has {@code f3=16} for plaza_p1 only
-	 * and {@code f3=0} for plaza_p3 — the latter is what a
-	 * walk-cross into P3 needs to keep the player at the seam).
+	 * Per-zone WORLDFLAGS word — the security/type bitmask the
+	 * retail server sends in TCP {@code 0x83/0x0c Location} field 3
+	 * and UDP {@code 0x03/0x23} sub {@code 0x20} zoneInfo on every
+	 * zone entry. Bit {@code 0x10} = SECURE sector (client refuses
+	 * weapon draw). Read from the canonical source:
+	 * {@code defs.worldinfo[zoneId].f3} plus NC2.5 retail overrides,
+	 * via {@link PortalResolver#lookupWorldFlags(int)} — see that
+	 * method's javadoc for the bit map and the misread history
+	 * ("spawn_flag", "appplaces spawnIdx").
 	 *
 	 * <p>Lazy-computed + cached on first read.
 	 */
-	public int getDefaultSpawnIdx() {
-		if (defaultSpawnIdxCache == null) {
-			defaultSpawnIdxCache =
-				PortalResolver.lookupSpawnIdx(zoneId);
+	public int getWorldFlags() {
+		if (worldFlagsCache == null) {
+			worldFlagsCache =
+				PortalResolver.lookupWorldFlags(zoneId);
 		}
-		return defaultSpawnIdxCache;
+		return worldFlagsCache;
 	}
 
-	private Integer defaultSpawnIdxCache; // lazy
+	private Integer worldFlagsCache; // lazy
 
 	/**
 	 * District map-id used as the LE16 field after {@code 0x1f}

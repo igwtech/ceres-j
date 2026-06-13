@@ -458,37 +458,90 @@ public final class PortalResolver {
     }
 
     /**
-     * Look up the default appplaces spawn-row index for a zone — the
-     * {@code f3} field of {@code defs.worldinfo[zoneId]}. This is
-     * the LE32 written as the 3rd field of TCP {@code 0x83/0x0c
-     * Location} (the "spawnIdx"), telling the client which entry
-     * point to position the player at on world-load.
+     * NC2.5 retail worldflags that differ from the client-shipped
+     * (NC2-era) {@code defs.worldinfo.f3} column. Observed on the
+     * retail wire (TCP {@code 0x83/0x0c} field 3 + UDP
+     * {@code 0x03/0x23} sub {@code 0x20}), which always agree; zero
+     * counterexamples across 12 retail pcaps / 40+ zone entries.
+     * Exact observed ids only — do NOT generalise (e.g. the
+     * 2000-block also contains dungeon/event zones with real
+     * non-zero defs flags: 2000 WATER TREATMENT f3=1, 2131
+     * RACETRACK f3=8, 2184 BATTLE DOME f3=8).
      *
-     * <p>Live-verified values from the DB (2026-05-30):
      * <ul>
-     *   <li>Plaza Sec-1 (zone 1): {@code f3=16} — login spawn center.</li>
-     *   <li>Plaza Sec-3 (zone 101): {@code f3=0} — preserves coords
-     *       (right value for a walk-cross into P3).</li>
-     *   <li>Plaza Sec-4 (zone 102): {@code f3=0}.</li>
-     *   <li>Reactor Room (zone 1573): {@code f3=1} — dungeon entry.</li>
-     *   <li>Abandoned Cellar 2 Easy (zone 1064): {@code f3=…}.</li>
+     *   <li>2 PLAZA SEC-2: defs 0 → wire 0x10 (secure)
+     *       [LONG_PARTY_A + LONG_PARTY_B pcaps]</li>
+     *   <li>24 OUTZONE STATION: defs 0x10 → wire 0x400 (warzone)
+     *       [VEHICLE_DRONE pcap ×2]</li>
+     *   <li>1086 terrain/h_14 (MC5 wasteland): defs 0x80 → wire
+     *       0x84 [CREATION_LEVELING pcap]</li>
+     *   <li>2008/2009/2027/2028/2029/2048 wasteland terrain cells
+     *       a_08/a_09/b_07/b_08/b_09/c_08: defs 0 → wire 0x100
+     *       [VEHICLE_DRONE pcap, 11 entries]</li>
+     * </ul>
+     */
+    private static final java.util.Map<Integer, Integer>
+            RETAIL_WORLDFLAGS_OVERRIDES = java.util.Map.of(
+        2, 0x10,
+        24, 0x400,
+        1086, 0x84,
+        2008, 0x100,
+        2009, 0x100,
+        2027, 0x100,
+        2028, 0x100,
+        2029, 0x100,
+        2048, 0x100);
+
+    /**
+     * Look up the per-zone WORLDFLAGS word — the {@code f3} field of
+     * {@code defs.worldinfo[zoneId]} (the client's own "Flags"
+     * column), with NC2.5 retail overrides applied. This is the LE32
+     * the retail server writes in TWO redundant carriers on every
+     * zone entry (login, walk-cross, genrep, portal):
+     *
+     * <ul>
+     *   <li>TCP {@code 0x83/0x0c Location}, 3rd LE32 (offset
+     *       10..13 from the 0x83 byte);</li>
+     *   <li>UDP S→C reliable {@code 0x03/0x23} sub {@code 0x20}
+     *       "zoneInfo": {@code [20 00][worldflags LE32]}.</li>
      * </ul>
      *
-     * <p>This replaces the bsp-prefix heuristic that
-     * {@link server.gameserver.Zone#getDefaultSpawnIdx()} used to
-     * carry — that approach returned 16 for ALL {@code plaza/} zones
-     * and regressed the walk-cross spawn position (caused Asddf to
-     * spawn in the centre of plaza_p3 instead of at the P1↔P3 seam).
-     * The DB is the canonical source.
+     * <p>The client commits the value to its WorldClient zone-flags
+     * word and classifies the sector from it. Known bits (retail
+     * corpus + client {@code FUN_006fee00} flag decoder):
+     * {@code 0x10} = SECURE / Safe Zone (weapon draw refused —
+     * "Secure Sector" Communicator line), {@code 0x01} =
+     * dungeon/instanced, {@code 0x80} = MC5/starter,
+     * {@code 0x100} = wasteland/anarchy terrain, {@code 0x400} =
+     * warzone, {@code 0x02} = No Terrain Change, {@code 0x04} =
+     * No GeneReps, {@code 0x20} = Relog At Respawn.
+     *
+     * <p>Wire-verified values: plaza_p1/p2=0x10, pepper_p1/p2/p3=0,
+     * viarosso=0, plaza_p3/p4=0, subway=0, outzone_jail=0,
+     * outzone_station=0x400, MC5=0x90, reaktor/cavemap2=0x01,
+     * wasteland terrain=0x100, apartments=0.
+     *
+     * <p>HISTORY: this field was misread twice — first as a
+     * login-only "spawn_flag" (0x83/0x0c docs), then as an
+     * "appplaces spawn row index" (task #252's "16 for plaza, 1
+     * for reaktor" — a coincidence collapse: those are plaza's
+     * 0x10 SECURE flag and reaktor's 0x01 dungeon flag). A
+     * hardcoded copy of plaza's 0x10 in
+     * {@code InfoResponse.zoneInfo()} marked EVERY Ceres zone
+     * secure and blocked quickbelt weapon draw (solved 2026-06-12).
      *
      * @param zoneId  Ceres-J zone id (matches {@code defs.worldinfo}
      *                {@code entry_id}, which is the same as
      *                {@code PlayerCharacter.MISC_LOCATION})
-     * @return        the spawn index from {@code worldinfo.f3}, or
-     *                {@code 0} if no row, no f3 field, or the field
-     *                is not parseable as an int (safe fallback)
+     * @return        the zone's worldflags; {@code 0} if no row,
+     *                no f3 field, or no DB (safe fallback — the
+     *                client never defaults to secure)
      */
-    public static int lookupSpawnIdx(int zoneId) {
+    public static int lookupWorldFlags(int zoneId) {
+        Integer override = RETAIL_WORLDFLAGS_OVERRIDES.get(zoneId);
+        if (override != null) {
+            return override;
+        }
         Connection conn = SqliteDatabase.getConnection();
         if (conn == null) {
             return 0;

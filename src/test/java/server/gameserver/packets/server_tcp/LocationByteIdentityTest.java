@@ -3,9 +3,15 @@ package server.gameserver.packets.server_tcp;
 import static org.junit.Assert.*;
 
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
+import server.database.SqliteDatabase;
 import server.database.playerCharacters.PlayerCharacter;
 import server.gameserver.Player;
 import server.gameserver.packets.server_udp.PacketTestFixture;
@@ -20,21 +26,57 @@ import server.networktools.PacketBuilderTCP;
  * <pre>
  *   offset 0..1   : opcode 83 0c
  *   offset 2..5   : location LE32
- *   offset 6..9   : flag    LE32  (0; or 1 when location == 9999)
- *   offset 10..13 : zero    LE32
+ *   offset 6..9   : reserved LE32  (0; or 1 when location == 9999)
+ *   offset 10..13 : worldflags LE32  (per-zone security bitmask)
  *   offset 14..N  : worldname ASCII
  *   offset N+1    : 0x00     null terminator
  * </pre>
  *
  * <p>The 9999 special case substitutes {@code apps/clean/plaza_app_4_c}
- * for the worldname and writes {@code flag=1}.
+ * for the worldname and writes {@code reserved=1, worldflags=0}.
  *
- * <p><b>Open question (catalog):</b> retail sample #1 with location=1
- * has byte 10 = {@code 0x10} where Ceres-J writes {@code 0x00}. The
- * meaning is unconfirmed (possibly a per-zone version flag) — pinning
- * Ceres-J's current behavior; a future fix can update this test.
+ * <p><b>Field 3 (offset 10..13) = WORLDFLAGS</b> — re-decoded
+ * 2026-06-12. Retail sample #1 (location=1 plaza_p1) has byte 10 =
+ * {@code 0x10} because plaza is a SECURE sector (bit 0x10); pepper_p1
+ * (PvP) has 0x00. The old "pin Ceres at 0x00" stance was the bug that
+ * blocked weapon draw. Flags resolve from {@code defs.worldinfo.f3}
+ * (+ NC2.5 overrides) via {@link server.gameserver.PortalResolver
+ * #lookupWorldFlags(int)}, so the retail-byte tests seed an in-memory
+ * {@code client_defs}.
  */
 public class LocationByteIdentityTest {
+
+    private Connection conn;
+
+    @Before
+    public void setUp() throws Exception {
+        conn = DriverManager.getConnection("jdbc:sqlite::memory:");
+        SqliteDatabase.initWithConnection(conn);
+        try (Statement st = conn.createStatement()) {
+            st.execute("CREATE TABLE IF NOT EXISTS client_defs ("
+                    + " def_name TEXT NOT NULL,"
+                    + " entry_id INTEGER NOT NULL,"
+                    + " fields TEXT NOT NULL,"
+                    + " PRIMARY KEY (def_name, entry_id))");
+        }
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        if (conn != null) conn.close();
+    }
+
+    /** Seed a {@code defs.worldinfo[zoneId]} row carrying {@code f3}
+     *  (the worldflags column the retail server reads). */
+    private void seedWorldinfoFlags(int zoneId, int f3) throws Exception {
+        try (Statement st = conn.createStatement()) {
+            st.execute("INSERT OR REPLACE INTO client_defs VALUES ("
+                    + "'worldinfo', " + zoneId + ", '"
+                    + "{\"f0\":\"ZONE" + zoneId + "\",\"f1\":0,"
+                    + "\"f2\":\" \",\"f3\":" + f3 + ",\"f4\":0,"
+                    + "\"directive\":\"setentry\"}')");
+        }
+    }
 
     private static byte[] wireBytes(PacketBuilderTCP pkt) {
         byte[] data = pkt.getData();
@@ -173,28 +215,33 @@ public class LocationByteIdentityTest {
         assertEquals(42, new Location(pl).size());
     }
 
-    // ──────────────────────────────────────── task #252 — retail
-    // byte-identity assertions captured 2026-05-24 from live
-    // retail portal-cross. Memory: retail-0x830c-bytes-cracked.
+    // ──────────────────────────────────────── retail byte-identity
+    // assertions. Field 3 = per-zone WORLDFLAGS (re-decoded
+    // 2026-06-12; the old #252 "spawnIdx" reading was a coincidence
+    // collapse — see Location javadoc). Flags resolve from
+    // defs.worldinfo.f3 via PortalResolver.lookupWorldFlags, so
+    // these tests seed an in-memory client_defs.
 
     @Test
     public void retailReaktorCrossInBytesIdentical() throws Exception {
         // Captured retail bytes for cross-IN to "startmissions/reaktor"
-        // (zoneId=1573, spawnIdx=1). Source: pcap RETRY3 frame 312.
+        // (zoneId=1573, worldflags=0x01 dungeon). Source: pcap RETRY3
+        // frame 312.
         //
         //   fe 24 00 83 0c 25 06 00 00 00 00 00 00 00 01 00 00 00
         //   "startmissions/reaktor\0"
         //
         // Total wire: 3 (frame) + 14 (header) + 21 (path) + 1 (\0) = 39 bytes.
+        seedWorldinfoFlags(1573, 1);
         Player pl = buildPlayerWithZone(1573, "startmissions/reaktor");
 
-        byte[] wire = wireBytes(new Location(pl, 1));
+        byte[] wire = wireBytes(new Location(pl));
 
         byte[] expected = hex(
                 "fe 24 00 83 0c " +
                 "25 06 00 00 " +   // destZoneId LE32 = 1573
                 "00 00 00 00 " +   // reserved
-                "01 00 00 00 " +   // spawnIdx LE32 = 1
+                "01 00 00 00 " +   // worldflags LE32 = 0x01 (dungeon)
                 "73 74 61 72 74 6d 69 73 73 69 6f 6e 73 " + // startmissions
                 "2f " +            // '/'
                 "72 65 61 6b 74 6f 72 " + // reaktor
@@ -205,23 +252,25 @@ public class LocationByteIdentityTest {
 
     @Test
     public void retailPlazaSpawnBytesIdentical() throws Exception {
-        // Captured retail bytes for plaza_p1 (zoneId=1, spawnIdx=16) —
-        // used for BOTH login spawn AND cross-OUT from reaktor.
-        // Source: pcap RETRY3 frames 53 (compound login) + 5906 (cross-out).
+        // Captured retail bytes for plaza_p1 (zoneId=1,
+        // worldflags=0x10 SECURE) — identical for login spawn,
+        // cross-OUT from reaktor, AND plain walk-crosses
+        // (PLAZA_CROSSZONE pcap ×3). Source: pcap RETRY3 frames 53 + 5906.
         //
         //   fe 1d 00 83 0c 01 00 00 00 00 00 00 00 10 00 00 00
         //   "plaza/plaza_p1\0"
         //
         // Total wire: 3 + 14 + 14 + 1 = 32 bytes.
+        seedWorldinfoFlags(1, 16);
         Player pl = buildPlayerWithZone(1, "plaza/plaza_p1");
 
-        byte[] wire = wireBytes(new Location(pl, 16));
+        byte[] wire = wireBytes(new Location(pl));
 
         byte[] expected = hex(
                 "fe 1d 00 83 0c " +
                 "01 00 00 00 " +   // destZoneId LE32 = 1
                 "00 00 00 00 " +   // reserved
-                "10 00 00 00 " +   // spawnIdx LE32 = 16
+                "10 00 00 00 " +   // worldflags LE32 = 0x10 (SECURE)
                 "70 6c 61 7a 61 2f 70 6c 61 7a 61 5f 70 31 " + // plaza/plaza_p1
                 "00");
         assertArrayEquals("retail plaza_p1 spawn bytes",
@@ -229,16 +278,63 @@ public class LocationByteIdentityTest {
     }
 
     @Test
-    public void backwardCompatDefaultSpawnIdxIsZero() {
-        // The 1-arg ctor MUST keep emitting spawnIdx=0 so callers
-        // that haven't been updated (login, GM warp) don't change
-        // wire shape. Verify the [10..13] LE32 is 0.
+    public void retailPepperEntryBytesIdentical() throws Exception {
+        // The quickbelt draw/holster fix: pepper_p1 (zoneId=5) is a
+        // PvP/outskirt zone — worldflags MUST be 0 (defs f3=0, no
+        // override) or the client prints "Secure Sector" and refuses
+        // weapon draw. Source: PLAZA_TO_PEPPER_CROSS_DISTRICT +
+        // VEHICLE_DRONE + LONG_PARTY_A/B pcaps (5 entries):
+        //
+        //   fe 1f 00 83 0c 05 00 00 00 00 00 00 00 00 00 00 00
+        //   "pepper/pepper_p1\0"
+        seedWorldinfoFlags(5, 0);
+        Player pl = buildPlayerWithZone(5, "pepper/pepper_p1");
+
+        byte[] wire = wireBytes(new Location(pl));
+
+        byte[] expected = hex(
+                "fe 1f 00 83 0c " +
+                "05 00 00 00 " +   // destZoneId LE32 = 5
+                "00 00 00 00 " +   // reserved
+                "00 00 00 00 " +   // worldflags LE32 = 0 (PvP/outskirt)
+                "70 65 70 70 65 72 2f 70 65 70 70 65 72 5f 70 31 " + // pepper/pepper_p1
+                "00");
+        assertArrayEquals("retail pepper_p1 entry bytes",
+                expected, wire);
+    }
+
+    @Test
+    public void nc25OverridesBeatStaleClientDefs() throws Exception {
+        // NC2.5 retail overrides where the client-shipped defs are
+        // stale: plaza_p2 (id 2) defs say 0 but retail wire says
+        // 0x10 (LONG_PARTY_A/B); outzone_station (id 24) defs say
+        // 0x10 but retail wire says 0x400 warzone (VEHICLE_DRONE).
+        seedWorldinfoFlags(2, 0);
+        Player p2 = buildPlayerWithZone(2, "plaza/plaza_p2");
+        byte[] body2 = extractBody(wireBytes(new Location(p2)),
+                14 + "plaza/plaza_p2".length() + 1);
+        assertEquals("plaza_p2 override flags byte", 0x10, body2[10] & 0xFF);
+        assertEquals(0x00, body2[11] & 0xFF);
+
+        seedWorldinfoFlags(24, 16);
+        Player p24 = buildPlayerWithZone(24, "outzone/outzone_station");
+        byte[] body24 = extractBody(wireBytes(new Location(p24)),
+                14 + "outzone/outzone_station".length() + 1);
+        assertEquals("outzone_station override low byte", 0x00, body24[10] & 0xFF);
+        assertEquals("outzone_station override 0x400 high byte",
+                0x04, body24[11] & 0xFF);
+    }
+
+    @Test
+    public void unknownZoneIdEmitsFlagsZero() {
+        // No worldinfo row for the zone → flags fall back to 0
+        // (non-secure; the client never defaults to secure).
         Player pl = PacketTestFixture.newPlayer();
-        pl.getCharacter().setMisc(PlayerCharacter.MISC_LOCATION, 1);
+        pl.getCharacter().setMisc(PlayerCharacter.MISC_LOCATION, 777);
 
         byte[] body = extractBody(wireBytes(new Location(pl)), 15);
         for (int i = 10; i <= 13; i++) {
-            assertEquals("default spawnIdx byte " + i + " must be 0",
+            assertEquals("fallback worldflags byte " + i + " must be 0",
                     0x00, body[i] & 0xFF);
         }
     }

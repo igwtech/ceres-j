@@ -107,10 +107,21 @@ public class WorldInfoSrv extends PacketBuilderUDP1303 {
         write(0x00);
 
         // World entity id. Used by the client to identify the zone
-        // object it's entering. Anything non-zero; the actual value is
-        // consumed by game logic we haven't modelled. Use the mapId as
-        // a stable proxy.
-        writeInt(pl.getMapID());
+        // object it's entering (stored at WorldClient +0x15c). Send
+        // the REAL world id (MISC_LOCATION, = defs.worldinfo
+        // entry_id), not pl.getMapID(): mapID is the per-zone
+        // player-slot index (1 for a lone player), and worldinfo[1]
+        // is PLAZA SEC-1 — any client lookup keyed on this id would
+        // resolve every zone to Plaza (a SECURE sector). Note this
+        // packet is Ceres-only (no S→C 0x19 exists in any of the 17
+        // retail captures); it survives as the #172 zone-cross
+        // handoff staging aid — candidate for suppression once the
+        // cross path is re-validated without it.
+        writeInt(pl.getCharacter() != null
+                ? pl.getCharacter().getMisc(
+                        server.database.playerCharacters
+                                .PlayerCharacter.MISC_LOCATION)
+                : pl.getMapID());
 
         // Command id. Used by FUN_00558950's "Request Command ID" poll
         // loop — when this matches, the client transitions to the

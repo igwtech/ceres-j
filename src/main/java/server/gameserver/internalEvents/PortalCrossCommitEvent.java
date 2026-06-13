@@ -131,13 +131,15 @@ public final class PortalCrossCommitEvent extends DummyEvent {
 
 		// TCP 0x83/0x0c Location — the worldserver address + BSP
 		// name the client needs to load the destination world.
-		// Pass portal.exitWorldEntity as spawnIdx (task #252):
-		// appplaces row pointing at the destination's entry-point
-		// coords. Retail emits 1 for reaktor dungeon, 16 for plaza
-		// (verified 2026-05-24 byte-for-byte). Pre-#252 we always
-		// emitted 0, which produced a wire mismatch.
+		// Field 3 is the destination zone's WORLDFLAGS (resolved
+		// inside Location) — NOT portal.exitWorldEntity. The #252
+		// "spawnIdx" reading was a misdecode: retail's "1 for
+		// reaktor, 16 for plaza" are the 0x01 dungeon / 0x10
+		// SECURE flag bits. Sending an appplaces entity index here
+		// could set bit 0x10 spuriously and mark the destination a
+		// Secure Sector (weapon draw refused) zone-wide.
 		if (pl.getTcpConnection() != null) {
-			pl.send(new Location(pl, portal.exitWorldEntity));
+			pl.send(new Location(pl));
 			// Task #253 — mark this BSP as loaded so future
 			// cross-OUT or re-cross to it suppresses 0x83/0x0d
 			// (retail-faithful: only first-load triggers

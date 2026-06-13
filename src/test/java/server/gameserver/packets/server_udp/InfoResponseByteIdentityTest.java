@@ -49,13 +49,36 @@ public class InfoResponseByteIdentityTest {
     }
 
     @Test
-    public void zoneInfoExactBytes() {
-        // Catalog sample #1: `200010000000` (6 bytes)
+    public void zoneInfoEmitsZeroFlagsForPvpZone() {
+        // The fix: the fixture player is at MISC_LOCATION 7
+        // (PEPPER PARK SEC-3, a PvP/outskirt zone) → worldflags = 0,
+        // so the client does NOT classify it a Secure Sector and
+        // allows weapon draw. Body: `20 00 00 00 00 00`.
+        // (Catalog sample #1 `200010000000` was plaza_p1, SECURE —
+        // hardcoding it here was the bug that blocked weapon draw.)
+        byte[] expected = {
+                0x20, 0x00, 0x00, 0x00, 0x00, 0x00
+        };
+        byte[] body = extractInnerBody(
+                datagramBytes(InfoResponse.zoneInfo(fixture())),
+                expected.length);
+        assertArrayEquals(expected, body);
+    }
+
+    @Test
+    public void zoneInfoEmits0x10ForSecureZone() {
+        // PLAZA SEC-2 (zone id 2) is a SECURE sector. Its
+        // client-shipped defs.worldinfo.f3 is stale (0), but the
+        // NC2.5 retail override map yields 0x10 with no DB — so
+        // zoneInfo emits `20 00 10 00 00 00` and the client refuses
+        // weapon draw there, matching retail (LONG_PARTY_A/B pcaps).
+        Player pl = fixture();
+        pl.getCharacter().setMisc(PlayerCharacter.MISC_LOCATION, 2);
         byte[] expected = {
                 0x20, 0x00, 0x10, 0x00, 0x00, 0x00
         };
         byte[] body = extractInnerBody(
-                datagramBytes(InfoResponse.zoneInfo(fixture())),
+                datagramBytes(InfoResponse.zoneInfo(pl)),
                 expected.length);
         assertArrayEquals(expected, body);
     }

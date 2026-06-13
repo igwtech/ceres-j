@@ -68,26 +68,24 @@ public class Zoning2 extends GamePacketDecoderUDP {
 
         // TCP zone-swap pair: GameinfoReady then Location (carries
         // the destination BSP path resolved from the now-committed
-        // MISC_LOCATION). spawnIdx now comes from the canonical
-        // source: defs.worldinfo[destZone].f3, via
-        // Zone.getDefaultSpawnIdx() → PortalResolver.lookupSpawnIdx().
-        //
-        // Live-verified DB values: plaza_p1=16, plaza_p3=0 (preserves
-        // seam coords), plaza_p4=0, reaktor=1. Earlier today's
-        // bsp-prefix heuristic was wrong because it returned 16 for
-        // ALL plaza/ zones (regressed walk-cross spawn position).
+        // MISC_LOCATION). Location field 3 is the destination
+        // zone's WORLDFLAGS (defs.worldinfo.f3 + NC2.5 retail
+        // overrides, resolved inside Location via
+        // PortalResolver.lookupWorldFlags) — the per-zone security
+        // bitmask, NOT a spawn index. The earlier "non-zero
+        // teleports to appplaces entry" reading came from sending
+        // plaza_p1's 0x10 (its SECURE flag) to plaza_p3, where
+        // retail sends 0; retail provably sends 0x10 on plaza_p1
+        // walk-crosses (PLAZA_CROSSZONE pcap ×3).
         if (pl.getTcpConnection() != null) {
             pl.send(new Packet830D());
-            server.gameserver.Zone destZone =
-                server.gameserver.ZoneManager.getZone(pending);
-            int spawnIdx = (destZone == null)
-                ? 0 : destZone.getDefaultSpawnIdx();
             Out.writeln(Out.Info,
-                "Zoning2: Location spawnIdx=" + spawnIdx
-                + " (from client_defs.worldinfo[" + pending
-                + "].f3) — 0 preserves seam coords, non-zero "
-                + "teleports to appplaces entry");
-            pl.send(new Location(pl, spawnIdx));
+                "Zoning2: Location worldflags=0x"
+                + Integer.toHexString(
+                    server.gameserver.PortalResolver
+                        .lookupWorldFlags(pending))
+                + " for zone " + pending);
+            pl.send(new Location(pl));
         } else {
             Out.writeln(Out.Warning,
                 "Zoning2: no TCP connection for "

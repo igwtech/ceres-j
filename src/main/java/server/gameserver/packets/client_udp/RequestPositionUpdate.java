@@ -118,13 +118,13 @@ public class RequestPositionUpdate extends GamePacketDecoderUDP  {
 		//TODO this is just a workaround
 		pl.send(new CharInfo(pl));
 		// Retail emits a 7-byte 0x03/0x23 zoneInfo
-		// {@code [20 00 ?? 00 00 00]} after PositionUpdate +
-		// CharInfo on RequestPositionUpdate. Verified 2026-05-09
-		// against NORMAN step 9: retail's S→C queue pairs Ceres-J's
-		// PositionUpdate with retail's first emit, then expects
-		// 0x03/0x23 zoneInfo next. body[2] is session/zone state
-		// (0x10/0x01/0x84/0x00 across captures) — pcap-replay
-		// harness masks that byte.
+		// {@code [20 00][worldflags LE32]} after PositionUpdate +
+		// CharInfo on RequestPositionUpdate (verified 2026-05-09
+		// against NORMAN step 9). The LE32 is the zone's
+		// WORLDFLAGS — the per-zone security carrier (0x10=secure,
+		// 0x01=dungeon, 0x84=h_14, 0x00=pepper across captures;
+		// decoded 2026-06-12). zoneInfo() now resolves it from
+		// the player's zone.
 		pl.send(InfoResponse.zoneInfo(pl));
 	}
 }
