@@ -268,6 +268,53 @@ function udpSendHandler() {
     };
 }
 
+// recv(s, buf, len, flags) — same buffer shape as recvfrom (buf=args[1],
+// return=bytes). Emitted as the SAME 'udp_recv' event so the orchestrator
+// decodes it identically; this catches any game data the client pulls via
+// recv (connected UDP / TCP) rather than recvfrom. (Combat-HP coverage
+// check, 2026-06-13.)
+function recvHandler() {
+    return {
+        onEnter(args) { this._sock = args[0].toInt32(); this._buf = args[1]; },
+        onLeave(retval) {
+            try {
+                const n = retval.toInt32();
+                if (n <= 0) return;
+                send({ ev: 'udp_recv', sock: this._sock, len: n,
+                       via: 'recv',
+                       hex: bufHex(this._buf, Math.min(n, DUMP_LIMIT)),
+                       tid: this.threadId, ts: nowNs() });
+            } catch (e) {
+                send({ ev: 'hook_error', hook: 'recv', error: String(e) });
+            }
+        },
+    };
+}
+
+// WSARecv / WSARecvFrom — overlapped/scatter-gather recv. Data lands in a
+// WSABUF array (args[1]); bytes-received OUT ptr is args[3]. WSABUF =
+// {ULONG len; CHAR* buf}; on x64 buf is at +8 (= pointerSize), on x86 +4.
+// Only the synchronous-completion case is readable at onLeave; that's
+// enough to DETECT whether the client routes game UDP through this path.
+function wsaRecvHandler(name) {
+    return {
+        onEnter(args) { this._buffers = args[1]; this._recvd = args[3]; },
+        onLeave(retval) {
+            try {
+                if (this._recvd.isNull()) return;
+                const n = this._recvd.readU32();
+                if (n <= 0 || n > 0x10000) return;
+                const buf = this._buffers.add(PS).readPointer();  // WSABUF[0].buf
+                send({ ev: 'udp_recv', len: n, via: name,
+                       hex: bufHex(buf, Math.min(n, DUMP_LIMIT)),
+                       tid: this.threadId, ts: nowNs() });
+            } catch (e) {
+                send({ ev: 'hook_error', hook: name, error: String(e) });
+            }
+        },
+    };
+}
+
 // ── TCP capture (NC2 doesn't use ws2_32 recv/send/WSARecv/WSASend) ──
 //
 // 2026-05-28: hooked all four ws2_32 stream-socket APIs during live
@@ -958,6 +1005,9 @@ function findExistingD3D9Device() {
 // now Winsock-based.
 const HOOK_FACTORIES = {
     udp_recv: udpRecvHandler,
+    udp_recv_recv: recvHandler,            // ws2_32!recv
+    udp_recv_wsarecvfrom: wsaRecvHandler,  // ws2_32!WSARecvFrom
+    udp_recv_wsarecv: wsaRecvHandler,      // ws2_32!WSARecv
     udp_send: udpSendHandler,
     tcp_send: tcpSendHandler,                // v0.7.0: ws2_32!send
     tcp_connect: connectHandler,             // v0.8.1: ws2_32!connect

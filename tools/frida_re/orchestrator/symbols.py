@@ -103,6 +103,32 @@ HOOK_TABLE: Dict[str, HookSpec] = {
             export_mod="ws2_32.dll",
             export_sym="sendto",
         ),
+        # Recv-path COVERAGE (combat-HP check, 2026-06-13): make sure
+        # recvfrom is the ONLY way the client pulls game UDP. If the
+        # client also uses recv / WSARecvFrom / WSARecv for game data,
+        # these emit 'udp_recv' too so the trace stays complete (and we
+        # can conclude HP is/ isn't streamed).
+        HookSpec(
+            name="udp_recv_recv",
+            purpose="ws2_32!recv onLeave — catch game data via recv "
+                    "(connected UDP / TCP) not recvfrom.",
+            implemented=True, mode="export",
+            export_mod="ws2_32.dll", export_sym="recv",
+        ),
+        HookSpec(
+            name="udp_recv_wsarecvfrom",
+            purpose="ws2_32!WSARecvFrom onLeave — overlapped/scatter UDP "
+                    "recv (WSABUF). Coverage for HP-stream check.",
+            implemented=True, mode="export",
+            export_mod="ws2_32.dll", export_sym="WSARecvFrom",
+        ),
+        HookSpec(
+            name="udp_recv_wsarecv",
+            purpose="ws2_32!WSARecv onLeave — overlapped recv (WSABUF). "
+                    "Coverage for HP-stream check.",
+            implemented=True, mode="export",
+            export_mod="ws2_32.dll", export_sym="WSARecv",
+        ),
         # v0.7.0: TCP send. NC2's import table shows `send` is imported;
         # NC2 calls it for outbound TCP (zone-cross 0x83/0x0c etc.).
         HookSpec(
