@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: server.gameserver.packets.server_udp.OpenDoorByteIdentityTest
+-------------------------------------------------------------------------------
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0 s -- in server.gameserver.packets.server_udp.OpenDoorByteIdentityTest

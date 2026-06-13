@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: server.webserver.api.AdminServletFunctionalTest
+-------------------------------------------------------------------------------
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.462 s -- in server.webserver.api.AdminServletFunctionalTest

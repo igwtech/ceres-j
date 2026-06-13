@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ceres-J Dashboard</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0c12;
+            color: #c0c8d8;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+
+        #app {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 32px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #1a1e2e;
+        }
+
+        header h1 {
+            color: #00d4ff;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        header h1 span {
+            color: #4a5068;
+            font-weight: 300;
+            font-size: 16px;
+            margin-left: 8px;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.online {
+            background: #00ff88;
+            box-shadow: 0 0 8px #00ff8844;
+        }
+
+        .status-dot.offline {
+            background: #ff4444;
+            box-shadow: 0 0 8px #ff444444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: #10131c;
+            border: 1px solid #1a1e2e;
+            border-radius: 8px;
+            padding: 20px;
+            transition: border-color 0.3s;
+        }
+
+        .stat-card:hover {
+            border-color: #00d4ff33;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #4a5068;
+            margin-bottom: 8px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        .stat-card .value.small {
+            font-size: 18px;
+        }
+
+        .section {
+            margin-bottom: 32px;
+        }
+
+        .section h2 {
+            color: #e0e4ec;
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 16px;
+            padding-left: 12px;
+            border-left: 3px solid #00d4ff;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #10131c;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #1a1e2e;
+        }
+
+        thead th {
+            background: #141824;
+            color: #4a5068;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        tbody td {
+            padding: 12px 16px;
+            border-top: 1px solid #1a1e2e;
+            font-size: 14px;
+        }
+
+        tbody tr:hover {
+            background: #141824;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .badge.online {
+            background: #00ff8818;
+            color: #00ff88;
+            border: 1px solid #00ff8833;
+        }
+
+        .badge.offline {
+            background: #ff444418;
+            color: #ff4444;
+            border: 1px solid #ff444433;
+        }
+
+        .badge.admin {
+            background: #ffaa0018;
+            color: #ffaa00;
+            border: 1px solid #ffaa0033;
+        }
+
+        .badge.banned {
+            background: #ff444418;
+            color: #ff4444;
+            border: 1px solid #ff444433;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 16px;
+            color: #4a5068;
+            font-size: 14px;
+        }
+
+        .error-banner {
+            background: #ff444418;
+            border: 1px solid #ff444433;
+            color: #ff6666;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .refresh-info {
+            color: #4a5068;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>
+                <span class="status-dot" :class="connected ? 'online' : 'offline'"></span>
+                {{ status.serverName || 'Ceres-J' }}
+                <span>Dashboard</span>
+            </h1>
+            <div class="refresh-info">
+                Auto-refresh: 5s
+            </div>
+        </header>
+
+        <div v-if="error" class="error-banner">
+            {{ error }}
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="label">Server Name</div>
+                <div class="value small">{{ status.serverName || '--' }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Uptime</div>
+                <div class="value small">{{ formatUptime(status.uptime) }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Players Online</div>
+                <div class="value">{{ status.playerCount != null ? status.playerCount : '--' }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Version</div>
+                <div class="value small">{{ status.version || '--' }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Registered Accounts</div>
+                <div class="value">{{ accounts.length }}</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Online Players</h2>
+            <table v-if="players.length > 0">
+                <thead>
+                    <tr>
+                        <th>Account</th>
+                        <th>Character</th>
+                        <th>Zone</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="player in players" :key="player.account">
+                        <td>{{ player.account }}</td>
+                        <td>{{ player.characterName || '--' }}</td>
+                        <td>{{ player.zone || '--' }}</td>
+                        <td>
+                            <span class="badge" :class="player.loggedIn ? 'online' : 'offline'">
+                                {{ player.loggedIn ? 'In Game' : 'Connecting' }}
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div v-else class="empty-state">
+                No players currently online.
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Registered Accounts</h2>
+            <table v-if="accounts.length > 0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Status</th>
+                        <th>Characters</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="account in accounts" :key="account.id">
+                        <td>{{ account.id }}</td>
+                        <td>{{ account.username }}</td>
+                        <td>
+                            <span v-if="account.status === 'admin'" class="badge admin">Admin</span>
+                            <span v-else-if="account.status === 'banned'" class="badge banned">Banned</span>
+                            <span v-else class="badge online">Active</span>
+                        </td>
+                        <td>{{ countCharacters(account.characters) }} / 4</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div v-else class="empty-state">
+                No accounts registered.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, onUnmounted } = Vue;
+
+        createApp({
+            setup() {
+                const status = ref({});
+                const players = ref([]);
+                const accounts = ref([]);
+                const connected = ref(false);
+                const error = ref(null);
+                let timer = null;
+
+                async function fetchData() {
+                    try {
+                        const [statusRes, playersRes, accountsRes] = await Promise.all([
+                            fetch('/api/status'),
+                            fetch('/api/players'),
+                            fetch('/api/accounts')
+                        ]);
+
+                        if (!statusRes.ok || !playersRes.ok || !accountsRes.ok) {
+                            throw new Error('Server returned an error');
+                        }
+
+                        status.value = await statusRes.json();
+                        players.value = await playersRes.json();
+                        accounts.value = await accountsRes.json();
+                        connected.value = true;
+                        error.value = null;
+                    } catch (e) {
+                        connected.value = false;
+                        error.value = 'Unable to connect to server API. Retrying...';
+                    }
+                }
+
+                function formatUptime(ms) {
+                    if (ms == null) return '--';
+                    const seconds = Math.floor(ms / 1000);
+                    const days = Math.floor(seconds / 86400);
+                    const hours = Math.floor((seconds % 86400) / 3600);
+                    const minutes = Math.floor((seconds % 3600) / 60);
+                    const secs = seconds % 60;
+
+                    const parts = [];
+                    if (days > 0) parts.push(days + 'd');
+                    if (hours > 0) parts.push(hours + 'h');
+                    if (minutes > 0) parts.push(minutes + 'm');
+                    parts.push(secs + 's');
+                    return parts.join(' ');
+                }
+
+                function countCharacters(chars) {
+                    if (!chars) return 0;
+                    return chars.filter(c => c !== 0).length;
+                }
+
+                onMounted(() => {
+                    fetchData();
+                    timer = setInterval(fetchData, 5000);
+                });
+
+                onUnmounted(() => {
+                    if (timer) clearInterval(timer);
+                });
+
+                return {
+                    status,
+                    players,
+                    accounts,
+                    connected,
+                    error,
+                    formatUptime,
+                    countCharacters
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

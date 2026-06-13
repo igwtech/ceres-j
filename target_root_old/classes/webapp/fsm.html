@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ceres-J FSM Live</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#11151c; color:#dfe6ee;
+         margin:0; padding:1.5rem; }
+  h1 { font-size:1.3rem; margin-bottom:.3rem; }
+  .meta { color:#90a0b3; font-size:.8rem; }
+  .meta b { color:#dfe6ee; }
+  .player { background:#19202a; border:1px solid #2a3340; border-radius:8px;
+            padding:1rem 1.2rem; margin:1rem 0; }
+  .header { display:flex; align-items:baseline; gap:.8rem; margin-bottom:.5rem; }
+  .name { font-size:1.1rem; font-weight:600; color:#dfe6ee; }
+  .state { font-family:monospace; padding:.15rem .5rem; border-radius:4px;
+           font-size:.85rem; }
+  .s-PRE_LOGIN { background:#2a3340; color:#90a0b3; }
+  .s-WORLDENTRY_BURST { background:#3d2e1f; color:#f0c674; }
+  .s-IN_WORLD { background:#1f3a2a; color:#5fd38d; }
+  .s-CROSS_PENDING_LOAD { background:#3a2e1f; color:#f0a96c; }
+  .s-CROSS_PENDING_LOCATION { background:#3a1f1f; color:#e88080; }
+  .s-CROSS_RECONNECTING { background:#2a1f3a; color:#c080e8; }
+  .s-DEAD_RESPAWNING { background:#3a1f1f; color:#e76f7a; }
+  .s-LOGOUT { background:#2a3340; color:#90a0b3; }
+  .badge { font-size:.75rem; color:#90a0b3; }
+  .badge b { color:#dfe6ee; }
+  .tx { background:#0b0e13; border-radius:4px; padding:.4rem .6rem;
+        font-family:monospace; font-size:.75rem; margin:.2rem 0; color:#dfe6ee; }
+  .tx .arrow { color:#5fa0ff; }
+  .tx .reason { color:#90a0b3; }
+  .tx .ts { color:#5fa0ff; font-size:.7rem; float:right; }
+  .empty { color:#5d6878; font-style:italic; padding:1.5rem; text-align:center; }
+  .controls { font-size:.8rem; color:#90a0b3; margin-top:.5rem; }
+  .controls label { margin-right:1.5rem; }
+  .controls input { vertical-align:middle; }
+</style>
+</head>
+<body>
+
+<h1>Ceres-J FSM Live</h1>
+<div class="meta">
+  Live view of <code>/api/players</code>. State + last
+  20 transitions per connected player.
+  Last poll: <b id="lastPoll">—</b>,
+  next in: <b id="nextPoll">—</b>ms,
+  <span id="status">connecting...</span>
+</div>
+<div class="controls">
+  <label>Poll interval (ms):
+    <input id="interval" type="number" value="500" min="100" max="5000"
+           style="width:5em">
+  </label>
+  <label>
+    <input id="paused" type="checkbox"> Pause
+  </label>
+</div>
+
+<div id="players"></div>
+
+<script>
+const playersEl = document.getElementById('players');
+const lastPollEl = document.getElementById('lastPoll');
+const nextPollEl = document.getElementById('nextPoll');
+const statusEl   = document.getElementById('status');
+const intervalEl = document.getElementById('interval');
+const pausedEl   = document.getElementById('paused');
+
+let lastFire = 0;
+
+function fmtMs(ms) {
+  if (ms < 1000) return ms + ' ms';
+  if (ms < 60000) return (ms / 1000).toFixed(1) + ' s';
+  return Math.floor(ms / 60000) + 'm ' +
+         Math.floor((ms % 60000) / 1000) + 's';
+}
+
+function relTime(deltaMs) {
+  if (deltaMs < 1000) return '-' + deltaMs + ' ms';
+  if (deltaMs < 60000) return '-' + (deltaMs / 1000).toFixed(1) + ' s';
+  return '-' + Math.floor(deltaMs / 1000) + ' s';
+}
+
+function renderPlayer(p) {
+  const fsm = p.fsm || {};
+  const state = fsm.state || '—';
+  const txs = (fsm.transitions || []).slice(-5).reverse();
+  const seq = fsm.lastConfirmedReliableSeq;
+  const seqStr = (seq === -1 || seq == null) ? '(none yet)' : seq;
+  const nowMs = Date.now();
+
+  return `
+    <div class="player">
+      <div class="header">
+        <span class="name">${p.characterName || p.account || '?'}</span>
+        <span class="state s-${state}">${state}</span>
+        <span class="badge">in state: <b>${fmtMs(fsm.timeInStateMs || 0)}</b></span>
+        <span class="badge">zone: <b>${p.zone || '—'}</b></span>
+        <span class="badge">ack seq: <b>${seqStr}</b></span>
+      </div>
+      ${txs.length === 0 ? '' :
+        '<div style="margin-top:.5rem">' +
+        txs.map(t => `
+          <div class="tx">
+            <span class="ts">${relTime(nowMs - (t.atRealtimeMs ? Date.now() - (fsm.timeInStateMs || 0) + (t.atRealtimeMs - (txs[0].atRealtimeMs - (fsm.timeInStateMs || 0))) : 0))}</span>
+            <code>${t.from}</code>
+            <span class="arrow">→</span>
+            <code>${t.to}</code>
+            <div class="reason">${t.reason || ''}</div>
+          </div>`).join('') +
+        '</div>'}
+    </div>`;
+}
+
+async function poll() {
+  if (pausedEl.checked) {
+    statusEl.textContent = 'paused';
+    return;
+  }
+  lastFire = Date.now();
+  try {
+    const resp = await fetch('/api/players', { cache: 'no-store' });
+    if (!resp.ok) {
+      statusEl.textContent = `HTTP ${resp.status}`;
+      statusEl.style.color = '#e76f7a';
+      return;
+    }
+    const players = await resp.json();
+    statusEl.textContent = `ok (${players.length} player${players.length===1?'':'s'})`;
+    statusEl.style.color = '#5fd38d';
+    lastPollEl.textContent = new Date().toLocaleTimeString();
+    if (players.length === 0) {
+      playersEl.innerHTML =
+        '<div class="empty">No connected players yet. ' +
+        'Launch NC2 + log in.</div>';
+    } else {
+      playersEl.innerHTML = players.map(renderPlayer).join('');
+    }
+  } catch (e) {
+    statusEl.textContent = 'fetch failed: ' + e.message;
+    statusEl.style.color = '#e76f7a';
+  }
+}
+
+function tickCountdown() {
+  const interval = Math.max(100,
+    Math.min(5000, +intervalEl.value || 500));
+  const elapsed = Date.now() - lastFire;
+  const remaining = Math.max(0, interval - elapsed);
+  nextPollEl.textContent = remaining;
+}
+
+setInterval(() => {
+  const interval = Math.max(100,
+    Math.min(5000, +intervalEl.value || 500));
+  if (Date.now() - lastFire >= interval) poll();
+  tickCountdown();
+}, 100);
+
+// Kick off immediately.
+poll();
+</script>
+</body>
+</html>

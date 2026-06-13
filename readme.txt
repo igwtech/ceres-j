@@ -27,7 +27,7 @@ r2d22k							developer
 
 Thanks to
 ---------
-the authors and helpers of the projects NeoPolis and TinNS, as their work was a
+the authors and helpers of the projects NeoPolis, as their work was a
 big help to get started
 
 Webpages

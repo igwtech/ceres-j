@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: server.gameserver.AdminMobCommandsTest
+-------------------------------------------------------------------------------
+Tests run: 24, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.001 s -- in server.gameserver.AdminMobCommandsTest
