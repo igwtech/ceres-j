@@ -94,22 +94,34 @@ const MOUSEEVENTF_VIRTUALDESK = 0x4000;
 const SM_CXSCREEN = 0;
 const SM_CYSCREEN = 1;
 
+// Win32 INPUT struct is pointer-size dependent. x86: 28 B, the union
+// (KEYBD/MOUSEINPUT) at +4. x64: 40 B — DWORD type + 4 pad, union at
+// +8, and ULONG_PTR dwExtraInfo widens the union. The 64-bit client
+// (Jun 2026) needs the wider layout or SendInput silently no-ops.
+const PS = Process.pointerSize;
+const INPUT_SIZE = (PS === 8) ? 40 : 28;
+const UNION_OFF  = (PS === 8) ? 8  : 4;
+
+function _zero(buf, n) { buf.writeByteArray(new Array(n).fill(0)); }
+
 function _sendKeyboard(vk, up) {
-    const inp = Memory.alloc(28);
+    const inp = Memory.alloc(INPUT_SIZE);
+    _zero(inp, INPUT_SIZE);
     inp.writeU32(INPUT_KEYBOARD);
-    inp.add(4).writeU16(vk);
-    inp.add(8).writeU32(up ? KEYEVENTF_KEYUP : 0);
-    return SendInput(1, inp, 28);
+    inp.add(UNION_OFF + 0).writeU16(vk);                     // wVk
+    inp.add(UNION_OFF + 4).writeU32(up ? KEYEVENTF_KEYUP : 0); // dwFlags
+    return SendInput(1, inp, INPUT_SIZE);
 }
 
 function _sendMouse(dx, dy, data, flags) {
-    const inp = Memory.alloc(28);
+    const inp = Memory.alloc(INPUT_SIZE);
+    _zero(inp, INPUT_SIZE);
     inp.writeU32(INPUT_MOUSE);
-    inp.add(4).writeS32(dx | 0);
-    inp.add(8).writeS32(dy | 0);
-    inp.add(12).writeU32((data | 0) >>> 0);
-    inp.add(16).writeU32(flags >>> 0);
-    return SendInput(1, inp, 28);
+    inp.add(UNION_OFF + 0).writeS32(dx | 0);                 // dx
+    inp.add(UNION_OFF + 4).writeS32(dy | 0);                 // dy
+    inp.add(UNION_OFF + 8).writeU32((data | 0) >>> 0);       // mouseData
+    inp.add(UNION_OFF + 12).writeU32(flags >>> 0);           // dwFlags
+    return SendInput(1, inp, INPUT_SIZE);
 }
 
 function _attachFocus(hwnd) {

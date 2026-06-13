@@ -38,11 +38,41 @@
 
 const MODULE_NAME = 'NeocronClient.exe';
 
+// Pointer size of the target process: 4 on the legacy x86 client,
+// 8 on the 64-bit client (Jun 2026 migration). COM vtable slots,
+// OUT-pointer allocations and Win32 struct layouts are all
+// pointer-size dependent — use PS instead of a hardcoded 4/8.
+const PS = Process.pointerSize;
+
+/** Resolve a COM method by vtable slot index (arch-correct). */
+function vmethod(vt, slot, retType, argTypes) {
+    return new NativeFunction(vt.add(slot * PS).readPointer(), retType, argTypes);
+}
+
+// Win32 INPUT struct for SendInput. x86: 28 B, KEYBDINPUT @ +4.
+// x64: 40 B (DWORD type + 4 pad + 32-byte union), KEYBDINPUT @ +8,
+// with ULONG_PTR dwExtraInfo widening the union. wVk/wScan/dwFlags
+// sit at KI_OFF + 0/2/4; time @ +8; dwExtraInfo @ +12 (x86) / +16 (x64).
+const INPUT_SIZE = (PS === 8) ? 40 : 28;
+const KI_OFF     = (PS === 8) ? 8  : 4;
+
+/** Zero an INPUT buffer and fill its KEYBDINPUT fields (arch-correct). */
+function writeKeybdInput(buf, wVk, wScan, dwFlags) {
+    buf.writeByteArray(new Array(INPUT_SIZE).fill(0)); // zero type-pad/time/dwExtraInfo
+    buf.writeU32(1);                                   // type = INPUT_KEYBOARD
+    buf.add(KI_OFF + 0).writeU16(wVk & 0xffff);
+    buf.add(KI_OFF + 2).writeU16(wScan & 0xffff);
+    buf.add(KI_OFF + 4).writeU32(dwFlags >>> 0);
+}
+
 /** Convert a NativePointer-backed buffer to a hex string preview.
- *  The agent never dumps more than DUMP_LIMIT bytes per event to keep
- *  the send() channel from being saturated by huge payloads.
+ *  The cap exists only so a pathological buffer can't saturate the
+ *  send() channel; it must exceed any real wire datagram, because the
+ *  orchestrator decrypts from this `hex` (a 128-byte cap silently
+ *  dropped every datagram > 128 B as "decrypt failed"). 64 KiB is the
+ *  max UDP datagram, so nothing real is ever truncated now.
  */
-const DUMP_LIMIT = 128;
+const DUMP_LIMIT = 65536;
 
 function bufHex(addr, len) {
     if (addr.isNull() || len === 0) return '';
@@ -678,8 +708,8 @@ function attachDI8Chain() {
                 const pIDI8 = this._ppv.readPointer();
                 if (pIDI8.isNull()) return;
                 const vt = pIDI8.readPointer();
-                // IDirectInput8 vtable slot 3 = CreateDevice (x86 cdecl).
-                const pCD = vt.add(3 * 4).readPointer();
+                // IDirectInput8 vtable slot 3 = CreateDevice.
+                const pCD = vt.add(3 * PS).readPointer();
                 Interceptor.attach(pCD, {
                     onEnter(args) {
                         // **thiscall**: args[0] = REFGUID rguid (first
@@ -695,8 +725,8 @@ function attachDI8Chain() {
                             const dvt = pDev.readPointer();
                             // Slot 9 = GetDeviceState; slot 10 = GetDeviceData.
                             // Hook BOTH — whichever NC2 uses for keyboard.
-                            const pGDS = dvt.add(9 * 4).readPointer();
-                            const pGDD = dvt.add(10 * 4).readPointer();
+                            const pGDS = dvt.add(9 * PS).readPointer();
+                            const pGDD = dvt.add(10 * PS).readPointer();
                             DI8_DEVICE_VT = '0x' + dvt.toString(16);
                             send({ ev: 'di_device_created',
                                    vtable: DI8_DEVICE_VT,
@@ -792,7 +822,7 @@ function attachD3D9Chain() {
             try {
                 const pIDirect3D9 = retval;
                 const vt = pIDirect3D9.readPointer();
-                const pCreateDevice = vt.add(16 * 4).readPointer();
+                const pCreateDevice = vt.add(16 * PS).readPointer();  // IDirect3D9::CreateDevice slot 16
                 Interceptor.attach(pCreateDevice, {
                     onEnter(args) {
                         // v0.7.2 used args[5] and got 0x400 (which is
@@ -809,22 +839,30 @@ function attachD3D9Chain() {
                     },
                     onLeave(r) {
                         if (r.toInt32() !== 0) return;
-                        // For each arg, treat as potential pointer and
-                        // see if dereferencing yields a non-null
-                        // pointer-shaped value (top byte typically
-                        // 0x10-0x7f for heap addresses under Wine).
+                        // For each arg, treat it as a potential
+                        // ppDevice OUT slot: deref to a candidate object
+                        // pointer, then validate it looks like a COM
+                        // object (its first qword is a vtable whose
+                        // slot 0 is a readable code pointer). This is
+                        // arch-robust — the old numeric range check
+                        // (< 0xffff0000) rejected every x64 heap pointer.
+                        function looksLikeComObject(p) {
+                            try {
+                                if (p.isNull()) return false;
+                                const vt = p.readPointer();          // candidate vtable
+                                if (vt.isNull()) return false;
+                                const m0 = vt.readPointer();         // slot 0 (QueryInterface)
+                                if (m0.isNull()) return false;
+                                Process.findRangeByAddress(m0);      // throws if unmapped
+                                return Process.findRangeByAddress(m0) !== null;
+                            } catch (e) { return false; }
+                        }
                         const candidates = [];
                         for (let i = 0; i < this._args.length; i++) {
                             try {
                                 const aPtr = this._args[i];
-                                // The OUT slot is a writable local
-                                // variable address. Dereference and
-                                // check if the value is a plausible
-                                // pointer.
                                 const v = aPtr.readPointer();
-                                const vNum = parseInt(v.toString(), 10) ||
-                                             parseInt('0x' + v.toString(16), 16);
-                                if (vNum > 0x10000 && vNum < 0xffff0000) {
+                                if (looksLikeComObject(v)) {
                                     candidates.push({
                                         arg_idx: i,
                                         ppDev: '0x' + aPtr.toString(16),
@@ -867,8 +905,7 @@ attachD3D9Chain();
 // Helper: call IUnknown::Release on a COM object given its vtable.
 function releaseCom(vt, pObj) {
     try {
-        const Release = new NativeFunction(
-            vt.add(2 * 4).readPointer(), 'uint', ['pointer']);
+        const Release = vmethod(vt, 2, 'uint', ['pointer']);  // IUnknown::Release
         Release(pObj);
     } catch (e) {}
 }
@@ -891,13 +928,13 @@ function findExistingD3D9Device() {
     // IDirect3DDevice9 has 119 methods.
     let foundVT = null;
     for (const r of dataRanges) {
-        const end = r.base.add(r.size).sub(4 * 120);
+        const end = r.base.add(r.size).sub(PS * 120);
         let p = r.base;
         while (p.compare(end) < 0) {
             let n = 0;
             try {
                 for (let i = 0; i < 120; i++) {
-                    const pi = p.add(i * 4).readPointer();
+                    const pi = p.add(i * PS).readPointer();
                     if (inText(pi)) n++; else break;
                 }
             } catch (e) { break; }
@@ -907,7 +944,7 @@ function findExistingD3D9Device() {
                        vt: '0x' + p.toString(16), n: n });
                 break;
             }
-            p = p.add(4);
+            p = p.add(PS);
         }
         if (foundVT) break;
     }
@@ -1032,24 +1069,23 @@ function ensureModule() {
 function _captureOneDevice(device) {
     try {
         const dvt = device.readPointer();
-        const GetBackBuffer = new NativeFunction(
-            dvt.add(18 * 4).readPointer(), 'int',
+        // IDirect3DDevice9 vtable slots (stable across D3D9/DXVK):
+        // 18=GetBackBuffer, 32=GetRenderTargetData,
+        // 36=CreateOffscreenPlainSurface.
+        const GetBackBuffer = vmethod(dvt, 18, 'int',
             ['pointer','uint','uint','uint','pointer']);
-        const CreateOffscreenPlainSurface = new NativeFunction(
-            dvt.add(36 * 4).readPointer(), 'int',
+        const CreateOffscreenPlainSurface = vmethod(dvt, 36, 'int',
             ['pointer','uint','uint','uint','uint','pointer','pointer']);
-        const GetRenderTargetData = new NativeFunction(
-            dvt.add(32 * 4).readPointer(), 'int',
+        const GetRenderTargetData = vmethod(dvt, 32, 'int',
             ['pointer','pointer','pointer']);
-        const ppBB = Memory.alloc(4);
+        const ppBB = Memory.alloc(PS);
         let hr = GetBackBuffer(device, 0, 0, 0, ppBB);
         if (hr !== 0) return { err: 'GetBackBuffer',
                                hr: '0x' + (hr >>> 0).toString(16) };
         const pBB = ppBB.readPointer();
         const bbvt = pBB.readPointer();
-        const GetDesc = new NativeFunction(
-            bbvt.add(12 * 4).readPointer(), 'int',
-            ['pointer','pointer']);
+        const GetDesc = vmethod(bbvt, 12, 'int', ['pointer','pointer']);  // IDirect3DSurface9::GetDesc
+        // D3DSURFACE_DESC is 8 DWORDs (32 B) on both arches — no padding.
         const desc = Memory.alloc(0x20);
         hr = GetDesc(pBB, desc);
         if (hr !== 0) {
@@ -1065,7 +1101,7 @@ function _captureOneDevice(device) {
             releaseCom(bbvt, pBB);
             return { err: 'bogus dims', w: w, h: h };
         }
-        const ppSys = Memory.alloc(4);
+        const ppSys = Memory.alloc(PS);
         hr = CreateOffscreenPlainSurface(device, w, h, fmt, 2, ppSys, NULL);
         if (hr !== 0) {
             releaseCom(bbvt, pBB);
@@ -1082,12 +1118,12 @@ function _captureOneDevice(device) {
             return { err: 'GetRenderTargetData',
                      hr: '0x' + (hr >>> 0).toString(16) };
         }
-        const LockRect = new NativeFunction(
-            sysvt.add(13 * 4).readPointer(), 'int',
-            ['pointer','pointer','pointer','uint']);
-        const UnlockRect = new NativeFunction(
-            sysvt.add(14 * 4).readPointer(), 'int', ['pointer']);
-        const lr = Memory.alloc(8);
+        const LockRect = vmethod(sysvt, 13, 'int',
+            ['pointer','pointer','pointer','uint']);    // IDirect3DSurface9::LockRect
+        const UnlockRect = vmethod(sysvt, 14, 'int', ['pointer']);
+        // D3DLOCKED_RECT { INT Pitch; void* pBits; } — x86: 8 B, pBits@4;
+        // x64: 16 B (4-byte Pitch + 4 pad), pBits@8.
+        const lr = Memory.alloc(2 * PS);
         hr = LockRect(pSys, lr, NULL, 0x10);
         if (hr !== 0) {
             releaseCom(sysvt, pSys);
@@ -1096,7 +1132,7 @@ function _captureOneDevice(device) {
                      hr: '0x' + (hr >>> 0).toString(16) };
         }
         const pitch = lr.readS32();
-        const pBits = lr.add(4).readPointer();
+        const pBits = lr.add(PS).readPointer();   // pBits@4 (x86) / @8 (x64)
         const size = Math.abs(pitch) * h;
         const buf = pBits.readByteArray(size);
         UnlockRect(pSys);
@@ -1374,25 +1410,18 @@ rpc.exports = {
             user32.findExportByName('SendInput'),
             'uint32', ['uint32', 'pointer', 'int']);
         function writeInput(buf, vkc, up) {
-            buf.writeU32(1);                       // type = INPUT_KEYBOARD
-            buf.add(4).writeU16(vkc & 0xffff);    // wVk
-            buf.add(6).writeU16(0);               // wScan
-            buf.add(8).writeU32(up ? 0x0002 : 0); // dwFlags
-            buf.add(12).writeU32(0);              // time
-            buf.add(16).writeU32(0);              // dwExtraInfo
-            buf.add(20).writeU32(0);              // pad
-            buf.add(24).writeU32(0);              // pad
+            writeKeybdInput(buf, vkc, 0, up ? 0x0002 : 0);  // KEYEVENTF_KEYUP
         }
-        const bufDown = Memory.alloc(28);
+        const bufDown = Memory.alloc(INPUT_SIZE);
         writeInput(bufDown, vk, false);
-        const sentDown = SendInput(1, bufDown, 28);
+        const sentDown = SendInput(1, bufDown, INPUT_SIZE);
         const ms = durationMs || 50;
         const result = { sentDown: sentDown, vk: '0x' + vk.toString(16),
                          ms: ms };
         setTimeout(function() {
-            const bufUp = Memory.alloc(28);
+            const bufUp = Memory.alloc(INPUT_SIZE);
             writeInput(bufUp, vk, true);
-            const sentUp = SendInput(1, bufUp, 28);
+            const sentUp = SendInput(1, bufUp, INPUT_SIZE);
             send({ ev: 'send_input_up', vk: '0x' + vk.toString(16),
                    sentUp: sentUp });
         }, ms);
@@ -1412,14 +1441,7 @@ rpc.exports = {
             user32.findExportByName('SendInput'),
             'uint32', ['uint32', 'pointer', 'int']);
         function writeVk(buf, vk, up) {
-            buf.writeU32(1);
-            buf.add(4).writeU16(vk & 0xffff);
-            buf.add(6).writeU16(0);
-            buf.add(8).writeU32(up ? 0x0002 : 0);
-            buf.add(12).writeU32(0);
-            buf.add(16).writeU32(0);
-            buf.add(20).writeU32(0);
-            buf.add(24).writeU32(0);
+            writeKeybdInput(buf, vk, 0, up ? 0x0002 : 0);  // KEYEVENTF_KEYUP
         }
         const hMs = holdMs || 30;
         const gMs = gapMs || 30;
@@ -1430,13 +1452,13 @@ rpc.exports = {
                 return;
             }
             const vk = vks[idx];
-            const down = Memory.alloc(28);
+            const down = Memory.alloc(INPUT_SIZE);
             writeVk(down, vk, false);
-            SendInput(1, down, 28);
+            SendInput(1, down, INPUT_SIZE);
             setTimeout(function() {
-                const up = Memory.alloc(28);
+                const up = Memory.alloc(INPUT_SIZE);
                 writeVk(up, vk, true);
-                SendInput(1, up, 28);
+                SendInput(1, up, INPUT_SIZE);
                 idx++;
                 setTimeout(step, gMs);
             }, hMs);
@@ -1587,14 +1609,8 @@ rpc.exports = {
         const ms = perCharMs || 25;
         const result = { chars: text.length, perCharMs: ms };
         function writeUnicodeInput(buf, ch, up) {
-            buf.writeU32(1);                              // INPUT_KEYBOARD
-            buf.add(4).writeU16(0);                       // wVk = 0
-            buf.add(6).writeU16(ch & 0xffff);             // wScan = unicode
-            buf.add(8).writeU32(up ? 0x0006 : 0x0004);   // dwFlags
-            buf.add(12).writeU32(0);
-            buf.add(16).writeU32(0);
-            buf.add(20).writeU32(0);
-            buf.add(24).writeU32(0);
+            // wVk=0, wScan=unicode, KEYEVENTF_UNICODE(0x0004)|KEYUP(0x0002).
+            writeKeybdInput(buf, 0, ch, up ? 0x0006 : 0x0004);
         }
         let idx = 0;
         function pumpNext() {
@@ -1603,12 +1619,12 @@ rpc.exports = {
                 return;
             }
             const ch = text.charCodeAt(idx);
-            const bufDown = Memory.alloc(28);
+            const bufDown = Memory.alloc(INPUT_SIZE);
             writeUnicodeInput(bufDown, ch, false);
-            SendInput(1, bufDown, 28);
-            const bufUp = Memory.alloc(28);
+            SendInput(1, bufDown, INPUT_SIZE);
+            const bufUp = Memory.alloc(INPUT_SIZE);
             writeUnicodeInput(bufUp, ch, true);
-            SendInput(1, bufUp, 28);
+            SendInput(1, bufUp, INPUT_SIZE);
             idx++;
             setTimeout(pumpNext, ms);
         }

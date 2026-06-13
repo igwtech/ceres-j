@@ -29,6 +29,13 @@ except ImportError:
 
 JS = r"""
 const D3D9 = 'd3d9.dll';
+// COM vtable slots and the D3DLOCKED_RECT layout are pointer-size
+// dependent: 4 B on the legacy x86 client, 8 B on the 64-bit client
+// (Jun 2026 migration). PS-scale every vtable index and OUT alloc.
+const PS = Process.pointerSize;
+function vmethod(vt, slot, ret, args) {
+    return new NativeFunction(vt.add(slot * PS).readPointer(), ret, args);
+}
 globalThis.__DEV = null;
 globalThis.__presentListener = null;
 // One-shot "capture on the next Present" state. Reading the backbuffer
@@ -50,13 +57,13 @@ function findDeviceVtable() {
         const inCode = (p) => p.compare(mBase) >= 0 && p.compare(mEnd) < 0;
         const data = d3d.enumerateRanges('r--');
         for (const r of data) {
-            const end = r.base.add(r.size).sub(4 * 120);
+            const end = r.base.add(r.size).sub(PS * 120);
             let p = r.base;
             while (p.compare(end) < 0) {
                 let n = 0;
                 try {
                     for (let i = 0; i < 120; i++) {
-                        if (inCode(p.add(i * 4).readPointer())) n++; else break;
+                        if (inCode(p.add(i * PS).readPointer())) n++; else break;
                     }
                 } catch (e) { break; }
                 if (n >= 100) {
@@ -64,7 +71,7 @@ function findDeviceVtable() {
                            vt:'0x'+p.toString(16), n:n });
                     return p;
                 }
-                p = p.add(4);
+                p = p.add(PS);
             }
         }
     }
@@ -97,40 +104,40 @@ function captureOneDevice(device) {
                      dvtProbe.toString(16) + ' not in d3d9.dll' };
         }
         const dvt = device.readPointer();
-        const GetBackBuffer = new NativeFunction(dvt.add(18*4).readPointer(),
+        const GetBackBuffer = vmethod(dvt, 18,
             'int', ['pointer','uint','uint','uint','pointer']);
-        const CreateOffscreen = new NativeFunction(dvt.add(36*4).readPointer(),
+        const CreateOffscreen = vmethod(dvt, 36,
             'int', ['pointer','uint','uint','uint','uint','pointer','pointer']);
-        const GetRTData = new NativeFunction(dvt.add(32*4).readPointer(),
+        const GetRTData = vmethod(dvt, 32,
             'int', ['pointer','pointer','pointer']);
-        const ppBB = Memory.alloc(4);
+        const ppBB = Memory.alloc(PS);
         let hr = GetBackBuffer(device, 0, 0, 0, ppBB);
         if (hr !== 0) return { err:'GetBackBuffer', hr:'0x'+(hr>>>0).toString(16) };
         const pBB = ppBB.readPointer(), bbvt = pBB.readPointer();
-        const GetDesc = new NativeFunction(bbvt.add(12*4).readPointer(),
-            'int', ['pointer','pointer']);
-        const desc = Memory.alloc(0x20);
+        const GetDesc = vmethod(bbvt, 12, 'int', ['pointer','pointer']);
+        const desc = Memory.alloc(0x20);  // D3DSURFACE_DESC = 8 DWORDs, both arches
         hr = GetDesc(pBB, desc);
         if (hr !== 0) return { err:'GetDesc', hr:hr };
         const fmt = desc.readU32();
         const w = desc.add(0x18).readU32(), h = desc.add(0x1c).readU32();
         if (w < 64 || w > 8192 || h < 64 || h > 8192)
             return { err:'bogus dims', w:w, h:h };
-        const ppSys = Memory.alloc(4);
+        const ppSys = Memory.alloc(PS);
         hr = CreateOffscreen(device, w, h, fmt, 2, ppSys, NULL);
         if (hr !== 0) return { err:'CreateOffscreen', hr:'0x'+(hr>>>0).toString(16),
                                w:w, h:h, fmt:'0x'+fmt.toString(16) };
         const pSys = ppSys.readPointer(), sysvt = pSys.readPointer();
         hr = GetRTData(device, pBB, pSys);
         if (hr !== 0) return { err:'GetRenderTargetData', hr:'0x'+(hr>>>0).toString(16) };
-        const LockRect = new NativeFunction(sysvt.add(13*4).readPointer(),
+        const LockRect = vmethod(sysvt, 13,
             'int', ['pointer','pointer','pointer','uint']);
-        const UnlockRect = new NativeFunction(sysvt.add(14*4).readPointer(),
-            'int', ['pointer']);
-        const lr = Memory.alloc(8);
+        const UnlockRect = vmethod(sysvt, 14, 'int', ['pointer']);
+        // D3DLOCKED_RECT { INT Pitch; void* pBits } — x86 8 B/pBits@4,
+        // x64 16 B/pBits@8.
+        const lr = Memory.alloc(2 * PS);
         hr = LockRect(pSys, lr, NULL, 0x10);
         if (hr !== 0) return { err:'LockRect', hr:'0x'+(hr>>>0).toString(16) };
-        const pitch = lr.readS32(), pBits = lr.add(4).readPointer();
+        const pitch = lr.readS32(), pBits = lr.add(PS).readPointer();
         const size = Math.abs(pitch) * h;
         const buf = pBits.readByteArray(size);
         UnlockRect(pSys);
@@ -147,7 +154,7 @@ function ensureCaptureHook() {
     if (globalThis.__capListener) return { ok:true, reused:true };
     const vt = findDeviceVtable();
     if (!vt) return { ok:false, err:'device vtable not found' };
-    const present = vt.add(17 * 4).readPointer();
+    const present = vt.add(17 * PS).readPointer();  // IDirect3DDevice9::Present slot 17
     globalThis.__capListener = Interceptor.attach(present, {
         onEnter(args) {
             if (!globalThis.__capPending) return;
@@ -173,7 +180,7 @@ rpc.exports = {
     armPresentHook() {
         const vt = findDeviceVtable();
         if (!vt) return { ok:false, err:'device vtable not found' };
-        const present = vt.add(17 * 4).readPointer();
+        const present = vt.add(17 * PS).readPointer();  // IDirect3DDevice9::Present slot 17
         globalThis.__presentListener = Interceptor.attach(present, {
             onEnter(args) {
                 if (globalThis.__DEV === null) {

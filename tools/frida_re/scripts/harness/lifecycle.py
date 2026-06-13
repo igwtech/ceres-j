@@ -65,7 +65,15 @@ class Lifecycle:
         u = os.path.join(self.nc2_dir, "ini", "updater.ini")
         self._set_ini(u, "SERVERIP", f"SERVERIP={self.server_ip}")
         self._set_ini(u, "GAMESERVERIP", f"GAMESERVERIP={self.server_ip}")
-        self._log(f"client target -> {self.server_ip}")
+        # Reset the remembered char/server selection so char-select
+        # ALWAYS starts at slot 0 / server 0. The char-select cursor
+        # wraps around (RIGHT past slot 4 → slot 1) and starts at the
+        # INI's LastChar, so blind L/R navigation is non-deterministic
+        # unless we pin a known start. (ini/player.ini [PLAYER].)
+        p = os.path.join(self.nc2_dir, "ini", "player.ini")
+        self._set_ini(p, "LastChar", "LastChar=0")
+        self._set_ini(p, "LastServer", "LastServer=0")
+        self._log(f"client target -> {self.server_ip} (LastChar/LastServer reset to 0)")
 
     def launch_client(self):
         log = open(os.path.join(self.run_dir, "launch.log"), "w")
