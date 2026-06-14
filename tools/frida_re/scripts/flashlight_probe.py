@@ -2,18 +2,29 @@
 """Live D3D9 light-state probe — captures EXACTLY what NC2's flashlight
 implementation does to IDirect3DDevice9 during a session.
 
-Hooks 4 vtable slots once the device is located:
-    23  CreateTexture       — flag any DEPTHSTENCIL / RENDERTARGET RT
-                              (shadow-map allocation signature)
-    37  SetRenderTarget     — track shadow-RT bind / unbind
-    51  SetLight            — capture full D3DLIGHT9 (type/pos/dir/cone)
-    53  LightEnable         — capture enable/disable per slot
+Ghidra static scan (FindD3D9LightSites.java vs the x64 binary) showed
+NC2 calls D3D9 SetLight/LightEnable ZERO times — the engine does NOT
+use fixed-function lighting. The flashlight contribution flows through
+shader constants + an extra render-target (shadow map). So this probe
+hooks the actual data path:
 
-The user's hypothesis (camera→raycast hit-point dynamic light + shadow
-casting) becomes either confirmed or falsified by the SetLight stream:
-  * SPOT type + cone fields populated  -> spotlight from camera
-  * POINT type + position changing per frame -> raycast-hit point
-  * DIRECTIONAL -> something else entirely
+    23  CreateTexture            — flag DEPTHSTENCIL / RENDERTARGET
+                                    RTs (shadow-map allocation)
+    37  SetRenderTarget          — track every RT bind (shadow pass
+                                    enters/exits)
+    51  SetLight                 — kept as a ZERO-event baseline; if
+                                    it ever fires, the assumption is
+                                    wrong and we should retune
+    107 SetPixelShader           — every pixel shader switch
+    109 SetPixelShaderConstantF  — change-detected per start register
+                                    (emits only when bytes actually
+                                    flip), so 60 FPS of unchanged
+                                    constants doesn't drown the channel
+
+The flashlight ON/OFF user action then maps directly to "which start
+register changed at the moment we pressed the key". That's the
+register slot we'll override from inside the engine_injector to
+re-shape the flashlight.
 
 Light state is deduplicated per index; we emit only DISTINCT struct
 contents (each index keeps a SHA-like signature of its last D3DLIGHT9
@@ -127,14 +138,28 @@ function sigLight(L) {
 }
 
 globalThis.__VT = null;
-globalThis.__lastSig = {};      // index -> sig
-globalThis.__lastEnable = {};   // index -> bool
-globalThis.__rtBytes = 0;
+globalThis.__lastSig = {};      // SetLight: index -> sig
+globalThis.__lastEnable = {};   // LightEnable: index -> bool
+globalThis.__lastPSC = {};      // SetPixelShaderConstantF: start -> sha
+globalThis.__lastPS = null;     // SetPixelShader: last shader ptr
 globalThis.__count = { SetLight: 0, LightEnable: 0,
-                       SetRT: 0, CreateTexture: 0 };
+                       SetRT: 0, CreateTexture: 0,
+                       SetPixelShader: 0,
+                       SetPixelShaderConstantF: 0 };
 
 const D3DUSAGE_RENDERTARGET = 0x00000001;
 const D3DUSAGE_DEPTHSTENCIL = 0x00000002;
+
+// 32-bit FNV-1a over `n` bytes at `p`. Cheap content fingerprint
+// so we can dedupe "constants haven't changed since last call".
+function fnv32(p, n) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < n; i++) {
+        h = (h ^ p.add(i).readU8()) >>> 0;
+        h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h;
+}
 
 function armHooks() {
     const vt = findDeviceVtable();
@@ -203,6 +228,53 @@ function armHooks() {
         },
     });
 
+    // SetPixelShader(IDirect3DPixelShader9* pShader)
+    // — flag every shader switch (very low frequency in NC2)
+    const SetPS_slot = vt.add(107 * PS).readPointer();
+    Interceptor.attach(SetPS_slot, {
+        onEnter(args) {
+            const pS = args[1];
+            globalThis.__count.SetPixelShader++;
+            const k = '0x' + pS.toString(16);
+            if (globalThis.__lastPS === k) return;
+            globalThis.__lastPS = k;
+            send({ ev: 'SetPixelShader', t: Date.now(), ps: k });
+        },
+    });
+
+    // SetPixelShaderConstantF(UINT StartRegister,
+    //                         const float* pConstantData,
+    //                         UINT Vector4fCount)
+    // — emit only when bytes at (start..start+count) actually changed
+    // since the last call for the same StartRegister.
+    const SetPSC_slot = vt.add(109 * PS).readPointer();
+    Interceptor.attach(SetPSC_slot, {
+        onEnter(args) {
+            const start = args[1].toInt32();
+            const pD    = args[2];
+            const cnt   = args[3].toInt32();
+            globalThis.__count.SetPixelShaderConstantF++;
+            if (cnt <= 0 || cnt > 256 || pD.isNull()) return;
+            const nBytes = cnt * 16;
+            let sig;
+            try { sig = fnv32(pD, nBytes); }
+            catch (e) { return; }
+            const key = start + ':' + cnt;
+            if (globalThis.__lastPSC[key] === sig) return;
+            globalThis.__lastPSC[key] = sig;
+            // Emit the first vec4 verbatim so we can eyeball it
+            // (positions / colors / cone params live here).
+            const v0 = [pD.readFloat(),
+                        pD.add(4).readFloat(),
+                        pD.add(8).readFloat(),
+                        pD.add(12).readFloat()];
+            send({ ev: 'PSC_change', t: Date.now(),
+                   start: start, count: cnt,
+                   v0: v0,
+                   sig: '0x' + sig.toString(16) });
+        },
+    });
+
     send({ ev: 'hooks_armed', vt: '0x' + vt.toString(16) });
     return true;
 }
@@ -251,6 +323,13 @@ def main() -> int:
                       f"theta={L['theta']:.3f} phi={L['phi']:.3f}")
             elif ev == "LightEnable":
                 print(f"  L{p['idx']} ENABLE={p['enable']}")
+            elif ev == "SetPixelShader":
+                print(f"  PixelShader -> {p['ps']}")
+            elif ev == "PSC_change":
+                v = p['v0']
+                print(f"  PSC c{p['start']}..c{p['start']+p['count']-1} "
+                      f"v0=({v[0]:+.3f},{v[1]:+.3f},{v[2]:+.3f},{v[3]:+.3f}) "
+                      f"sig={p['sig']}")
         elif msg.get("type") == "error":
             print("[probe] script error:", msg)
 

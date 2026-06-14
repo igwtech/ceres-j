@@ -43,9 +43,17 @@ public class FindD3D9LightSites extends GhidraScript {
     static {
         SLOTS.put(0x0B8L, "CreateTexture");
         SLOTS.put(0x128L, "SetRenderTarget");
+        SLOTS.put(0x148L, "BeginScene");
         SLOTS.put(0x160L, "SetTransform");
         SLOTS.put(0x198L, "SetLight");
         SLOTS.put(0x1A8L, "LightEnable");
+        SLOTS.put(0x2F0L, "SetVertexShaderConstantF");
+        SLOTS.put(0x358L, "SetPixelShader");
+        SLOTS.put(0x368L, "SetPixelShaderConstantF");
+        // Note: these byte offsets are derived from the IDirect3DDevice9
+        // vtable, so any custom class with matching slot positions
+        // generates false positives — verify via Frida runtime hooks
+        // (see flashlight_probe.py) before believing a hit is real.
     }
 
     @Override
@@ -92,7 +100,14 @@ public class FindD3D9LightSites extends GhidraScript {
                     if (h.fn != null) uniq.add(h.fn);
                 }
                 pw.println();
-                if (method.equals("LightEnable") || method.equals("SetLight")) {
+                // Decompile bodies for the rare/discriminating methods.
+                // SetPixelShaderConstantF / SetVertexShaderConstantF
+                // would explode the report (hundreds of call sites per
+                // frame); skip those. SetPixelShader (slot 107) is
+                // selective enough to be useful.
+                if (method.equals("LightEnable") || method.equals("SetLight")
+                 || method.equals("SetPixelShader")
+                 || method.equals("BeginScene")) {
                     pw.println("  --- decompiled bodies ---");
                     for (Function f : uniq) {
                         pw.printf("  --- %s @ %s ---%n",
