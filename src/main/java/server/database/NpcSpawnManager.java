@@ -112,7 +112,18 @@ public class NpcSpawnManager {
             ps.setInt(1, zoneId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    int mapId = rs.getInt("npc_id");
+                    // Offset the bulk-import npc_id (1-based per world)
+                    // into the retail 0x101+ entity range. Zone.registerPlayer
+                    // hands live players entity ids from 1..255, so a raw
+                    // npc_id of 1..N would COLLIDE with a player's own
+                    // runtime id in the shared 16-bit entity space — the
+                    // client (and WeaponFire's z.getNPC(target_id) lookup,
+                    // keyed by mapID) would mis-resolve aim/targeting. The
+                    // curated npc_spawns table already uses ids ≥257; this
+                    // mirrors that convention for the world_npcs fallback so
+                    // the 0x28/0x2d broadcast id and getNPC() key stay equal
+                    // (target_id == mapID) and never alias a player slot.
+                    int mapId = 0x100 + rs.getInt("npc_id");
                     int type = rs.getInt("npc_type_id");
                     String name = rs.getString("actor_name");
                     int x = (int) rs.getFloat("pos_x");

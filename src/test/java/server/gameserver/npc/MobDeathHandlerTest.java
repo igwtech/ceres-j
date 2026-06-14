@@ -37,8 +37,20 @@ public class MobDeathHandlerTest {
         CapturedDespawn(Player r, int id) { recipient = r; entityId = id; }
     }
 
+    static final class CapturedKillGate {
+        final Player recipient;
+        final int deadEntityId;
+        final int killerEntityId;
+        final int dmg;
+        CapturedKillGate(Player r, int dead, int killer, int dmg) {
+            recipient = r; deadEntityId = dead;
+            killerEntityId = killer; this.dmg = dmg;
+        }
+    }
+
     private List<CapturedKill> killed;
     private List<CapturedDespawn> despawns;
+    private List<CapturedKillGate> killGates;
     private Map<Integer, Zone> zoneMap;
 
     @Before
@@ -47,6 +59,7 @@ public class MobDeathHandlerTest {
         MobDeathHandler.resetForTesting();
         killed = new ArrayList<>();
         despawns = new ArrayList<>();
+        killGates = new ArrayList<>();
         zoneMap = new HashMap<>();
         MobDeathHandler.setZoneLookupForTesting(
                 id -> zoneMap.get(id));
@@ -54,6 +67,12 @@ public class MobDeathHandlerTest {
                 (i, n) -> killed.add(new CapturedKill(i, n)));
         MobDeathHandler.setDespawnSinkForTesting(
                 (r, id) -> despawns.add(new CapturedDespawn(r, id)));
+        // Capture the kill-gate fan-out instead of building + sending
+        // real NpcKillCredit packets (which would need a live UDP
+        // session for each registered player).
+        MobDeathHandler.setKillGateSinkForTesting(
+                (r, dead, killer, dmg) ->
+                    killGates.add(new CapturedKillGate(r, dead, killer, dmg)));
     }
 
     @After
@@ -286,5 +305,135 @@ public class MobDeathHandlerTest {
         assertEquals(2, events.size());
         assertEquals("despawn", events.get(0));
         assertEquals("logger",  events.get(1));
+    }
+
+    // ─── 0x03/0x2d NpcKillCredit death-gate fan-out ────────────────
+
+    @Test
+    public void deathFansOutKillGateToEveryZonePlayer() {
+        Zone z = newZone(7);
+        z.addNPCtoZone(0, 0, 0, 170, 0, 0); // Aggressor-ish maxHP
+        NPC mob = z.getAllNPCs().get(0);
+        int npcId = mob.getMapID();
+
+        Player p1 = PacketTestFixture.newPlayer();
+        Player p2 = PacketTestFixture.newPlayer();
+        z.registerPlayer(p1);
+        z.registerPlayer(p2);
+
+        MobDeathHandler.dispatch(new MobDeathIntent(npcId, 7, 0x999));
+
+        assertEquals("one kill-gate per player", 2, killGates.size());
+        for (CapturedKillGate g : killGates) {
+            assertEquals("dead entity == dead NPC map id",
+                    npcId, g.deadEntityId);
+            assertEquals("dmg credit == clamped max HP",
+                    170, g.dmg);
+        }
+        assertEquals(2, killGates.stream().map(g -> g.recipient)
+                .distinct().count());
+    }
+
+    @Test
+    public void killGateResolvesKillerEntityIdFromZone() {
+        // The killer is a player in the zone; the gate must carry that
+        // player's runtime entity id (the zone-assigned mapID), not the
+        // global killerUid. Two bystanders register first so the killer
+        // gets a non-trivial mapID, and the killer is given a unique
+        // MISC_ID so the resolver picks it (the fixture hands every
+        // player the same default MISC_ID).
+        Zone z = newZone(7);
+        z.addNPCtoZone(0, 0, 0, 100, 0, 0);
+        NPC mob = z.getAllNPCs().get(0);
+
+        Player bystander1 = PacketTestFixture.newPlayer();
+        Player bystander2 = PacketTestFixture.newPlayer();
+        Player killer     = PacketTestFixture.newPlayer();
+        killer.getCharacter().setMisc(
+                server.database.playerCharacters.PlayerCharacter.MISC_ID,
+                0x0777);
+        z.registerPlayer(bystander1);
+        z.registerPlayer(bystander2);
+        z.registerPlayer(killer);
+        int killerEntity = killer.getMapID();   // zone-assigned (3)
+
+        MobDeathHandler.dispatch(new MobDeathIntent(mob.getMapID(), 7, 0x0777));
+
+        assertEquals("one kill-gate per player", 3, killGates.size());
+        for (CapturedKillGate g : killGates) {
+            assertEquals("killer entity == killer player's zone mapID",
+                    killerEntity, g.killerEntityId);
+        }
+    }
+
+    @Test
+    public void killGateFallsBackToLowUidWhenKillerAbsent() {
+        // No player matches the killerUid (e.g. environment / admin
+        // kill) — gate falls back to the low 16 bits of the uid.
+        Zone z = newZone(7);
+        z.addNPCtoZone(0, 0, 0, 100, 0, 0);
+        NPC mob = z.getAllNPCs().get(0);
+
+        Player bystander = PacketTestFixture.newPlayer();
+        z.registerPlayer(bystander);
+
+        MobDeathHandler.dispatch(
+                new MobDeathIntent(mob.getMapID(), 7, 0xABCD1234));
+
+        assertEquals(1, killGates.size());
+        assertEquals(0x1234, killGates.get(0).killerEntityId);
+    }
+
+    @Test
+    public void killGateFiresBeforeDespawn() {
+        // The death gate is the signal the client waits for to commit
+        // the death; it must precede the despawn that retires the model.
+        Zone z = newZone(7);
+        z.addNPCtoZone(0, 0, 0, 100, 0, 0);
+        NPC mob = z.getAllNPCs().get(0);
+        int npcId = mob.getMapID();
+
+        Player p = PacketTestFixture.newPlayer();
+        z.registerPlayer(p);
+
+        List<String> events = new ArrayList<>();
+        MobDeathHandler.setKillGateSinkForTesting(
+                (r, dead, killer, dmg) -> events.add("killgate"));
+        MobDeathHandler.setDespawnSinkForTesting(
+                (r, id) -> events.add("despawn"));
+
+        MobDeathHandler.dispatch(new MobDeathIntent(npcId, 7, 0));
+
+        assertEquals(2, events.size());
+        assertEquals("killgate", events.get(0));
+        assertEquals("despawn",  events.get(1));
+    }
+
+    @Test
+    public void killGateSinkExceptionDoesNotInterruptOtherRecipients() {
+        Zone z = newZone(7);
+        z.addNPCtoZone(0, 0, 0, 100, 0, 0);
+        NPC mob = z.getAllNPCs().get(0);
+        int npcId = mob.getMapID();
+
+        Player good1 = PacketTestFixture.newPlayer();
+        Player bad   = PacketTestFixture.newPlayer();
+        Player good2 = PacketTestFixture.newPlayer();
+        z.registerPlayer(good1);
+        z.registerPlayer(bad);
+        z.registerPlayer(good2);
+
+        MobDeathHandler.setKillGateSinkForTesting((r, dead, killer, dmg) -> {
+            if (r == bad) throw new RuntimeException("simulated");
+            killGates.add(new CapturedKillGate(r, dead, killer, dmg));
+        });
+
+        MobDeathHandler.dispatch(new MobDeathIntent(npcId, 7, 0));
+
+        // bad threw, but the despawn loop and the other recipients still
+        // ran — and the NPC was still removed.
+        assertEquals(2, killGates.size());
+        assertEquals(3, despawns.size());
+        assertTrue(z.getAllNPCs().isEmpty());
     }
 }

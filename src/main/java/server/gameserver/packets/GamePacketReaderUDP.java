@@ -188,6 +188,15 @@ public final class GamePacketReaderUDP {
 			case 0x1f:
 				pd.skip(2);
 				switch (pd.read()) {
+				case 0x01:
+					// Weapon fire (task #8 combat). Wire:
+					// `1f <localId> 01 [weapon LE2][target LE2]
+					// [8B shot][shot_coord f32]`. weapon=defs.weapons.id,
+					// target=the entity the client's aim ray hit (an NPC,
+					// or a world hit-point for terrain). Byte-pinned
+					// 2026-06-13 from a retail NPC kill (Norman→Reggie);
+					// see memory combat_loop_retail_kill_pinned.
+					return new WeaponFire(subPacket);
 				case 0x06:
 					// Native client built-in GM command (e.g.
 					// /gm_noclip). Structured-parsed + admin-gated
