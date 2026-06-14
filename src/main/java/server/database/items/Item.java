@@ -239,7 +239,16 @@ public class Item {
 		}
 		else if(flags == (ITEMFLAG_USES | ITEMFLAG_WEAPON)){ // weapons which need ammo
 			temp.write(0x33); // infobyte
-			temp.write(tokens[Item.TOKENS_AMMOUSES]); // Unknown
+			// Loaded-magazine count the client gates firing on. The
+			// inherited Irata code wrote TOKENS_AMMOUSES here ("Unknown"),
+			// but that is the item INSTANCE's ammo_uses (e.g. 1 for
+			// Krafteo's Lazar) — which made the client believe the clip
+			// held a single round, so it fired once then refused further
+			// left-clicks (weapon stayed drawn, just wouldn't re-fire).
+			// Retail carries a clip-sized value here (e.g. 0x15), never 1.
+			// The weapon's loaded magazine == its clip size, so emit
+			// TOKENS_CLIPSIZE (defs/weapons.clipsize, 16 for the Lazar).
+			temp.write(tokens[Item.TOKENS_CLIPSIZE]); // loaded magazine (clip size)
 			temp.write(6); // Propertys to follow
 			temp.write(tokens[Item.TOKENS_CURRCOND]);
 			temp.write(tokens[Item.TOKENS_DMG]);
