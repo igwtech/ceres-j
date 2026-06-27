@@ -294,22 +294,27 @@ public class Zone extends Thread{ //TODO: making a thread out of that class woul
 	
 	// sends the NPC npc to the Player pl.
 	//
-	// Byte-pinned 2026-05-17 (task #178d) from the live retail pcap
-	// strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap (server
-	// 157.90.195.74). The retail spawn of the scripted-city-NPC class
-	// the client renders persistently (entities 266 "WSK" / 299
-	// "WCOP" / 325 "PATROL_COPBOT6") is a reliable 0x03/0x28 WorldInfo
-	// (the Type-15 create) followed by a 6-byte 0x03/0x2d NPC-data
-	// ping — NEVER a raw 0x1b. Every raw 0x1b in the whole capture
-	// carries a small world-item id (0x8b..0xdb); no scripted NPC id
-	// (>= 0x0100) ever appears in a 0x1b, and emitting one registers
-	// the NPC in the client's transient world-item table which the
-	// client then GCs within a frame (the task #178 "appears then
-	// disappears" symptom). The old SendPresentWorldID raw-0x1b spawn
-	// is therefore replaced with the retail 0x28 create + 0x2d ping
-	// (same datagrams ZoneStateHeartbeat refreshes with).
+	// Retail render chain (re-decoded 2026-06-14 from the live pcap
+	// strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap, server
+	// 157.90.195.74): a rendering scripted NPC gets, per refresh,
+	//   1. a RAW 0x1b world-actor PLACEMENT (SendPresentWorldID) the
+	//      client uses to INSTANTIATE the renderable actor, THEN
+	//   2. a reliable 0x03/0x28 WorldInfo create + 0x03/0x2d ping
+	//      (ZoneStateCompoundPacket) that names + scripts it.
+	// The 0x1b leads the 0x28 (~0.77 s in retail) and repeats ~1/s.
+	//
+	// CORRECTION of the earlier #178d note that lived here: it claimed
+	// "no scripted id (>= 0x0100) ever appears in a 0x1b" and dropped
+	// the 0x1b entirely. Re-decoding the SAME pcap shows 22 scripted
+	// ids in 749 raw 0x1b records (WSK 0x010a x92, WCOP 0x012b x92,
+	// PATROL_COPBOT6 0x0145 x6), Y/Z/X byte-identical to their 0x28.
+	// The "appears then disappears" symptom #178d saw was the OLD
+	// MALFORMED 0x1b body (route 0x42 + HP/random tail) being GC'd, not
+	// the 0x1b's presence. SendPresentWorldID now emits the correct
+	// 19-byte placement, restored ahead of the 0x28.
 	public void sendNPCinZone(Player pl, NPC npc){
-		pl.send(new ZoneStateCompoundPacket(pl, npc));
+		pl.send(new SendPresentWorldID(pl, npc));       // raw 0x1b placement FIRST
+		pl.send(new ZoneStateCompoundPacket(pl, npc));  // then 0x28 create + 0x2d ping
 	}
 	
 	// sends the position of all the other Players in the Zone to pl

@@ -14,26 +14,34 @@ import server.gameserver.Player;
 /**
  * Functional test for the task #178 NPC-render chain.
  *
- * <p>Pins the retail invariant byte-decoded 2026-05-17 from
- * {@code strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap} (server
- * 157.90.195.74) for the scripted-city-NPC class the client renders
- * persistently (entities 266 "WSK" / 299 "WCOP" / 325
- * "PATROL_COPBOT6"):
+ * <p>Scope: this pins the {@link ZoneStateCompoundPacket} bundle for
+ * the scripted-city-NPC class the client renders persistently
+ * (entities 266 "WSK" / 299 "WCOP" / 325 "PATROL_COPBOT6"), decoded
+ * from {@code strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap} (server
+ * 157.90.195.74):
  *
  * <ul>
- *   <li>spawn + every refresh = reliable {@code 0x03/0x28} WorldInfo
+ *   <li>the COMPOUND bundle = reliable {@code 0x03/0x28} WorldInfo
  *       (the Type-15 create) THEN a reliable {@code 0x03/0x2d}
- *       6-byte ping;</li>
- *   <li>NEVER a raw {@code 0x1b} broadcast for the NPC id;</li>
- *   <li>NEVER a {@code 0x03/0x26 RemoveWorldItem} for a live NPC.</li>
+ *       6-byte ping — and nothing else in that datagram;</li>
+ *   <li>the compound itself never carries a {@code 0x1b} or a
+ *       {@code 0x03/0x26 RemoveWorldItem}.</li>
  * </ul>
  *
- * <p>The pre-#178d emitter produced a raw {@code 0x1b} per NPC which
- * registered it in the client's transient world-item table; the
- * client GC'd that within a frame — the "appears then disappears"
- * symptom. A spurious {@code 0x26} was never the cause (it only ever
- * fires on a real {@code MobDeathIntent}); the despawn was entirely
- * client-side, triggered by the spurious {@code 0x1b}.
+ * <p><b>Correction (2026-06-14):</b> an earlier note here claimed
+ * retail "NEVER" sends a raw {@code 0x1b} for a scripted NPC id. That
+ * was wrong — re-decoding the SAME pcap finds 22 scripted ids
+ * (&ge; {@code 0x0100}) in 749 raw {@code 0x1b} placement records
+ * (WSK {@code 0x010a} &times;92), with Y/Z/X byte-identical to their
+ * {@code 0x28}. The client INSTANTIATES the renderable actor from that
+ * {@code 0x1b}; the {@code 0x28}+{@code 0x2d} then name + script it.
+ * The raw {@code 0x1b} is emitted SEPARATELY (a sibling
+ * {@link SendPresentWorldID} datagram) by {@code Zone.sendNPCinZone},
+ * NOT inside this compound — so the "compound has no 0x1b" assertions
+ * below remain valid <em>in scope</em>. The pre-#178d
+ * "appears then disappears" symptom was the OLD MALFORMED 0x1b body
+ * (route {@code 0x42} + HP/random tail) being GC'd, not the 0x1b's
+ * presence.
  */
 public class NpcRenderChainTest {
 
@@ -118,7 +126,9 @@ public class NpcRenderChainTest {
                     List.of(0x28, 0x2d), ops);
 
             assertFalse("id 0x" + Integer.toHexString(id)
-                    + ": NO raw 0x1b (the despawn trigger)",
+                    + ": the COMPOUND bundle carries no 0x1b (the raw"
+                    + " 0x1b placement is a separate SendPresentWorldID"
+                    + " datagram, see Zone.sendNPCinZone)",
                     ops.contains(0x1b));
             assertFalse("id 0x" + Integer.toHexString(id)
                     + ": NO 0x26 RemoveWorldItem for a live NPC",
