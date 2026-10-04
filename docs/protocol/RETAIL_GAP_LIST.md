@@ -62,10 +62,15 @@ verified against retail bytes, unit tests and a live nc2-bot session.
    64-bit server pointers (`…f67f0000`), so not every byte is meaningful.
    City NPCs only ever get the 9-byte type `0x06`. Ceres sends only the
    9-byte form. Mob movement = raw `0x20` (layout pinned, see `36ca0a4`).
-4. **`0x28` state block / raw `0x1b` tail.** Ceres writes zeros in the
-   17-byte `0x28` block before the strings and in raw `0x1b` [12..18];
-   retail has values (e.g. `00 2d01 000000 0c0b 0000 0905 …`; `0x1b` [13..14]
-   tracks `0x28` block bytes 1..2). Semantics unknown.
+4. **`0x28` state block = SCRIPTEDPLAYER HP/attrs/flags, Ceres sends
+   zeros.** The `0x28` body from [7] is the client's SCRIPTEDPLAYER stream
+   (`FUN_00699fd0`): body[20..23] LE32 "HP-ish" (grows per entity over
+   time), body[24..33] 10 skill/attr bytes (class/level scaled — npc.def
+   lvl 10 → `00 06 05 03 04 04 02 00 00 00`, all zero for killed mobs),
+   body[34..35] flags. Ceres-J writes zeros, i.e. what retail sends for a
+   dead mob. Exact formula unknown (see `udp_s2c_03_28.md`) — test whether
+   the client treats zero attrs as dead once it is back. Raw `0x1b`
+   [13..14] tracks the same LE32; [12..18] are zero in Ceres.
 
 ### P2 — login / session
 
