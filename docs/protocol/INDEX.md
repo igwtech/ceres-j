@@ -11,6 +11,8 @@ Status legend:
 
 Per-packet structure docs live under [`packets/`](packets/). Capture corpus map: [`captures/INDEX.md`](captures/INDEX.md).
 
+**Measured gaps vs retail (what Ceres-J still does differently, ranked):** [`RETAIL_GAP_LIST.md`](RETAIL_GAP_LIST.md) — regenerate the numbers with `tools/frida_re/scripts/corpus_gap.py`.
+
 **Function reference (what each type/sub-type DOES):** [`PACKET_FUNCTION_REFERENCE.md`](PACKET_FUNCTION_REFERENCE.md) — master index linking the UDP, 0x1f act_tag/sub-tag, and TCP function tables.
 
 ## Catalog
