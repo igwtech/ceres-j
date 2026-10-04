@@ -11,13 +11,13 @@ import server.gameserver.NPC;
 import server.tools.Out;
 
 /**
- * Loads NPC spawn definitions for a given zone, preferring the
- * curated {@code npc_spawns} table; if that returns nothing for
- * the zone, falls back to {@code world_npcs} (the bulk PAK-import
- * table — 3,571 entries across all retail zones; cf.
- * {@code world_defs} for path mapping).
+ * Loads NPC spawn definitions for a given zone from {@code world_npcs}
+ * (the bulk PAK-import of the client's world-.dat NPCs — 3,571 entries
+ * across all retail zones; cf. {@code world_defs} for path mapping),
+ * falling back to the curated {@code npc_spawns} table only for zones
+ * with no world-.dat NPCs. Retail spawns the .dat rows verbatim.
  *
- * <p>The fallback is read-only and joins on the path mapping
+ * <p>The world_npcs read is read-only and joins on the path mapping
  * {@code worlds/<dir>/pak_<basename>.dat} derived from
  * {@code world_defs.path}. NPC type / position come from
  * {@code world_npcs}; {@code script_name} is sourced from
@@ -27,9 +27,9 @@ import server.tools.Out;
  * {@code model_name} is left blank since {@code world_npcs}
  * does not carry it.
  *
- * <p>Without this fallback, only zone 1 (Plaza P1) had NPCs (8
- * stub rows in {@code npc_spawns}); the rest of the world was
- * empty, producing the user-visible "no NPCs anywhere" symptom.
+ * <p>Before world_npcs was wired in, only zone 1 (Plaza P1) had NPCs
+ * (8 TinNS-era stub rows in {@code npc_spawns}); the rest of the world
+ * was empty, producing the user-visible "no NPCs anywhere" symptom.
  *
  * <p>Positions are returned in world units (see {@link NPC}). The
  * {@code world_npcs} floats are floored, matching retail; the curated
@@ -49,14 +49,38 @@ public class NpcSpawnManager {
         Connection conn = SqliteDatabase.getConnection();
         if (conn == null) return npcs;
 
-        // ── Primary: curated npc_spawns table ─────────────────────────
+        // ── Primary: world_npcs (the zone's world-.dat NPCs) ──────────
+        // Retail spawns exactly these rows (id 0xFF+npc_id, type, script,
+        // position, angle), plaza_p1 included: its retail entities
+        // 266/299/325 are npc 11 WSK / 44 WCOP / 70 PATROL_COPBOT6.
+        int loaded = loadFromWorldNpcs(conn, zoneId, npcs);
+        if (loaded > 0) {
+            Out.writeln(Out.Info, "NpcSpawnManager: bridged "
+                    + loaded + " NPCs from world_npcs for zone "
+                    + zoneId);
+        }
+
+        // ── Fallback: curated npc_spawns ──────────────────────────────
+        // Only for zones without world-.dat NPCs.
+        if (npcs.isEmpty()) {
+            loadFromNpcSpawns(conn, zoneId, npcs);
+        }
+
+        Out.writeln(Out.Info, "NpcSpawnManager: loaded " + npcs.size()
+                + " NPCs for zone " + zoneId);
+        return npcs;
+    }
+
+    /** Load the curated {@code npc_spawns} rows for {@code zoneId}. */
+    private static void loadFromNpcSpawns(Connection conn, int zoneId,
+                                          List<NPC> out) {
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT id, zone_id, type, name, script_name, model_name, x, y, z, angle, hp, armor " +
                 "FROM npc_spawns WHERE zone_id = ?")) {
             ps.setInt(1, zoneId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    npcs.add(new NPC(
+                    out.add(new NPC(
                         rs.getInt("id"),
                         rs.getInt("zone_id"),
                         rs.getInt("type"),
@@ -76,27 +100,11 @@ public class NpcSpawnManager {
             Out.writeln(Out.Error, "NpcSpawnManager: failed to load zone "
                     + zoneId + ": " + e.getMessage());
         }
-
-        // ── Fallback: world_npcs (PAK-import bulk data) ───────────────
-        // If npc_spawns had nothing for this zone, try the bulk table.
-        // Joins on world_defs path → world_npcs.world_path.
-        if (npcs.isEmpty()) {
-            int loaded = loadFromWorldNpcs(conn, zoneId, npcs);
-            if (loaded > 0) {
-                Out.writeln(Out.Info, "NpcSpawnManager: bridged "
-                        + loaded + " NPCs from world_npcs for zone "
-                        + zoneId);
-            }
-        }
-
-        Out.writeln(Out.Info, "NpcSpawnManager: loaded " + npcs.size()
-                + " NPCs for zone " + zoneId);
-        return npcs;
     }
 
     /**
-     * Fall back to {@code world_npcs} for zones that have no entry in
-     * {@code npc_spawns}. Returns the number of NPCs added to {@code out}.
+     * Load the zone's {@code world_npcs} rows. Returns the number of
+     * NPCs added to {@code out}.
      */
     private static int loadFromWorldNpcs(Connection conn, int zoneId,
                                           List<NPC> out) {
