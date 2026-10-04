@@ -33,6 +33,7 @@ verified against retail bytes, unit tests and a live nc2-bot session.
 | `d096722` | NPC LE16 positions = `floor(world)+0x8000` (Z−1); `.dat` NPC id = `0xFF+npc_id`; orientation string = `.dat` angle text | exact match of 13/13 static pepper_p1 NPCs, industry_p1 npc 4/16, plaza_p1 npc 11 | `.dat` NPCs visible at their posts in pepper_p1 / spider_cave_1 (were ~31,000 units away) |
 | `b4fe12b` | plaza_p1 spawns its 82 world-`.dat` NPCs, not the 8 TinNS-era `npc_spawns` rows | retail plaza_p1 entities 266/299/325 = `.dat` npc 11/44/70 | plaza_p1 NPC set matches retail |
 | `36ca0a4` | mob movement `0x20` layout (unwired) | fire_bc_v1 13-byte form | — (needs the mob spawner) |
+| `6c94cec` | AuthAck (gameserver + infoserver) echoes the client's password ciphertext as session_data | retail pcap Auth/AuthAck pairs: session_data == Auth ciphertext | stage-1 GetCharList 30 B (was 12 B); client's transport `0x03` carries the account id |
 
 ## Open gaps
 
@@ -74,11 +75,13 @@ verified against retail bytes, unit tests and a live nc2-bot session.
    transmits is CharInfo as seq 25 — seqs 1–24 were allocated earlier and are
    only delivered through the client's NAK → `0x02`. Ceres streams the world
    straight after the handshake; the client then never sends `0x2a`.
-6. **Wrong id echoed by the client.** The client's transport `0x03`
-   (`[03][id LE4][iface][port LE2]`) carries the account id to retail
-   (`bd7e0100`) but a random value to Ceres (`d8572cda`, `c837ea3a`, new
-   every session) — some TCP field Ceres fills differently. Also the first
-   C→S GetCharList (`0x84 0x82`) is 12 bytes to Ceres vs 30 to retail.
+6. **Wrong id echoed by the client — likely fixed by `6c94cec`.** The
+   client's transport `0x03` (`[03][id LE4][iface][port LE2]`) carried the
+   account id to retail (`bd7e0100`) but a random value to Ceres
+   (`d8572cda`, `c837ea3a`), and its first GetCharList (`0x84 0x82`) was 12
+   bytes to Ceres vs 30 to retail. Ceres's AuthAcks were not echoing the
+   password ciphertext (gameserver sent zeros, infoserver sent length 0) —
+   now they do. Confirm in the client.
 7. **Invented `0x03/0x19/0x04` WorldInfoSrv.** Never in 17 retail captures
    (727K packets) nor the 44 harness traces; added for the #172 zone cross.
    Remove once crosses can be checked in the client. Likewise the S→C `0x08`
