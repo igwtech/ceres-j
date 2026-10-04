@@ -26,7 +26,7 @@ import server.gameserver.Player;
  *   [1..2]   object_id LE16
  *   [3..4]   00 00           padding
  *   [5]      0x1f            inner opcode (constant)
- *   [6..7]   Y LE16          (raw + 32000, world coord)
+ *   [6..7]   Y LE16          (world + 0x8000; Z is world - 1 + 0x8000)
  *   [8..9]   Z LE16
  *   [10..11] X LE16
  *   [12]     orientation     (0x40 default heading)
@@ -73,15 +73,15 @@ public class ObjectPositionBroadcastByteIdentityTest {
         assertEquals(0x00, body[4] & 0xFF);
         // [5] 0x1f inner opcode
         assertEquals(0x1f, body[5] & 0xFF);
-        // [6..7] Y = 2000 + 32000 = 34000 = 0x84D0
+        // [6..7] Y = 2000 + 0x8000 = 34768 = 0x87D0
         assertEquals(0xD0, body[6] & 0xFF);
-        assertEquals(0x84, body[7] & 0xFF);
-        // [8..9] Z = 3000 + 32000 = 35000 = 0x88B8
-        assertEquals(0xB8, body[8] & 0xFF);
-        assertEquals(0x88, body[9] & 0xFF);
-        // [10..11] X = 1000 + 32000 = 33000 = 0x80E8
+        assertEquals(0x87, body[7] & 0xFF);
+        // [8..9] Z = 3000 - 1 + 0x8000 = 35767 = 0x8BB7
+        assertEquals(0xB7, body[8] & 0xFF);
+        assertEquals(0x8B, body[9] & 0xFF);
+        // [10..11] X = 1000 + 0x8000 = 33768 = 0x83E8
         assertEquals(0xE8, body[10] & 0xFF);
-        assertEquals(0x80, body[11] & 0xFF);
+        assertEquals(0x83, body[11] & 0xFF);
         // [12] angle defaults to 0x40 when input is 0
         assertEquals(0x40, body[12] & 0xFF);
         // [13..14] entity_class_id LE16 = npc.def type 0x014f.
@@ -157,21 +157,20 @@ public class ObjectPositionBroadcastByteIdentityTest {
     }
 
     @Test
-    public void positionFieldsAreOffsetByThirtyTwoThousand() {
-        // Coordinates are stored as raw + 32000 (signed-to-unsigned
-        // shift). 0 → 32000 = 0x7D00.
+    public void positionFieldsAreBiasedBy0x8000() {
+        // World origin encodes as 0x8000 (Z one lower: 0x7FFF) — the
+        // retail bias, not the NC1 32000 (see NPC.getWireX).
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
         NPC npc = new NPC(0, 0, 0, 100, 0, 0, 1);
 
         byte[] body = extractInnerBody(
                 datagramBytes(new ObjectPositionBroadcast(pl, npc)));
-        // X=Y=Z=0 → all encode 0x7D00
-        for (int off : new int[]{6, 8, 10}) {
-            assertEquals("LE lo at offset " + off,
-                    0x00, body[off] & 0xFF);
-            assertEquals("LE hi at offset " + (off + 1),
-                    0x7D, body[off + 1] & 0xFF);
-        }
+        assertEquals(0x00, body[6] & 0xFF);   // Y lo
+        assertEquals(0x80, body[7] & 0xFF);   // Y hi
+        assertEquals(0xFF, body[8] & 0xFF);   // Z lo
+        assertEquals(0x7F, body[9] & 0xFF);   // Z hi
+        assertEquals(0x00, body[10] & 0xFF);  // X lo
+        assertEquals(0x80, body[11] & 0xFF);  // X hi
     }
 
     @Test
@@ -193,20 +192,19 @@ public class ObjectPositionBroadcastByteIdentityTest {
     public void coordinatesEncodeLittleEndian() {
         // Distinct values per axis to catch a swap.
         Player pl = PacketTestFixture.newPlayerWithFixedSessionKey((short) 0);
-        // X=10, Y=20, Z=30 → after +32000:
-        //   X=32010=0x7D0A, Y=32020=0x7D14, Z=32030=0x7D1E
+        // X=10, Y=20, Z=30 → X=0x800A, Y=0x8014, Z=0x801D (Z-1)
         NPC npc = new NPC(10, 20, 30, 100, 0, 1, 1);
         byte[] body = extractInnerBody(
                 datagramBytes(new ObjectPositionBroadcast(pl, npc)));
         // Y at [6..7]
         assertEquals(0x14, body[6] & 0xFF);
-        assertEquals(0x7D, body[7] & 0xFF);
+        assertEquals(0x80, body[7] & 0xFF);
         // Z at [8..9]
-        assertEquals(0x1E, body[8] & 0xFF);
-        assertEquals(0x7D, body[9] & 0xFF);
+        assertEquals(0x1D, body[8] & 0xFF);
+        assertEquals(0x80, body[9] & 0xFF);
         // X at [10..11]
         assertEquals(0x0A, body[10] & 0xFF);
-        assertEquals(0x7D, body[11] & 0xFF);
+        assertEquals(0x80, body[11] & 0xFF);
     }
 
     @Test

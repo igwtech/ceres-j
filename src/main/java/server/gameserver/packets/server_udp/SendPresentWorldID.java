@@ -29,16 +29,16 @@ public class SendPresentWorldID extends PacketBuilderUDP13{
 		// mis-attributed it: the OLD body here was MALFORMED (17 B, route
 		// 0x42, HP+random tail) so the client GC'd the actor. The fix is
 		// to frame the 0x1b correctly (19 B, route 0x40, heading LE32 +
-		// phase LE16), NOT to drop it. Coords reuse the same getters the
+		// phase LE16), NOT to drop it. Coords reuse the same encoders the
 		// 0x28 writes so the two stay byte-identical.
 		write(0x1b);                       // [0]   sub-opcode
 		writeShort(npc.getMapID());        // [1-2] entity_id (== 0x28 [3-4])
 		write(0x00);                       // [3]
 		write(0x00);                       // [4]
 		write(0x1f);                       // [5]   flag
-		writeShort(npc.getYpos());         // [6-7]   Y == 0x28 [13-14]
-		writeShort(npc.getZpos());         // [8-9]   Z == 0x28 [15-16]
-		writeShort(npc.getXpos());         // [10-11] X == 0x28 [17-18]
+		writeShort(npc.getWireY());        // [6-7]   Y == 0x28 [13-14]
+		writeShort(npc.getWireZ());        // [8-9]   Z == 0x28 [15-16]
+		writeShort(npc.getWireX());        // [10-11] X == 0x28 [17-18]
 		write(0x40);                       // [12]  route flag (retail 0x40, was 0x42)
 		writeInt(npc.getAngle() & 0xFFFF); // [13-16] heading LE32 (anim; not load-bearing)
 		writeShort(0x0000);                // [17-18] idle heading-phase (sweeps in retail; 0 valid)

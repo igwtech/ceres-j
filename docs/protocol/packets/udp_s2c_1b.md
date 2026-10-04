@@ -65,9 +65,9 @@ offset bytes  meaning                              constancy
 [ 3]   1B    0x00                                  CONSTANT
 [ 4]   1B    0x00                                  CONSTANT
 [ 5]   1B    0x1f                                  CONSTANT (inner opcode)
-[ 6..7] 2B   Y_raw LE16 (= world_y + 32000)         varies
-[ 8..9] 2B   Z_raw LE16 (= world_z + 32000)         varies
-[10..11] 2B  X_raw LE16 (= world_x + 32000)         varies
+[ 6..7] 2B   Y LE16 (= floor(world_y) + 0x8000)     varies
+[ 8..9] 2B   Z LE16 (= world_z - 1 + 0x8000)        varies
+[10..11] 2B  X LE16 (= floor(world_x) + 0x8000)     varies
 [12]   1B    orientation byte (0x40 dominant —      varies
               also 0x02, 0x20, 0x22, 0x42)
 [13..14] 2B  entity_class_id LE16                   varies (per
@@ -78,6 +78,16 @@ offset bytes  meaning                              constancy
 [18]   1B    state hash hi (mostly 0x11/0x0f, also  varies
               0x12/0x20/0x21/0x22)
 ```
+
+**Coordinate encoding (pinned 2026-10-04).** The bias is `0x8000`, not
+the NC1 32000: decoding retail NPCs against the player's float32 position
+in the same session puts them on the player's floor (fire_multikill_v1:
+player Z −511.0 → NPC Z −512; fire_retail_v1: −702.9 → −704), which a
+32000 bias misses by 768. For static world-.dat NPCs the wire value
+equals the `world_npcs` row exactly — X/Y = `floor(pos)`, Z = `pos_z − 1`
+— e.g. plaza_p1 npc 11 (2672.22, −1887.41, −239) → `a078 107f 708a`;
+13/13 static pepper_p1 NPCs and industry_p1 npc 4/16 match the same way.
+The entity id of such an NPC is `0xFF + npc_id`. Ceres-J: `NPC.getWireX()`.
 
 Cross-pcap evidence: NORMAN's 0x010e broadcasts repeatedly emit
 `b9 88 00 00` for [13..16] → `entity_class_id = 0x88b9`. AUGUSTO has

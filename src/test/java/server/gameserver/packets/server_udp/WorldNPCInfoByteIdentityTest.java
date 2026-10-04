@@ -151,21 +151,22 @@ public class WorldNPCInfoByteIdentityTest {
 
     @Test
     public void matchesRetailLiveWskSampleStructure() {
-        // RETAIL live pcap entity 266: class=0x0b4a, X=35440
-        // Y=30880 Z=32528, script "WSK", orientation "-178".
+        // RETAIL live pcap entity 266: class=0x0b4a, wire X=35440
+        // Y=30880 Z=32528, script "WSK", orientation "-178" = plaza_p1
+        // world_npcs npc 11 at world (2672, -1888, -239).
         NPC npc = new NPC(266, 7, 0x0b4a, "WSK",
-                35440, 30880, 32528, -178, 100, 0);
+                2672, -1888, -239, -178, 100, 0);
         assertMatchesRetailSample(RETAIL_LIVE_WSK, npc);
     }
 
     @Test
     public void matchesRetailLivePatrolCopbotSampleStructure() {
         // RETAIL live pcap entity 325 (Type-15 scripted copbot):
-        // class=0x27e2, X=35852 Y=30647 Z=32512, script
-        // "PATROL_COPBOT6", orientation "45". Display name differs
-        // from the AI script (curated spawn path).
+        // class=0x27e2, wire X=35852 Y=30647 Z=32512 (world 3084,
+        // -2121, -255), script "PATROL_COPBOT6", orientation "45".
+        // Display name differs from the AI script (curated spawn path).
         NPC npc = new NPC(325, 7, 0x27e2, "Copbot",
-                "PATROL_COPBOT6", "", 35852, 30647, 32512, 45, 100, 0);
+                "PATROL_COPBOT6", "", 3084, -2121, -255, 45, 100, 0);
         assertMatchesRetailSample(RETAIL_LIVE_PATROL, npc);
     }
 

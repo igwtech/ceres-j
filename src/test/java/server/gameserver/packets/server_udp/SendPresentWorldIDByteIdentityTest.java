@@ -52,11 +52,11 @@ public class SendPresentWorldIDByteIdentityTest {
     public void placementBodyIsNineteenBytesWithRetailLayout() {
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
-        // NPC ctor is (x, y, z, hp, armor, type, id). The body writes
-        // Y=ypos, Z=zpos, X=xpos, so to get the retail WSK wire coords
-        // Y=0x78a0 / Z=0x7f10 / X=0x8a70 we pass x=0x8a70, y=0x78a0,
-        // z=0x7f10.
-        NPC npc = new NPC(0x8a70, 0x78a0, 0x7f10, 100, 0, 0x0b4a, 0x010a);
+        // NPC ctor is (x, y, z, hp, armor, type, id), world units. The
+        // retail WSK wire coords Y=0x78a0 / Z=0x7f10 / X=0x8a70 are the
+        // plaza_p1 world_npcs npc 11 position (2672, -1888, -239):
+        // world + 0x8000, Z one lower (NPC.getWireX).
+        NPC npc = new NPC(2672, -1888, -239, 100, 0, 0x0b4a, 0x010a);
         byte[] b = body(new SendPresentWorldID(pl, npc));
 
         assertEquals("19-byte placement record", 19, b.length);
@@ -65,9 +65,9 @@ public class SendPresentWorldIDByteIdentityTest {
         assertEquals("[3] zero",              0x00, b[3] & 0xFF);
         assertEquals("[4] zero",              0x00, b[4] & 0xFF);
         assertEquals("[5] flag",              0x1f, b[5] & 0xFF);
-        assertEquals("[6-7] Y == npc Ypos",   0x78a0, le16(b, 6));
-        assertEquals("[8-9] Z == npc Zpos",   0x7f10, le16(b, 8));
-        assertEquals("[10-11] X == npc Xpos", 0x8a70, le16(b, 10));
+        assertEquals("[6-7] Y",               0x78a0, le16(b, 6));
+        assertEquals("[8-9] Z",               0x7f10, le16(b, 8));
+        assertEquals("[10-11] X",             0x8a70, le16(b, 10));
         assertEquals("[12] route flag 0x40",  0x40, b[12] & 0xFF);
     }
 
@@ -80,9 +80,9 @@ public class SendPresentWorldIDByteIdentityTest {
                 .newPlayerWithFixedSessionKey((short) 0);
         NPC npc = new NPC(1234, -567, 89, 100, 0, 0x27d5, 0x0101);
         byte[] b = body(new SendPresentWorldID(pl, npc));
-        assertEquals(npc.getYpos() & 0xFFFF, le16(b, 6));
-        assertEquals(npc.getZpos() & 0xFFFF, le16(b, 8));
-        assertEquals(npc.getXpos() & 0xFFFF, le16(b, 10));
+        assertEquals(npc.getWireY(), le16(b, 6));
+        assertEquals(npc.getWireZ(), le16(b, 8));
+        assertEquals(npc.getWireX(), le16(b, 10));
         assertEquals("entity id matches mapID", npc.getMapID(), le16(b, 1));
     }
 

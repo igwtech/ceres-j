@@ -17,9 +17,9 @@ import server.networktools.PacketBuilderUDP13;
  *   offset 2  : 0x01              constant (object class marker)
  *   offset 3-4: 0x00 0x00         constant padding
  *   offset 5  : 0x1f              constant inner opcode
- *   offset 6-7: Y LE uint16       (Y + 32000), signed world coord
- *   offset 8-9: Z LE uint16       (Z + 32000)
- *   offset 10-11: X LE uint16     (X + 32000)
+ *   offset 6-7: Y LE uint16       (Y + 0x8000), see NPC.getWireX
+ *   offset 8-9: Z LE uint16       (Z - 1 + 0x8000)
+ *   offset 10-11: X LE uint16     (X + 0x8000)
  *   offset 12 : orientation byte  (0x40 is default heading in samples)
  *   offset 13-14: status/flags    2 bytes
  *   offset 15-16: 0x00 0x00       constant padding
@@ -67,13 +67,9 @@ public class ObjectPositionBroadcast extends PacketBuilderUDP13 {
         write(0x00);                                  // [4]
         write(0x1f);                                  // [5] inner opcode
 
-        int y = (npc.getYpos() + 32000) & 0xFFFF;
-        int z = (npc.getZpos() + 32000) & 0xFFFF;
-        int x = (npc.getXpos() + 32000) & 0xFFFF;
-
-        writeShort(y);                                // [6-7] Y
-        writeShort(z);                                // [8-9] Z
-        writeShort(x);                                // [10-11] X
+        writeShort(npc.getWireY());                   // [6-7] Y
+        writeShort(npc.getWireZ());                   // [8-9] Z
+        writeShort(npc.getWireX());                   // [10-11] X
 
         int angle = npc.getAngle() & 0xFF;
         write(angle == 0 ? 0x40 : angle);             // [12] orient

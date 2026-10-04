@@ -6,8 +6,13 @@ package server.gameserver;
  * <p>Fields mirror the TinNS {@code npc_spawns} table schema plus the
  * runtime state needed for position broadcasts, WorldInfo replies, and
  * (future) AI ticks. The {@code mapID} is the world-object id the
- * client uses to reference this NPC in RequestWorldInfo queries; it
- * must live in the retail convention range 0x101–0x1FF (257–511).
+ * client uses to reference this NPC in RequestWorldInfo queries. Retail
+ * gives a world-.dat NPC the id {@code 0xFF + npc_id} (above the player
+ * ids 1..255); dynamically spawned mobs use a higher range (~0x3cd+).
+ *
+ * <p>Position is held in world units — the same frame as the player's
+ * {@code MISC_*_COORDINATE} and the world-.dat — so AI distances need no
+ * conversion. Packets encode it with {@link #getWireX()} etc.
  */
 public class NPC {
 
@@ -94,6 +99,24 @@ public class NPC {
 	public void setPosition(int x, int y, int z) {
 		this.xpos = x; this.ypos = y; this.zpos = z;
 	}
+
+	/**
+	 * Wire encoding of the position fields in {@code 0x03/0x28}
+	 * WorldInfo and raw {@code 0x1b}: unsigned LE16 = world unit +
+	 * {@code 0x8000}, with Z one unit below the world-.dat value.
+	 *
+	 * <p>Byte-pinned 2026-10-04 against retail NPCs in plaza_p1,
+	 * pepper_p1 and industry_p1: for every static world-.dat NPC the
+	 * wire (X, Y, Z) minus {@code 0x8000} equals
+	 * {@code (floor(pos_x), floor(pos_y), pos_z - 1)} of its
+	 * {@code world_npcs} row — e.g. plaza_p1 WSK npc 11 at
+	 * (2672.22, -1887.41, -239) → retail {@code 1b 0a01 0000 1f
+	 * a078 107f 708a ...}. Decoding against the player's float position
+	 * confirms the bias is {@code 0x8000}, not the NC1 32000.
+	 */
+	public int getWireX() { return (xpos + 0x8000) & 0xFFFF; }
+	public int getWireY() { return (ypos + 0x8000) & 0xFFFF; }
+	public int getWireZ() { return (zpos - 1 + 0x8000) & 0xFFFF; }
 
 	/**
 	 * Stable, per-NPC unique 32-bit world-instance handle written at

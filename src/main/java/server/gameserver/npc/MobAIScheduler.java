@@ -27,11 +27,12 @@ import server.tools.Out;
  *
  * <h3>Adapters</h3>
  *
- * <p>{@link NPC} positions are stored as ints (the 32000-centred
- * coordinate system used on the wire); {@link MobAI} works in
- * floats — we cast at the adapter boundary. {@link Player}
- * positions come from {@code PlayerCharacter.MISC_*_COORDINATE}
- * which is also int-based; same conversion.
+ * <p>{@link NPC} positions are int world units (the wire's
+ * {@code +0x8000} bias is applied only when a packet is written);
+ * {@link MobAI} works in floats — we cast at the adapter boundary.
+ * {@link Player} positions come from
+ * {@code PlayerCharacter.MISC_*_COORDINATE}, the same world frame;
+ * same conversion.
  *
  * <h3>Aggro tuning</h3>
  *

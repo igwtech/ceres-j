@@ -30,6 +30,11 @@ import server.tools.Out;
  * <p>Without this fallback, only zone 1 (Plaza P1) had NPCs (8
  * stub rows in {@code npc_spawns}); the rest of the world was
  * empty, producing the user-visible "no NPCs anywhere" symptom.
+ *
+ * <p>Positions are returned in world units (see {@link NPC}). The
+ * {@code world_npcs} floats are floored, matching retail; the curated
+ * {@code npc_spawns} rows hold wire-encoded values and are decoded so
+ * their on-wire bytes are unchanged.
  */
 public class NpcSpawnManager {
 
@@ -58,9 +63,9 @@ public class NpcSpawnManager {
                         rs.getString("name"),
                         rs.getString("script_name"),
                         rs.getString("model_name"),
-                        rs.getInt("x"),
-                        rs.getInt("y"),
-                        rs.getInt("z"),
+                        worldFromWire(rs.getInt("x")),
+                        worldFromWire(rs.getInt("y")),
+                        worldFromWire(rs.getInt("z")) + 1,
                         rs.getInt("angle"),
                         rs.getInt("hp"),
                         rs.getInt("armor")
@@ -112,23 +117,20 @@ public class NpcSpawnManager {
             ps.setInt(1, zoneId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    // Offset the bulk-import npc_id (1-based per world)
-                    // into the retail 0x101+ entity range. Zone.registerPlayer
-                    // hands live players entity ids from 1..255, so a raw
-                    // npc_id of 1..N would COLLIDE with a player's own
-                    // runtime id in the shared 16-bit entity space — the
-                    // client (and WeaponFire's z.getNPC(target_id) lookup,
-                    // keyed by mapID) would mis-resolve aim/targeting. The
-                    // curated npc_spawns table already uses ids ≥257; this
-                    // mirrors that convention for the world_npcs fallback so
-                    // the 0x28/0x2d broadcast id and getNPC() key stay equal
-                    // (target_id == mapID) and never alias a player slot.
-                    int mapId = 0x100 + rs.getInt("npc_id");
+                    // Retail entity id of a world-.dat NPC = 0xFF + npc_id
+                    // (pinned 2026-10-04: pepper_p1 npc 5/21/38/52 -> 260/
+                    // 276/293/307, industry_p1 npc 4/16 -> 259/271, plaza_p1
+                    // npc 11 -> 266). It sits above the player ids 1..255
+                    // that Zone.registerPlayer hands out, so the 0x28/0x2d
+                    // broadcast id and WeaponFire's getNPC(target_id) key
+                    // never alias a player slot.
+                    int mapId = 0xFF + rs.getInt("npc_id");
                     int type = rs.getInt("npc_type_id");
                     String name = rs.getString("actor_name");
-                    int x = (int) rs.getFloat("pos_x");
-                    int y = (int) rs.getFloat("pos_y");
-                    int z = (int) rs.getFloat("pos_z");
+                    // floor, not (int): retail sends floor(-550.85) = -551.
+                    int x = (int) Math.floor(rs.getFloat("pos_x"));
+                    int y = (int) Math.floor(rs.getFloat("pos_y"));
+                    int z = (int) Math.floor(rs.getFloat("pos_z"));
                     int angle = parseAngle(rs.getString("angle"));
                     // world_npcs.actor_name IS the per-spawn script name.
                     // Proven 2026-05-17 against the retail live pcap
@@ -166,20 +168,27 @@ public class NpcSpawnManager {
         return count;
     }
 
+    /** Decode a wire-encoded coordinate ({@link NPC#getWireX()}) to
+     *  world units. {@code npc_spawns} stores the wire values. */
+    static int worldFromWire(int wire) {
+        return wire - 0x8000;
+    }
+
     /**
      * Parse the angle TEXT field from world_npcs. Values seen include
-     * "0", "180", "-90", "270", "" (empty), and null. Negative values
-     * are normalised to [0, 360).
+     * "0", "180", "-90", "270", "" (empty), and null.
+     *
+     * <p>Kept as written, NOT normalised: it becomes the 0x28
+     * orientation string, and retail sends the .dat text verbatim
+     * (pepper_p1 npc 33/38 angle "-90" → "-90"; plaza_p1 WSK npc 11
+     * "-178" → "-178"). Empty / non-integer → 0.
      */
     static int parseAngle(String s) {
         if (s == null) return 0;
         s = s.trim();
         if (s.isEmpty()) return 0;
         try {
-            int a = Integer.parseInt(s);
-            // Normalise to [0, 360)
-            a = ((a % 360) + 360) % 360;
-            return a;
+            return Integer.parseInt(s);
         } catch (NumberFormatException e) {
             return 0;
         }

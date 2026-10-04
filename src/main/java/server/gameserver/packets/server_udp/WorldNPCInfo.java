@@ -154,12 +154,10 @@ public class WorldNPCInfo extends PacketBuilderUDP1303 {
 		b.writeInt(npc.getWorldInstanceHandle());
 		// [11-12] class id (0x28-space)
 		b.writeShort(npc.getType());
-		// [13-14] Y
-		b.writeShort(npc.getYpos());
-		// [15-16] Z
-		b.writeShort(npc.getZpos());
-		// [17-18] X
-		b.writeShort(npc.getXpos());
+		// [13-18] Y, Z, X — world + 0x8000 (see NPC.getWireX)
+		b.writeShort(npc.getWireY());
+		b.writeShort(npc.getWireZ());
+		b.writeShort(npc.getWireX());
 		// [19-35] 17-byte state/attr block. Length byte-pinned 2026-05-17
 		// (task #178c) from the live retail pcap
 		// strace/RETAIL_LIVE_p1p3_sit_npc_20260517.pcap for the exact

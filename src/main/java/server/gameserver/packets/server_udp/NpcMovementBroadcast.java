@@ -23,13 +23,9 @@ public class NpcMovementBroadcast extends PacketBuilderUDP13 {
         write(0x21);  // type flags: Y + status (most common in retail)
         write(npc.getMapID() & 0xFF);  // mapId low byte
 
-        int y = (npc.getYpos() + 32000) & 0xFFFF;
-        int z = (npc.getZpos() + 32000) & 0xFFFF;
-        int x = (npc.getXpos() + 32000) & 0xFFFF;
-
-        writeShort(y);
-        writeShort(z);
-        writeShort(x);
+        writeShort(npc.getWireY());
+        writeShort(npc.getWireZ());
+        writeShort(npc.getWireX());
 
         int angle = npc.getAngle() & 0xFF;
         write(angle == 0 ? 0x40 : angle);  // orient
