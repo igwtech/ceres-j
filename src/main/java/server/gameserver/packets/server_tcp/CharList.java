@@ -8,6 +8,23 @@ import server.tools.Config;
 
 public class CharList extends PacketBuilderTCP {
 
+	/**
+	 * Per-character record size. Client build 862 (installed 2026-10-04)
+	 * shows every slot as "create new" unless this is 73: the current
+	 * retail CharList (harness run retail_b862_1) carries header
+	 * {@code 8385 0600 0400 4900} and 73-byte records = the old 41-byte
+	 * layout (id, models, textures, location, name length, ...) followed by
+	 * 32 new bytes, then the name. The 32 bytes are identical in all four
+	 * retail records, the empty slot included
+	 * ({@code 00 "NVAXXE1" "74. 74." 9bba2aa29d9b 00×11}), i.e. a reused
+	 * server buffer rather than per-character data, so Ceres-J sends zeros.
+	 * Builds up to 823 used 0x29 (41).
+	 */
+	static final int RECORD_SIZE = 0x49;
+
+	/** Bytes appended to the legacy 41-byte record (see RECORD_SIZE). */
+	static final int RECORD_EXTENSION = RECORD_SIZE - 41;
+
 	static final byte[] CHARDUMMY = {
 			(byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff,
 			0, 0, 0, 0, 0, 0, 0, 0,
@@ -47,12 +64,13 @@ public class CharList extends PacketBuilderTCP {
 		// more. Never emit > 4.
 		if (slotCount > 4) slotCount = 4;
 		writeShort(slotCount); // number of chars (slot-array size)
-		writeShort(0x29); //size of charstructure??
+		writeShort(RECORD_SIZE);
 
 		for (int i = 0; i < slotCount; i++) {
 			PlayerCharacter pc = PlayerCharacterManager.getCharacter(account.getChar(i));
 			if (pc == null) {
 				write(CHARDUMMY);
+				write(new byte[RECORD_EXTENSION]);
 			} else {
 				byte[] name = pc.getName().getBytes();
 				
@@ -77,6 +95,7 @@ public class CharList extends PacketBuilderTCP {
 				write(pc.getMisc(PlayerCharacter.MISC_CLASS) / 2);
 				write(pc.getMisc(PlayerCharacter.MISC_CLASS) % 2);
 				writeInt(0);//unknown
+				write(new byte[RECORD_EXTENSION]);
 				write(name);
 				write(0);
 			}

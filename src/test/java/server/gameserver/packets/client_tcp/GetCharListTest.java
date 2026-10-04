@@ -86,11 +86,11 @@ public class GetCharListTest {
         new GetCharList(new byte[6]).execute(cap);
 
         ServerTCPPacket resp = cap.received().get(0);
-        // body length = 8B header + 4 × 41B dummies = 172
+        // body length = 8B header + 4 × 73B dummies = 300
         // (matches CharListByteIdentityTest's pin)
         int bodyLen = (resp.getData()[1] & 0xFF)
                 | ((resp.getData()[2] & 0xFF) << 8);
-        assertEquals(172, bodyLen);
+        assertEquals(300, bodyLen);
     }
 
     @Test

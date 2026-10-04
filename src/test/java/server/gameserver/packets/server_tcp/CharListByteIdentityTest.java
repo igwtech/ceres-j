@@ -55,8 +55,8 @@ public class CharListByteIdentityTest {
     @Test
     public void emptyAccountEmitsFourDummySlots() {
         // An account with all four char slots = 0 (no characters)
-        // produces a fully-deterministic CharList: header + 4×41B
-        // dummy records.
+        // produces a fully-deterministic CharList: header + 4×73B
+        // dummy records (41B legacy dummy + 32 zero bytes).
         Account empty = new Account(0);
         empty.setUsername("test");
         // Account default char[0..3] are 0 by virtue of the array init.
@@ -64,10 +64,10 @@ public class CharListByteIdentityTest {
 
         // FE-frame envelope at [0..2]
         assertEquals((byte) 0xfe, data[0]);
-        // Body length: 8B header + 4 × 41B dummy records = 172B
+        // Body length: 8B header + 4 × 73B dummy records = 300B
         int bodyLen = (data[1] & 0xFF) | ((data[2] & 0xFF) << 8);
-        assertEquals("body length must be 172 (8B header + 164B chars)",
-                172, bodyLen);
+        assertEquals("body length must be 300 (8B header + 292B chars)",
+                300, bodyLen);
 
         // Opcode at body[0..1]
         assertEquals((byte) 0x83, data[3]);
@@ -82,8 +82,9 @@ public class CharListByteIdentityTest {
         assertEquals(0x04, data[7] & 0xFF);
         assertEquals(0x00, data[8] & 0xFF);
 
-        // charsize LE16 = 0x29 (41 bytes)
-        assertEquals(0x29, data[9] & 0xFF);
+        // record size LE16 = 0x49 (73 bytes) — client build 862;
+        // retail run retail_b862_1 header 8385 0600 0400 4900.
+        assertEquals(0x49, data[9] & 0xFF);
         assertEquals(0x00, data[10] & 0xFF);
     }
 
@@ -117,11 +118,16 @@ public class CharListByteIdentityTest {
         assertEquals(0x21, data[dummyStart + 30] & 0xFF);
         // Byte [35] = 0x01
         assertEquals(0x01, data[dummyStart + 35] & 0xFF);
+        // Bytes [41..72]: the build-862 record extension, zero-filled.
+        for (int i = 41; i < 73; i++) {
+            assertEquals("dummy[" + i + "] extension zero",
+                    0, data[dummyStart + i] & 0xFF);
+        }
     }
 
     @Test
     public void allFourDummySlotsAreIdentical() {
-        // The 41-byte dummy pattern repeats verbatim for each
+        // The 73-byte dummy record repeats verbatim for each
         // empty char slot.
         Account empty = new Account(0);
         empty.setUsername("test");
@@ -129,8 +135,8 @@ public class CharListByteIdentityTest {
 
         int firstStart = 11;
         for (int slot = 1; slot < 4; slot++) {
-            int slotStart = firstStart + slot * 41;
-            for (int i = 0; i < 41; i++) {
+            int slotStart = firstStart + slot * 73;
+            for (int i = 0; i < 73; i++) {
                 assertEquals("slot " + slot + " offset " + i
                         + " must match slot 0",
                         data[firstStart + i],
