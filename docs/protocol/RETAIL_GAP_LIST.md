@@ -100,7 +100,7 @@ verified against retail bytes, unit tests and a live nc2-bot session.
 | `0x03/0x09`, `0x03/0x25/0x02` | 2 / 2 | |
 | raw `0x32`, `0x03/0x32` | 2 / 1 | subway |
 | raw `0x01` (server-side NAK) | 4 | |
-| `0x03/0x2f` login form | 73–79 B | Ceres 58/61 B — content differs |
+| `0x03/0x2f` login form | 73–79 B | framing matches (value size is per slot, see `udp_s2c_03_2f.md`); Ceres hardcodes appearance slots 1/5/8 (`07`/`8a`/`01`) and omits 0/3/4/6/7 — needs the per-character appearance data |
 | `0x03/0x25/0x01` | 68/73 B | Ceres 67/70 B (one byte short) |
 | `0x03/0x07` fragments | 1015 B | multipart fragment size |
 | C→S `0x03/0x1f/0x1e`, `/0x17`, `/0x27`, `/0x32`, raw `0x32`, raw `0x1f/0x15`, raw `0x07` | | item use, object use, dialog close, subway… — client features not exercised against Ceres in the corpus |

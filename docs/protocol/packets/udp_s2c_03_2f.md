@@ -85,6 +85,29 @@ attribute data. The trailer ASCII length-prefix is at byte
 just before the name (`11 0x` = 17 bytes of "Hannibal Lecture\0"
 including null).
 
+### Value size is per slot (pinned 2026-10-04)
+
+The full form is `[2f][eid LE2]` then records `[cat][slot][value]`:
+cat `01` slot `00` = u8 (optional; HANNIBAL `01 00 20`); cat `02` slots
+`01`, `03`–`08` = **u8**, slots `00`, `02`, `0a`, `0b`, `0d`, `0e` = **u16 LE**;
+cat `03 00` = 15-byte model block (head u16, 3 texture bytes, 3 × u16,
+torso u16, leg u16), `03 01 [len] name\0`, `03 03 00` trailer. Splitting
+retail samples this way parses every byte:
+
+```
+HANNIBAL  2f 0100 | 01 00 20 | 02 00 3100 | 02 01 48 | 02 02 3ee0 | 02 03 10 | 02 04 06
+          | 02 05 8a | 02 06 12 | 02 07 0f | 02 08 0a | 02 0d 2b04 | 03 00 0f … | 03 01 11 "Hannibal Lecture\0" | 03 03 00
+Krafteo   2f 0100 | 02 00 1b00 | 02 01 26 | 02 02 2201 | 02 03 89 | 02 04 36 | 02 05 d6 | 02 06 21
+(entry_   | 02 07 0b | 02 08 04 | 02 0b 3c00 | 02 0d 0504 | 02 0e 6004 | 03 00 0f d002 000000 0000 0000 0000 3403 9803
+retail_m) | 03 01 08 "Krafteo\0" | 03 03 00
+```
+
+(The "uniform `02 [tag] [u16]`" reading is wrong — it mis-frames from slot 1
+on.) Slot 02 = in-hand weapon, 0a/0b = belt weapons, 0d/0e = hair/beard.
+Slots 00/01/03–08 are per-character values whose meaning is not pinned;
+Ceres-J's full form hardcodes slot 1 = 0x07, 5 = 0x8a (Hannibal's value),
+8 = 0x01 and omits 3/4/6/7, so the framing is right but the data is not.
+
 ## Variants
 
 | size  | use                                               |
