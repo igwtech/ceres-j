@@ -13,8 +13,9 @@ import server.gameserver.Player;
 import server.gameserver.packets.server_udp.PacketTestFixture;
 
 /**
- * Functional test for {@link SyncUDP} — pins the "no-op"
- * contract that fixed a feedback-storm + 10s-disconnect bug.
+ * Functional test for {@link SyncUDP} — pins the "no wire reply"
+ * contract that fixed a feedback-storm + 10s-disconnect bug, and
+ * the UDPAlive-answered bookkeeping that stops the 0x04 retry.
  *
  * <p>History: an earlier version replied to every client sync
  * with a full zone re-broadcast (UpdateModel + NPCs + players
@@ -30,9 +31,9 @@ import server.gameserver.packets.server_udp.PacketTestFixture;
  * closed socket and created a 10s "Msg num X behind"
  * disconnect.
  *
- * <p>Current state: pure no-op. {@code TimeSyncHeartbeat} at
- * ~1.3 Hz handles the periodic-sync need without per-sync
- * reply.
+ * <p>Current state: no reply; it only marks the UDP session's
+ * UDPAlive as answered. {@code TimeSyncHeartbeat} at ~1.3 Hz
+ * handles the periodic-sync need without per-sync reply.
  */
 public class SyncUDPTest {
 
@@ -80,10 +81,21 @@ public class SyncUDPTest {
     }
 
     @Test
+    public void marksUdpAliveAnswered() {
+        // The transport 0x03 is the client's answer to the server's
+        // 0x04 UDPAlive; recording it stops the UDPAlive retry.
+        Player pl = PacketTestFixture.newPlayer();
+        assertFalse(pl.getUdpConnection().isAliveAcked());
+
+        new SyncUDP(buildDatagram()).execute(pl);
+
+        assertTrue(pl.getUdpConnection().isAliveAcked());
+    }
+
+    @Test
     public void multipleInvocationsAreSafe() {
-        // Stateless. The earlier "feedback storm" version would
-        // have produced a multiplied burst here; this no-op
-        // version produces nothing.
+        // The earlier "feedback storm" version would have produced
+        // a multiplied burst here; this version produces nothing.
         Player pl = PacketTestFixture.newPlayer();
         CapturingTCPConnection cap = new CapturingTCPConnection();
         pl.setTcpConnection(cap);

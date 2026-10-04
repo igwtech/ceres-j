@@ -14,17 +14,85 @@ import server.tools.PriorityList;
 
 /**
  * Functional test for {@link UDPAliveHeartbeat} — the ~3 s
- * S→C UDPAlive keepalive (task #158).
+ * S→C UDPAlive retry while the client has not answered.
  *
- * <p>Retail emits a small bounded number of post-handshake
- * UDPAlives then stops (it sends ~0 periodic S→C UDPAlive in
- * steady-state play). The modern client resets its
- * reliable-receive window to seq 1 on every UDPAlive, so a
- * perpetual heartbeat causes an unbounded retransmit storm — the
- * heartbeat is therefore bounded to {@link
- * UDPAliveHeartbeat#MAX_TICKS} ticks then dies.
+ * <p>Retail re-sends the UDPAlive only until the client answers it
+ * with a transport {@code 0x03}; after that it sends none. The
+ * modern client resets its reliable state on every UDPAlive, so a
+ * retry after the answer causes a full-backlog retransmit storm.
+ * Unanswered retries are bounded to {@link
+ * UDPAliveHeartbeat#MAX_TICKS}.
  */
 public class UDPAliveHeartbeatTest {
+
+    @Test
+    public void noUdpAliveOnceClientAnswered() throws Exception {
+        // Regression (2026-10-04): the unconditional 4-tick
+        // heartbeat sent 0x04 after the client had already answered,
+        // and each one reset the 64-bit client's reliable state
+        // (harness wgate64_v3: 428 NAK/retransmit pairs in 43 s).
+        Player pl = PacketTestFixture.newPlayer();
+        pl.setloggedin();
+        java.net.InetAddress addr =
+                java.net.InetAddress.getByName("127.0.0.1");
+        server.testtools.CapturingUDPConnection cap =
+                new server.testtools.CapturingUDPConnection(
+                        addr, 5000, pl);
+        pl.setUdpConnection(cap);
+        cap.markAliveAcked();
+
+        Field elf = Player.class.getDeclaredField("eventList");
+        elf.setAccessible(true);
+        PriorityList queue = (PriorityList) elf.get(pl);
+
+        new UDPAliveHeartbeat().execute(pl);
+
+        assertTrue("no UDPAlive once the client answered",
+                cap.received().isEmpty());
+        assertTrue("retry chain must end once the client answered",
+                queue.isEmpty());
+    }
+
+    @Test
+    public void retryStopsAsSoonAsClientAnswers() throws Exception {
+        // RETAIL_HANNIBAL: unanswered UDPAlive re-sent at ~3 s
+        // spacing, then nothing after the client's 0x03.
+        Player pl = PacketTestFixture.newPlayer();
+        pl.setloggedin();
+        java.net.InetAddress addr =
+                java.net.InetAddress.getByName("127.0.0.1");
+        server.testtools.CapturingUDPConnection cap =
+                new server.testtools.CapturingUDPConnection(
+                        addr, 5000, pl);
+        pl.setUdpConnection(cap);
+
+        Field elf = Player.class.getDeclaredField("eventList");
+        elf.setAccessible(true);
+        PriorityList queue = (PriorityList) elf.get(pl);
+
+        new UDPAliveHeartbeat().execute(pl);
+        assertEquals("unanswered: one retry sent", 1,
+                cap.received().size());
+        GameServerEvent next = (GameServerEvent) queue.removeFirst();
+
+        cap.markAliveAcked();
+        next.execute(pl);
+
+        assertEquals("no further UDPAlive after the answer", 1,
+                cap.received().size());
+        assertTrue(queue.isEmpty());
+    }
+
+    @Test
+    public void zoneCrossRekeyRequiresANewAnswer() throws Exception {
+        Player pl = PacketTestFixture.newPlayer();
+        pl.getUdpConnection().markAliveAcked();
+
+        pl.getUdpConnection().resetSessionForZoneCross();
+
+        assertFalse("a new session key needs a new 0x03 answer",
+                pl.getUdpConnection().isAliveAcked());
+    }
 
     @Test
     public void executeReschedulesItselfWhenLoggedIn()

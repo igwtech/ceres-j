@@ -20,6 +20,15 @@ public class GameServerUDPConnection {
 	private int udpSessionCounter;
 	private int interfaceID;
 
+	/** True once the client has answered this UDP session's
+	 *  {@code 0x04} UDPAlive with its transport {@code 0x03}
+	 *  ({@link server.gameserver.packets.client_udp.SyncUDP}).
+	 *  Cleared whenever a new session key is issued, because the
+	 *  client must acknowledge the new session's UDPAlive too.
+	 *  Gates the {@code 0x04} retry in
+	 *  {@link server.gameserver.internalEvents.UDPAliveHeartbeat}. */
+	private volatile boolean aliveAcked = false;
+
 	/** Per-session ring of recently-emitted reliable {@code 0x03}
 	 *  sub-packets, keyed by their LE16 sequence counter. Used by
 	 *  the {@link server.gameserver.packets.client_udp.ReliableAckSubPacket}
@@ -82,6 +91,14 @@ public class GameServerUDPConnection {
 
 	public void setHandshakingState(boolean b) {
 		handshakingState = b;
+	}
+
+	public boolean isAliveAcked() {
+		return aliveAcked;
+	}
+
+	public void markAliveAcked() {
+		aliveAcked = true;
 	}
 
 	public short getUdp13Sessionkey() {
@@ -204,6 +221,7 @@ public class GameServerUDPConnection {
 		udp13Sessionkey = (short) new Random().nextInt();
 		reliableRing.clear();
 		handshakingState = false;
+		aliveAcked = false;
 		return udp13Sessionkey;
 	}
 

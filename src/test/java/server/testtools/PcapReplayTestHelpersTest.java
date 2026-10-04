@@ -130,6 +130,23 @@ public class PcapReplayTestHelpersTest {
     }
 
     @Test
+    public void unreplicableInitBurst_recognisesWrappedSPing() {
+        // SPing is emitted 0x13-wrapped (retail form); the predicate
+        // must still see it as a SPing reply and skip retail extras.
+        byte[] cerj = new byte[]{0x13, 0x05, 0x00, 0x15, 0x05,
+                0x09, 0x00, 0x0b, 0x00, 0x00, 0x00, 0x00,
+                0x12, 0x34, 0x56, 0x78};
+        byte[] retailReliable = new byte[]{0x03, 0x13, 0x00,
+                0x23, 0x20, 0x00, (byte) 0x84, 0x00};
+        byte[] retailSPing = new byte[]{0x0b, 0x00, 0x00, 0x00, 0x00,
+                (byte) 0xa0, (byte) 0xb0, (byte) 0xc0, (byte) 0xd0};
+        assertTrue(PcapReplayTest.isUnreplicableInitBurst(
+                retailReliable, cerj));
+        assertFalse(PcapReplayTest.isUnreplicableInitBurst(
+                retailSPing, cerj));
+    }
+
+    @Test
     public void unreplicableInitBurst_doesNOTSkipWhenRetailIsAlsoSPing() {
         // Both sides emitted a 9B raw 0x0b SPing reply — pair them.
         byte[] cerj   = new byte[]{0x0b, 0x00, 0x00, 0x00, 0x00,

@@ -507,9 +507,15 @@ public class PcapReplayTest {
     static boolean isUnreplicableInitBurst(byte[] retailBytes,
                                            byte[] cerJBytes) {
         if (retailBytes.length == 0) return false;
-        // Case 1: Ceres-J emitted a 9B raw SPing reply (CPing → SPing).
-        if (cerJBytes.length == 9
-                && (cerJBytes[0] & 0xFF) == 0x0b) {
+        // Case 1: Ceres-J emitted a SPing reply (CPing → SPing): a
+        // 0x13 frame whose single sub-packet is the 9B 0x0b (or the
+        // bare 9B form that diff() compares after stripping).
+        boolean cerJIsSPing = (cerJBytes.length == 9
+                        && (cerJBytes[0] & 0xFF) == 0x0b)
+                || (cerJBytes.length == 16
+                        && (cerJBytes[0] & 0xFF) == 0x13
+                        && (cerJBytes[7] & 0xFF) == 0x0b);
+        if (cerJIsSPing) {
             // Pair against retail's matching SPing only.
             if (retailBytes.length == 9
                     && (retailBytes[0] & 0xFF) == 0x0b) {

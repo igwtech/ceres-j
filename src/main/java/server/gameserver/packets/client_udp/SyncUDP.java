@@ -2,31 +2,40 @@ package server.gameserver.packets.client_udp;
 
 import java.net.DatagramPacket;
 
+import server.gameserver.GameServerUDPConnection;
 import server.gameserver.Player;
 import server.gameserver.packets.GamePacketDecoderUDP;
 
 /**
- * Handles incoming 0x03 sync packets from the client.
+ * Handles incoming transport-layer {@code 0x03} packets from the client.
  *
- * <p><b>Format (retail NCE 2.5.x, 8-byte plaintext):</b> a bare 0x03 packet
- * is the client's ACK for a server-side reliable ({@code 0x13 -> 0x03}) packet
- * it has just received. The payload identifies the sequence counter of the
- * acknowledged reliable. The server's ONLY obligation is to advance its
- * internal reliable-sent-but-unacked marker; there is NO wire reply.
+ * <p><b>Format (retail NCE 2.5.x, 8-byte plaintext):</b>
+ * {@code [0x03][id LE4][0x01][port LE2]}, e.g. retail
+ * {@code 03 bd7e0100 01 fca6}. It is the client's answer to the
+ * server's transport {@code 0x04} UDPAlive: in all 39 retail harness
+ * traces that captured the UDP handshake, the client sends exactly one
+ * {@code 0x03} within ~1 ms of each S→C {@code 0x04} (1:1, 2:2, 4:4
+ * counts). It is
+ * NOT an ack for {@code 0x13 → 0x03} reliable sub-packets — those are
+ * never acknowledged positively (see {@code GamePacketReaderUDP}).
  *
- * <p><b>Why this is a no-op:</b> an earlier version of this handler replied
- * to every sync with a full zone re-broadcast (UpdateModel + NPCs + players
- * + ZoningEnd). Because each reliable packet the server sent produced a
- * client sync ACK, and each sync ACK produced a new burst of reliable
- * packets, the loop generated ~4500 syncs in a few seconds. The client
- * stayed stuck on "SYNCHRONIZING INTO CITY ZONE" because we kept shoving it
- * back into the load state with repeated {@code ZoningEnd} (which retail
- * captures confirm retail NEVER sends — see
- * {@code docs/retail_burst_analysis.md} §1).
+ * <p>The server sends no wire reply. It records the acknowledgement on
+ * the UDP connection so {@link
+ * server.gameserver.internalEvents.UDPAliveHeartbeat} stops retrying
+ * the {@code 0x04}: retail re-sends UDPAlive only while the client has
+ * not answered (RETAIL_HANNIBAL: retries at +3.2 s / +6.4 s while the
+ * client was still loading), and an extra {@code 0x04} after the
+ * answer makes the client reset its reliable state.
  *
- * <p>The reliable-window bookkeeping still needs to be implemented so we
- * stop retransmitting ACKed packets, but doing nothing here is strictly
- * better than the feedback storm the previous version produced.
+ * <p><b>Why there is no reply:</b> an earlier version of this handler
+ * replied to every sync with a full zone re-broadcast (UpdateModel +
+ * NPCs + players + ZoningEnd), which generated ~4500 syncs in a few
+ * seconds and kept the client on "SYNCHRONIZING INTO CITY ZONE"
+ * (retail NEVER sends ZoningEnd there — see
+ * {@code docs/retail_burst_analysis.md} §1). A later TimeSync reply
+ * burned a reliable sequence number; if the sync arrived from the OLD
+ * port during BSP load the TimeSync went to a closed socket and left a
+ * gap in the out-of-order list → 10 s disconnect ("Msg num X behind").
  */
 public class SyncUDP extends GamePacketDecoderUDP {
 
@@ -36,17 +45,9 @@ public class SyncUDP extends GamePacketDecoderUDP {
 
     @Override
     public void execute(Player pl) {
-        // No-op. Bare 0x03 sync packets are the client's ACK for
-        // server-side reliables. They do NOT require a reply.
-        //
-        // Previously this sent a TimeSync reply, but that burns a
-        // reliable sequence number. If the sync arrives from the OLD
-        // port during BSP load (before zone-handoff detection), the
-        // TimeSync goes to a closed socket and creates a gap in the
-        // out-of-order list → 10 s disconnect ("Msg num X behind").
-        //
-        // The TimeSyncHeartbeat already provides continuous TimeSync
-        // at ~1.3 Hz after zone-handoff completes. No need for a
-        // per-sync reply.
+        GameServerUDPConnection con = pl.getUdpConnection();
+        if (con != null) {
+            con.markAliveAcked();
+        }
     }
 }

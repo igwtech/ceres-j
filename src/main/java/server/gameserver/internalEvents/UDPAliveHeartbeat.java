@@ -1,60 +1,61 @@
 package server.gameserver.internalEvents;
 
+import server.gameserver.GameServerUDPConnection;
 import server.gameserver.Player;
 import server.gameserver.packets.server_udp.UDPAlive;
 import server.tools.Out;
 import server.tools.Timer;
 
 /**
- * Periodic server-to-client UDPAlive ({@code 0x04}) heartbeat.
+ * Server-to-client UDPAlive ({@code 0x04}) retry while the client has
+ * not yet answered the handshake.
  *
- * <p>Retail emits 4 {@code UDPAlive} packets in the handshake-reply
- * burst (within ~0.1 ms at handshake completion) AND THEN continues
- * to emit additional UDPAlives at ~3 s spacing throughout the
- * session — 8 total per HANNIBAL session, 4 of which are the
- * handshake burst. Bytes are byte-identical to the
- * handshake-reply UDPAlive (per task #158 verification).
+ * <p><b>Retail rule:</b> the server re-sends the session's UDPAlive at
+ * ~3.2 s spacing only until the client answers it with a transport
+ * {@code 0x03} ({@link server.gameserver.packets.client_udp.SyncUDP}).
+ * <ul>
+ *   <li>RETAIL_HANNIBAL pcap: the client did not answer the handshake
+ *       burst (t=0.25 s) until t=6.56 s, and the server re-sent the
+ *       identical {@code 0x04} at t=3.42 s and t=6.67 s, then stopped.
+ *       This is where the old "4 periodic UDPAlives at ~3 s" reading
+ *       came from.</li>
+ *   <li>All 25 retail pcaps (251 S→C {@code 0x04}): a same-key
+ *       {@code 0x04} only ever appears as a retry 3.0–3.6 s after an
+ *       unanswered one, or racing the client's answer by ≤0.12 s —
+ *       never later. All 39 retail harness traces that captured the
+ *       handshake agree (client answers within ~1 ms, no further
+ *       same-key {@code 0x04}).</li>
+ *   <li>Every later {@code 0x04} (e.g. LONG_PARTY_A t=306 s,
+ *       CREATION_LEVELING t=277/444/2469 s, fire_multikill_v1
+ *       t=30.6 s) carries a NEW session key — a deliberate new UDP
+ *       session — and the client restarts its reliable sequence at 1
+ *       straight after it.</li>
+ * </ul>
  *
- * <p>Trigger: unclear — may be pure keepalive OR response to
- * specific TCP traffic. Adopting a periodic-keepalive model since
- * the bytes are constant per session and retail's ~3 s cadence is
- * stable across captures.
+ * <p><b>Why the gate matters:</b> the client treats every {@code 0x04}
+ * as "new UDP session → reset the reliable state". The previous
+ * unconditional 4-tick heartbeat made the 64-bit client reset four
+ * times after every login (harness runs wgate64_v3, fire_ceres_*):
+ * each time it restarted its own reliable seq at 1 and re-requested the
+ * server's whole reliable backlog (wgate64_v3: 428 C→S {@code 0x01}
+ * and 428 S→C {@code 0x02} retransmits in 43 s; retail runs show
+ * 0–14 per minute).
  *
- * <p>Started from {@link WorldEntryEvent} once handshake is
- * complete; stops when the player logs out or the session tears
- * down. Same lifecycle pattern as
- * {@link TimeSyncHeartbeatEvent} / {@link PoolStatusHeartbeat}.
+ * <p>Started from {@link WorldEntryEvent}; dies when the client has
+ * answered, the player logs out, or {@link #MAX_TICKS} retries ran.
  */
 public class UDPAliveHeartbeat extends DummyEvent {
 
     /**
-     * Heartbeat interval in milliseconds. Retail's average is
-     * ~3 s spacing (4 post-handshake UDPAlives over ~12 s in
-     * HANNIBAL). 3000 ms matches order of magnitude.
+     * Retry interval in milliseconds. RETAIL_HANNIBAL re-sent the
+     * unanswered UDPAlive after 3.17 s and again 3.25 s later.
      */
     public static final long INTERVAL_MS = 3000;
 
     /**
-     * Max post-handshake UDPAlives to emit, then STOP rescheduling.
-     *
-     * <p>The modern client treats every {@code 0x04} UDPAlive as
-     * "new UDP session → reset reliable-receive window to seq 1"
-     * (decoded 2026-05-16, memory {@code zone_cross_2phase_handshake}
-     * UPDATE #5). A perpetual 3 s heartbeat therefore makes the
-     * client re-request its <em>entire</em> reliable backlog from
-     * seq 1 every 3 s; the server replays it (no rate limit) while
-     * heartbeats keep growing the backlog → an unbounded retransmit
-     * storm (pcap 2026-05-16: 45 k C→S retransmit-requests / 263
-     * pkt·s⁻¹ → client FPS collapse, "can't move", slow logoff).
-     *
-     * <p>Retail sends ZERO periodic S→C UDPAlive during steady-state
-     * play (verified: 0 in the 205 s PLAZA_TO_PEPPER and 414 s
-     * PLAZA_CROSSZONE captures) — only the handshake-reply burst
-     * plus a handful early. Bounding the heartbeat to a few ticks
-     * then stopping matches retail and kills the storm. A
-     * cross-reconnect starts a fresh WorldEntryEvent → a fresh
-     * bounded heartbeat, so the early-session keepalive the client
-     * expects after each (re)connect is preserved.
+     * Max unanswered retries before giving up. Retail's own limit is
+     * not in the corpus (HANNIBAL needed two); this only bounds a
+     * client that never answers.
      */
     public static final int MAX_TICKS = 4;
 
@@ -86,33 +87,23 @@ public class UDPAliveHeartbeat extends DummyEvent {
             // heartbeat die.
             return;
         }
+        GameServerUDPConnection con = pl.getUdpConnection();
+        if (con.isAliveAcked()) {
+            // The client already answered this session's UDPAlive.
+            // Another 0x04 would reset its reliable state.
+            return;
+        }
 
-        // NOTE: do NOT suppress UDPAlive during a pending
-        // zone-cross. The localhost-vs-retail byte-diff
-        // (2026-05-16) shows retail emits a UDPAlive ~0.65 s after
-        // Zoning1 (clustered with the post-Zoning2 completion); the
-        // client expects it. An earlier commit suppressed it on the
-        // wrong theory and that made the cross worse. The real
-        // mid-cross divergence is the NPC zone-state flood
-        // (ZoneStateHeartbeat), which retail silences during a
-        // cross — handled there, not here. UDPAlive keeps firing.
         try {
             pl.send(new UDPAlive(pl));
         } catch (Exception e) {
             Out.writeln(Out.Error,
                     "UDPAliveHeartbeat: send failed: "
                     + e.getMessage());
-            // Same defensive pattern as TimeSyncHeartbeatEvent —
-            // a transient socket hiccup must not permanently stop
-            // the heartbeat (which would silently desync the
-            // client's UDP-keepalive expectation).
+            // A transient socket hiccup must not stop the retry —
+            // keep rescheduling below.
         }
 
-        // Bounded: emit only the first MAX_TICKS post-handshake
-        // UDPAlives (retail sends ~0 periodic ones in steady state),
-        // then let the heartbeat die. A perpetual heartbeat makes
-        // the client reset its reliable-receive window every tick →
-        // unbounded retransmit storm. See MAX_TICKS javadoc.
         if (tick < MAX_TICKS) {
             pl.addEvent(new UDPAliveHeartbeat(
                     Timer.getRealtime() + INTERVAL_MS, tick + 1));

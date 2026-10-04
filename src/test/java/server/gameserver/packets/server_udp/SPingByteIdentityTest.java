@@ -10,26 +10,28 @@ import server.gameserver.Player;
 
 /**
  * Byte-identity test for {@link SPing} — server response to
- * client {@code 0x0b} CPing keepalive (UDP S→C raw {@code 0x0b}).
+ * client {@code 0x0b} CPing keepalive.
  *
- * <p>Verified 2026-05-09 against retail HANNIBAL pcap: SPing is
- * a 9-byte RAW datagram, NO 0x13 outer wrapper.
- *
- * <p>4,939 retail samples across 17/17 captures, fixed 9-byte
- * body. Sample retail bytes:
+ * <p>Retail ground truth (Frida harness, client-side decrypted
+ * {@code udp_recv}): every S→C {@code 0x0b} is an unreliable
+ * sub-packet inside a {@code 0x13} frame — 884 samples, none at
+ * transport level. Sample (retail_draw_v3, t=2.724, answering
+ * C→S {@code 0b abaa9502}):
  * <pre>
- *   0b cb6e6900 600ca704        server_time=0x00696ecb,
- *                                client_time=0xa7040c60
- *   0b b8692d00 d7c80205        server_time=0x002d69b8,
- *                                client_time=0x0502c8d7
+ *   13 4700 3181 0900 | 0b 6d4a6a00 abaa9502
+ *   ^hdr: counter=71, counter+key  ^sub_len=9
+ *                       server_time=0x006a4a6d, client echo=0x0295aaab
  * </pre>
  *
- * <p>Layout: {@code [0x0b][server_time LE32][client_time LE32]}.
- * The server_time field is in the 0x0..0x1f000000 range across
- * retail samples — consistent with {@code Timer.getIngametime()}'s
- * 6-day-cycle modulo encoding.
+ * <p>Sub-packet layout: {@code [0x0b][server_time LE32][client_time LE32]}.
+ * The server_time field is consistent with
+ * {@code Timer.getIngametime()}'s 6-day-cycle modulo encoding.
  */
 public class SPingByteIdentityTest {
+
+    /** Offset of the {@code 0x0b} opcode: after
+     *  {@code [0x13][counter LE2][counter+key LE2][sub_len LE2]}. */
+    private static final int SUB = 7;
 
     private static byte[] datagramBytes(SPing pkt) {
         DatagramPacket[] dps = pkt.getDatagramPackets();
@@ -39,20 +41,42 @@ public class SPingByteIdentityTest {
     }
 
     @Test
+    public void wrappedIn0x13FrameWithUnconsumedCounter() {
+        Player pl = PacketTestFixture
+                .newPlayerWithFixedSessionKey((short) 0x1234);
+        int counterBefore = pl.getUdpConnection().getSessionCounter();
+
+        byte[] dgm = datagramBytes(new SPing(0x0295_AAAB, pl));
+
+        assertEquals("16 bytes: 7B 0x13 header + 9B ping sub-packet",
+                16, dgm.length);
+        assertEquals("outer frame is 0x13", 0x13, dgm[0] & 0xFF);
+        int counter = (dgm[1] & 0xFF) | ((dgm[2] & 0xFF) << 8);
+        int keyed = (dgm[3] & 0xFF) | ((dgm[4] & 0xFF) << 8);
+        assertEquals("counter is the current reliable counter",
+                counterBefore, counter);
+        assertEquals("second field is counter + session key",
+                (counterBefore + 0x1234) & 0xFFFF, keyed);
+        assertEquals("sub_len LE2 = 9", 9, dgm[5] & 0xFF);
+        assertEquals(0, dgm[6] & 0xFF);
+        assertEquals("unreliable reply must not consume a reliable seq",
+                counterBefore,
+                pl.getUdpConnection().getSessionCounter());
+    }
+
+    @Test
     public void clientTimeEchoEncodesLittleEndian() {
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
 
-        // Construct with a known client time (catalog sample
-        // last 4 bytes: 0xd7 c8 02 05 = 0x0502c8d7)
-        byte[] dgm = datagramBytes(new SPing(0x0502_C8D7, pl));
+        // Retail sample echo: ab aa 95 02 = 0x0295aaab
+        byte[] dgm = datagramBytes(new SPing(0x0295_AAAB, pl));
 
-        assertEquals("opcode 0x0b", 0x0b, dgm[0] & 0xFF);
-        // client_time at offset 5..8 LE32
-        assertEquals(0xD7, dgm[5] & 0xFF);
-        assertEquals(0xC8, dgm[6] & 0xFF);
-        assertEquals(0x02, dgm[7] & 0xFF);
-        assertEquals(0x05, dgm[8] & 0xFF);
+        assertEquals("opcode 0x0b", 0x0b, dgm[SUB] & 0xFF);
+        assertEquals(0xAB, dgm[SUB + 5] & 0xFF);
+        assertEquals(0xAA, dgm[SUB + 6] & 0xFF);
+        assertEquals(0x95, dgm[SUB + 7] & 0xFF);
+        assertEquals(0x02, dgm[SUB + 8] & 0xFF);
     }
 
     @Test
@@ -66,12 +90,8 @@ public class SPingByteIdentityTest {
         byte[] dgm1 = datagramBytes(new SPing(0, pl));
         byte[] dgm2 = datagramBytes(new SPing(0, pl));
 
-        int t1 = (dgm1[1] & 0xFF) | ((dgm1[2] & 0xFF) << 8)
-                | ((dgm1[3] & 0xFF) << 16)
-                | ((dgm1[4] & 0xFF) << 24);
-        int t2 = (dgm2[1] & 0xFF) | ((dgm2[2] & 0xFF) << 8)
-                | ((dgm2[3] & 0xFF) << 16)
-                | ((dgm2[4] & 0xFF) << 24);
+        int t1 = readLE32(dgm1, SUB + 1);
+        int t2 = readLE32(dgm2, SUB + 1);
 
         assertTrue("server_time > 0 (got " + t1 + ")", t1 > 0);
         assertTrue("server_time monotonic non-decreasing",
@@ -87,28 +107,10 @@ public class SPingByteIdentityTest {
                 .newPlayerWithFixedSessionKey((short) 0);
         byte[] dgm = datagramBytes(new SPing(0, pl));
 
-        long time = ((long)(dgm[1] & 0xFF))
-                | ((long)(dgm[2] & 0xFF) << 8)
-                | ((long)(dgm[3] & 0xFF) << 16)
-                | ((long)(dgm[4] & 0xFF) << 24);
+        long time = readLE32(dgm, SUB + 1) & 0xFFFFFFFFL;
         assertTrue("server_time within 6-day cycle range "
                 + "(got " + time + ")",
                 time > 0 && time < 6L * 24 * 60 * 1000 + 100);
-    }
-
-    @Test
-    public void totalDatagramSizeIsNineBytesRaw() {
-        // 1 (0x0b) + 4 (server_time) + 4 (client_time) = 9 bytes.
-        // Verified 2026-05-09 against HANNIBAL pcap. NO 0x13
-        // outer wrapper — that was the previous bug, surfaced
-        // by the pcap-replay harness at step 8.
-        Player pl = PacketTestFixture
-                .newPlayerWithFixedSessionKey((short) 0);
-        byte[] dgm = datagramBytes(new SPing(0, pl));
-        assertEquals("CPing reply is RAW 9B (no 0x13 wrapper)",
-                9, dgm.length);
-        assertEquals("first byte is the 0x0b opcode",
-                0x0b, dgm[0] & 0xFF);
     }
 
     @Test
@@ -116,9 +118,15 @@ public class SPingByteIdentityTest {
         Player pl = PacketTestFixture
                 .newPlayerWithFixedSessionKey((short) 0);
         byte[] dgm = datagramBytes(new SPing(0, pl));
-        assertEquals(0, dgm[5] & 0xFF);
-        assertEquals(0, dgm[6] & 0xFF);
-        assertEquals(0, dgm[7] & 0xFF);
-        assertEquals(0, dgm[8] & 0xFF);
+        assertEquals(0, dgm[SUB + 5] & 0xFF);
+        assertEquals(0, dgm[SUB + 6] & 0xFF);
+        assertEquals(0, dgm[SUB + 7] & 0xFF);
+        assertEquals(0, dgm[SUB + 8] & 0xFF);
+    }
+
+    private static int readLE32(byte[] b, int off) {
+        return (b[off] & 0xFF) | ((b[off + 1] & 0xFF) << 8)
+                | ((b[off + 2] & 0xFF) << 16)
+                | ((b[off + 3] & 0xFF) << 24);
     }
 }
