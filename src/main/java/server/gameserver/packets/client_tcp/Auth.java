@@ -52,6 +52,9 @@ public final class Auth extends GamePacketDecoderTCP {
 			}
 
 			String username = readCString(usernameLength);
+			// AuthAck echoes these raw encoded-password bytes (see AuthAck).
+			byte[] passwordCipher = java.util.Arrays.copyOfRange(buf, pos,
+					Math.min(count, pos + passwordLength * 2));
 			String password = readEncryptedString(passwordLength, encryptionKey);
 
 			Out.writeln(Out.Info, "Auth: user='" + username + "' (password length " + password.length() + ")");
@@ -65,7 +68,7 @@ public final class Auth extends GamePacketDecoderTCP {
 				// AuthAck and CharList; without it the CharList is silently
 				// dropped and the client stays stuck on "updating data"
 				// retrying with `a0 03` keepalive pings.
-				tcp.send(new AuthAck(ua));
+				tcp.send(new AuthAck(ua, passwordCipher));
 				tcp.send(new SessionReady());
 				tcp.send(new CharList(ua));
 			} else {

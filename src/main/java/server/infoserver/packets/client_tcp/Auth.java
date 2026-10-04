@@ -22,12 +22,15 @@ public final class Auth extends InfoPacketDecoderTCP {
 		int passwordLength = readShort() /2;
 		
 		String username = readCString(usernameLength);
+		// AuthAck echoes these raw encoded-password bytes (see AuthAck).
+		byte[] passwordCipher = java.util.Arrays.copyOfRange(buf, pos,
+				Math.min(count, pos + passwordLength * 2));
 		String password = readEncryptedString(passwordLength, encryptionKey);
 		
 		Account ua = AccountManager.getAccount(username, password);
 		isc.setAccount(ua);
 		if (ua != null) {
-			isc.send(new AuthAck(ua));
+			isc.send(new AuthAck(ua, passwordCipher));
 		} else {
 			isc.send(new RequestFailed("ERROR"));
 		}
