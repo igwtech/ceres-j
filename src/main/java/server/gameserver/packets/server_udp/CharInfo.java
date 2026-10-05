@@ -20,16 +20,21 @@ public class CharInfo extends PacketBuilderUDP130307 {
 		write(0x01);
 
 		newSection(1);
-		// CharInfo Section 1 (10 bytes) — fully verified against retail 6 chars.
-		// Layout: [fa][3 unknown bytes per-char][UID LE32][01 00][11 00 const].
-		// Bytes 1-3 vary per character (Krafteo=24 e1 2f, Drstone=23 40 00, etc.)
-		// — likely creation timestamp or a derived hash. Exact semantics TBD.
-		// Emit as zeros for now; client appears to read only the UID (bytes 4-7)
-		// and the trailing const for HUD purposes.
+		// CharInfo Section 1 (10 bytes): [fa][kind][2 bytes][UID LE32][11 00].
+		// Client CHARSYS section parser (x64 FUN_14047d9e0 case 1) reads
+		// byte 0 -> charsys+0x30 (format), byte 1 -> charsys+0x54 (character
+		// kind = charkinds.def entry, looked up by FUN_14016cb00), bytes 4-7
+		// -> +0x50 (UID), bytes 8-9 -> +0x32 (CHARSYS version, 0x11 = current).
+		// Bytes 2-3 are not read. Retail: Krafteo (Spy Engineer) sends kind
+		// 0x24 = 36, a Tank Driver sends 0x14 = 20; bytes 2-3 creep upward
+		// between sessions (33cc..33f5), a server-side counter we can't
+		// reproduce, so they stay 0. Kind 0 is not in charkinds.def: the
+		// client logs "Character Type not found 0" and skips the
+		// charkind-driven skill caps.
 		write(0xfa);
-		write(0); // byte 1 — TBD per-char unknown
-		write(0); // byte 2 — TBD per-char unknown
-		write(0); // byte 3 — TBD per-char unknown
+		write(pc.getMisc(PlayerCharacter.MISC_PROFESSION)); // byte 1 — charkind id
+		write(0); // byte 2 — unread by the client (retail: per-session counter)
+		write(0); // byte 3 — unread by the client
 		writeInt(pc.getMisc(pc.MISC_ID)); // UID LE32 (bytes 4-7) — verified retail position
 		writeShort(17); // bytes 8-9 = 11 00 const (LE16 = 17)
 		
@@ -226,10 +231,10 @@ public class CharInfo extends PacketBuilderUDP130307 {
 		write(0); //number of items — gogu placeholder until kill log implemented
 
 		newSection(0x0d); // Section 13 — UID signature footer (= first 8 bytes of S1)
-		// Verified retail: S13 mirrors S1[0..7] exactly. Same per-char unknown
-		// bytes 1-3 are TBD; emit zeros.
+		// Verified retail: S13 mirrors S1[0..7] exactly (kind included). The
+		// client parser has no case for section 13.
 		write(0xfa);
-		write(0);
+		write(pc.getMisc(PlayerCharacter.MISC_PROFESSION));
 		write(0);
 		write(0);
 		writeInt(pc.getMisc(pc.MISC_ID)); // UID LE32 — same as S1

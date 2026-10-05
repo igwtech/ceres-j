@@ -243,6 +243,30 @@ public class CharInfoContentTest {
     }
 
     @Test
+    public void testSection1CarriesCharacterKind() throws Exception {
+        // Client CHARSYS case 1 stores byte 1 as the charkinds.def entry;
+        // retail Krafteo (Spy Engineer) sends 36. Kind 0 makes the client
+        // log "Character Type not found 0".
+        PlayerCharacter pc = newCharacter();
+        pc.setMisc(PlayerCharacter.MISC_PROFESSION, 36);
+        pc.setMisc(PlayerCharacter.MISC_ID, 0x0001865a);
+
+        Map<Integer, byte[]> sections = extractSections(new CharInfo(buildPlayer(pc)));
+
+        byte[] sec1 = sections.get(1);
+        assertEquals(10, sec1.length);
+        assertEquals(0xfa, sec1[0] & 0xff);
+        assertEquals(36, sec1[1] & 0xff);
+        assertEquals(0x0001865a, readIntLE(sec1, 4));
+        assertEquals(0x11, readShortLE(sec1, 8));
+
+        byte[] sec13 = sections.get(0x0d);
+        for (int i = 0; i < 8; i++) {
+            assertEquals("S13 mirrors S1 byte " + i, sec1[i], sec13[i]);
+        }
+    }
+
+    @Test
     public void testCurrentFactionReflected() throws Exception {
         PlayerCharacter pc = newCharacter();
         pc.setMisc(PlayerCharacter.MISC_FACTION, 7);
