@@ -21,19 +21,22 @@ own decrypted wire, or a raw pcap decoded with `tools/pcap-decode.py`) — see
 - `tools/pcap-decode.py` over the 25 retail pcaps in `strace/` for
   transport-layer rules (they start at t=0, the harness traces don't).
 
-**Caveat:** the game install is currently missing (`~/Neocron2` is empty), so
-none of the fixes below has been checked in the real client yet. They are
-verified against retail bytes, unit tests and a live nc2-bot session.
+The client was reinstalled on 2026-10-04 (build 862). Fixes marked
+"verified" were checked in the real client with the Frida harness; the run
+id is given (`tools/frida_re/runs/<id>/`).
 
 ## Fixed on `track/transport-liveness`
 
 | Commit | Fix | Retail evidence | Verify in the real client |
 |---|---|---|---|
-| `f457cae` | UDPAlive `0x04` only retried while the client hasn't answered with transport `0x03`; CPing reply back inside `0x13` | 25 pcaps / 251 `0x04`: same-key `0x04` only as a retry of an unanswered one (HANNIBAL); 884 retail ping replies all inside `0x13` | `run_pass.sh ceres`: client's own reliable seq must not restart at 1; C→S raw `0x01` ≈ retail (0–14/min, was 160–600/min) |
-| `d096722` | NPC LE16 positions = `floor(world)+0x8000` (Z−1); `.dat` NPC id = `0xFF+npc_id`; orientation string = `.dat` angle text | exact match of 13/13 static pepper_p1 NPCs, industry_p1 npc 4/16, plaza_p1 npc 11 | `.dat` NPCs visible at their posts in pepper_p1 / spider_cave_1 (were ~31,000 units away) |
-| `b4fe12b` | plaza_p1 spawns its 82 world-`.dat` NPCs, not the 8 TinNS-era `npc_spawns` rows | retail plaza_p1 entities 266/299/325 = `.dat` npc 11/44/70 | plaza_p1 NPC set matches retail |
+| `f457cae` | UDPAlive `0x04` only retried while the client hasn't answered with transport `0x03`; CPing reply back inside `0x13` | 25 pcaps / 251 `0x04`: same-key `0x04` only as a retry of an unanswered one (HANNIBAL); 884 retail ping replies all inside `0x13` | **verified**: 0 NAKs / retransmits per minute (was a storm); ping replies framed like retail |
+| `d096722` | NPC LE16 positions = `floor(world)+0x8000` (Z−1); `.dat` NPC id = `0xFF+npc_id`; orientation string = `.dat` angle text | exact match of 13/13 static pepper_p1 NPCs, industry_p1 npc 4/16, plaza_p1 npc 11 | **verified** in pepper_p1: wire coordinates byte-identical to retail |
+| `b4fe12b` | plaza_p1 spawns its 82 world-`.dat` NPCs, not the 8 TinNS-era `npc_spawns` rows | retail plaza_p1 entities 266/299/325 = `.dat` npc 11/44/70 | not yet checked in the client |
 | `36ca0a4` | mob movement `0x20` layout (unwired) | fire_bc_v1 13-byte form | — (needs the mob spawner) |
-| `6c94cec` | AuthAck (gameserver + infoserver) echoes the client's password ciphertext as session_data | retail pcap Auth/AuthAck pairs: session_data == Auth ciphertext | stage-1 GetCharList 30 B (was 12 B); client's transport `0x03` carries the account id |
+| `6c94cec` | AuthAck (gameserver + infoserver) echoes the client's password ciphertext as session_data | retail pcap Auth/AuthAck pairs: session_data == Auth ciphertext | login works; did **not** fix the transport `0x03` id (gap 6) |
+| `4bcdf93` | CharList records are 0x49 = 73 bytes (old 41 + 32 new) | retail_b862_1 CharList header `8385 0600 0400 4900` | **verified** (verify_cl73_2): char-select lists the 4 characters with their details; the pass enters the world. With 41-byte records, build 862 showed 4 empty slots and every create overwrote slot 1. Creating into a free slot is not re-tested (msn3wolf's 4 slots are full) |
+| `53af634` | no self `0x03/0x1b` position and no `0x03/0x19/0x04` WorldInfoSrv in the world-entry burst | retail never sends `0x19`; its login `0x03/0x1b` are other entities only (pepper_p1 ids 130–148/173/174) | **verified** (verify_nocorrupt_2): "@WWORLDMGR : Corrupted Message Type:15, Size:21" and "LSTPLAYER : Update Message corrupted Size:12 32" gone from the client error log |
+| `5c3d91a` | CharInfo S1/S13 byte 1 = character kind (charkinds.def id = `MISC_PROFESSION`) | retail Krafteo (Spy Engineer) sends 36 in 5/5 runs, a Tank Driver 20; client parser stores it at charsys+0x54 | **verified** (verify_kind_1): client CHARSYS +0x54 = 10 (Krafteo's profession); "Character Type not found 0" gone |
 
 ## Open gaps
 
@@ -80,17 +83,39 @@ verified against retail bytes, unit tests and a live nc2-bot session.
    transmits is CharInfo as seq 25 — seqs 1–24 were allocated earlier and are
    only delivered through the client's NAK → `0x02`. Ceres streams the world
    straight after the handshake; the client then never sends `0x2a`.
-6. **Wrong id echoed by the client — likely fixed by `6c94cec`.** The
-   client's transport `0x03` (`[03][id LE4][iface][port LE2]`) carried the
-   account id to retail (`bd7e0100`) but a random value to Ceres
-   (`d8572cda`, `c837ea3a`), and its first GetCharList (`0x84 0x82`) was 12
-   bytes to Ceres vs 30 to retail. Ceres's AuthAcks were not echoing the
-   password ciphertext (gameserver sent zeros, infoserver sent length 0) —
-   now they do. Confirm in the client.
-7. **Invented `0x03/0x19/0x04` WorldInfoSrv.** Never in 17 retail captures
-   (727K packets) nor the 44 harness traces; added for the #172 zone cross.
-   Remove once crosses can be checked in the client. Likewise the S→C `0x08`
-   "window primer" after `Zoning2` (retail never sends S→C `0x08`).
+6. **Wrong id echoed by the client — NOT fixed by `6c94cec`.** The
+   client's transport `0x03` (`[03][id LE4][iface][port LE2]`) carries the
+   account id to retail (`bd7e0100`, retail_b862_1) but a random value to
+   Ceres (`3f6ee1f4` in verify_kind_1, after the AuthAck echo). The id must
+   come from another login packet. Find which TCP field retail fills
+   (stage-3 resume, UDPServerData) before changing anything.
+7. **Client self id is 0 with Ceres, 1 with retail.** The client's C→S
+   `0x20` movement carries its own map id: 1 on retail, 0 on Ceres. It
+   doesn't learn its self id from Ceres. Candidates: the `0x25/0x01` self
+   LongPlayerInfo (wrong layout, see P3) or the id from gap 6. Pin it in
+   the client before changing anything.
+8. **S→C `0x08` "window primer" after `Zoning2`.** Retail never sends S→C
+   `0x08`. (The invented `0x19/0x04` WorldInfoSrv that used to sit here is
+   gone, see `53af634`.)
+
+### P2b — world-entry burst content
+
+9. **Raw `0x1b` interest management.** Retail sends the ~1/s raw `0x1b` only
+   for NPCs near the player: 12 entities in pepper_p1 vs 24 from Ceres
+   (everything in the zone).
+10. **Static world objects.** Retail's login burst carries `0x03/0x1b` for
+    ids 130–148 and 173/174 in pepper_p1, static world objects that Ceres
+    doesn't send at all. Identify them in the zone `.dat` (doors, terminals,
+    …) before emitting anything.
+11. **`0x03/0x25/0x01` LongPlayerInfo layout.** Retail self (65 B,
+    retail_b862_1): `25 [map LE2] [charId LE4] 00` + a fixed 22-byte
+    appearance-slot array that matches the `0x2f` slot sizes
+    (`1b00 26 0000 00 00 d6 21 0b 04 00 2201 3c00 ffff 0504 6004`) + 8 zeros +
+    the model block `0f [head LE2] [tex×3] 00×6 [torso LE2] [leg LE2]` +
+    `[len] name\0` + `00 00`. Ceres writes TinNS-era constants
+    (`08 09 6c 02 40 40 c4 3c 00 [faction] 00 ffffffff ffff [hair] [beard]
+    ffffffff`) in place of the slot array and appends `04 [cash LE4]`.
+    Needs the per-character appearance slots (same data gap as `0x2f`).
 
 ### P3 — remaining retail-only traffic (context-specific)
 
@@ -106,7 +131,7 @@ verified against retail bytes, unit tests and a live nc2-bot session.
 | raw `0x32`, `0x03/0x32` | 2 / 1 | subway |
 | raw `0x01` (server-side NAK) | 4 | |
 | `0x03/0x2f` login form | 73–79 B | framing matches (value size is per slot, see `udp_s2c_03_2f.md`); Ceres hardcodes appearance slots 1/5/8 (`07`/`8a`/`01`) and omits 0/3/4/6/7 — needs the per-character appearance data |
-| `0x03/0x25/0x01` | 68/73 B | Ceres 67/70 B (one byte short) |
+| `0x03/0x25/0x01` | 65/68/73 B | different layout, see gap 11 |
 | `0x03/0x07` fragments | 1015 B | multipart fragment size |
 | C→S `0x03/0x1f/0x1e`, `/0x17`, `/0x27`, `/0x32`, raw `0x32`, raw `0x1f/0x15`, raw `0x07` | | item use, object use, dialog close, subway… — client features not exercised against Ceres in the corpus |
 
@@ -114,16 +139,27 @@ Not gaps: raw `0x1f/0x55` ↔ `0x56` is a mob poll (`1f cf03 55` → `…56
 00000000`, fire_bc_v1) already implemented as `InteractionPoll`/`Ack`; it will
 appear once mobs exist.
 
-## Restoring live verification
+## Live verification
 
-1. Reinstall the client somewhere writable (the launcher's CDN updater,
-   `cdn.neocron-game.com/apps/nc2retail/files`) and point
-   `NC2_CLIENT_PATH` / the launcher `installDir` at it. Until then the server
-   runs from the May-03 defs copy:
-   `NC2_CLIENT_PATH=$PWD/../tools/tmp/home/javier/Neocron2 docker compose up -d`.
-2. Copy the x64 harness binaries from `tools/frida_re/launcher-addon/`
-   (`dinput8.dll`, `frida-gadget.asi`) into the game dir and write the same
-   JSON as `frida-gadget.config` (frida derives the config name from the
-   gadget's — `.config.json` is never read).
-3. `run_pass.sh ceres <id>` + `run_pass.sh retail <id>`, then
-   `trace_diff.py` / `corpus_gap.py`.
+```bash
+cd tools/frida_re/scripts
+PROTON_BIN=~/.local/share/Steam/compatibilitytools.d/GE-Proton10-34/proton \
+  /home/javier/Documents/Projects/Neocron/bin/python3 run_pass.py ceres <id>
+```
+
+- Use the project-root venv (it has `frida` 17.9.11). Pin GE-Proton10-34:
+  `launch_nc2.sh` otherwise picks the newest by mtime.
+- The pass installs the gadget into the game dir and removes it at teardown
+  (`0ce0dcf`), so normal launches aren't stalled by the ASI loader. Use
+  `FRIDA_RE_KEEP_GADGET=1` to keep it.
+- **Test character mismatch:** Ceres Krafteo is a PE Assassin (profession
+  10, models 700/800/900), retail Krafteo a Spy Engineer (36, 720/820/920).
+  CharInfo / `0x25` / `0x2f` A/B diffs differ for that reason alone.
+- About half the passes crash inside DXVK d3d9 when a screenshot follows a
+  device reset (char select → world). Skip screenshots before world entry
+  and retry a crashed pass.
+- The game dir's ReShade `d3d9.dll` and add-ons are 32-bit, so they don't
+  load in the 64-bit client (no effect on the harness).
+- After a client update, re-capture `run_pass.py retail` and diff the TCP
+  login first. Inbound TCP lands in `trace.jsonl` as `udp_recv` with
+  `decrypt=FAIL` and the raw `wire_hex`.
