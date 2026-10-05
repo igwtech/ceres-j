@@ -45,3 +45,6 @@ docs/protocol/_data/timelines/
 
 # arbor research-session lock (the session notes themselves are tracked)
 .arbor/**/.state.lock
+
+# Downloaded frida-gadget releases (fetched by setup / harness repair)
+tools/frida_re/.cache/
