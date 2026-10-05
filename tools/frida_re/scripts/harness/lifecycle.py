@@ -173,4 +173,23 @@ class Lifecycle:
             self._orch.terminate()
         self._pkill("neocronclient.exe")
         self._pkill("proton run .*neocronclient")
+        self.remove_gadget()
         self._log(f"artifacts in: {self.run_dir}")
+
+    # Installed by launch_nc2.sh for the run. Left in place, every normal
+    # launch of the game goes through the ASI loader and the gadget
+    # (on_load=wait) stalls startup until an orchestrator attaches.
+    GADGET_FILES = ("dinput8.dll", "frida-gadget.asi",
+                    "frida-gadget.config", "frida-gadget.config.json")
+
+    def remove_gadget(self):
+        if os.environ.get("FRIDA_RE_KEEP_GADGET") == "1":
+            return
+        time.sleep(2)   # let the killed client release its mappings
+        for f in self.GADGET_FILES:
+            try:
+                os.remove(os.path.join(self.nc2_dir, f))
+            except FileNotFoundError:
+                pass
+        self._log("removed gadget files from the game dir "
+                  "(FRIDA_RE_KEEP_GADGET=1 keeps them)")

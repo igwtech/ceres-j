@@ -80,6 +80,9 @@ if (( needs_install )); then
         fi
     done
 fi
+# frida derives the config name from the gadget's own (frida-gadget.asi ->
+# frida-gadget.config); the .config.json copy is never read.
+cp "$NC2_DIR/frida-gadget.config.json" "$NC2_DIR/frida-gadget.config"
 
 # Stable compat path so the Wine prefix persists across runs.
 mkdir -p "$COMPAT_DATA_PATH"
