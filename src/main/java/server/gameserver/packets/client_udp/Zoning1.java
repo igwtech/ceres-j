@@ -268,19 +268,6 @@ public class Zoning1 extends GamePacketDecoderUDP {
                         .PlayerCharacter.MISC_Z_COORDINATE, entry[2]);
                 }
 
-                // City-sector walk-cross: retail sends NO server self-
-                // position (RETAIL_PLAZA_TO_PEPPER_CROSS_DISTRICT pcap;
-                // zone_portal_params.md §7). Mark this so the cross-
-                // reconnect's world-state burst suppresses its self-
-                // PlayerPositionUpdate and the client self-positions from
-                // local .dat geometry — instead of Ceres pushing stale
-                // source-zone coords (the task #174 "reset to map
-                // centre"). Wasteland/outdoor (>=2001) is unaffected: it
-                // still uses the coord mirror above.
-                boolean cityCross = server.gameserver.ZoneBoundaries
-                        .isIndexedCitySector(pending);
-                pl.setPendingCityCrossSelfPosSuppress(cityCross);
-
                 pl.updateZone();
                 pl.setPendingZoneId(0);
                 // Persist the location change to the DB IMMEDIATELY
@@ -311,11 +298,7 @@ public class Zoning1 extends GamePacketDecoderUDP {
                     + pending + " for " + pc.getName()
                     + " srcPos=" + cx + "," + cy + "," + cz
                     + " mirrorWouldBe=" + (entry == null ? "(no-op)"
-                        : entry[0] + "," + entry[1] + "," + entry[2])
-                    + (cityCross
-                        ? " [CITY cross — self-pos push SUPPRESSED,"
-                          + " client self-positions (retail-faithful)]"
-                        : " [outdoor/other — default path]"));
+                        : entry[0] + "," + entry[1] + "," + entry[2]));
             }
         }
     }

@@ -12,7 +12,6 @@ import server.gameserver.packets.server_udp.InitSoullight02;
 import server.gameserver.packets.server_udp.InitUpdateModel02;
 import server.gameserver.packets.server_udp.InitWeather02;
 import server.gameserver.packets.server_udp.LongPlayerInfo;
-import server.gameserver.packets.server_udp.PlayerPositionUpdate;
 import server.gameserver.packets.server_udp.PositionUpdate;
 import server.gameserver.packets.server_udp.TimeSync;
 import server.gameserver.packets.server_udp.UDPAlive;
@@ -161,21 +160,11 @@ public class WorldEntryEvent extends DummyEvent {
         safeSend(pl, () -> new InitUpdateModel02(pl), "0x02 UpdateModel (appearance)");
         safeSend(pl, () -> new InitSoullight02(pl), "0x02 Soullight (soul energy=100.0)");
 
-        // ── Worldserver handoff staging (gamedata 0x19/0x04) ────────
-        // Populates the client's worldserver IP/port. On this initial
-        // entry the client is NOT yet in world-change mode (+0x144==0),
-        // so its 0x19/0x04 handler stages the address into +0x28c… for
-        // the NEXT world-change (a zone cross) to copy into +0x2cc/
-        // +0x2d0 — the fields the "Joining session" connect() uses.
-        // Without this the client reaches Joining-session on a
-        // plaza_p1→plaza_p3 / p2 cross with uninitialised worldserver
-        // fields, logs "@PWORLDHOST Connect to <garbage>, 12000" /
-        // "Connecting to WorldServer failed", times out ~15 s and
-        // reverts to the source zone. WorldInfoSrv was fully
-        // implemented + documented but never wired anywhere — this is
-        // the missing send. See WorldInfoSrv javadoc + task #172.
-        safeSend(pl, () -> new server.gameserver.packets.server_udp
-                .WorldInfoSrv(pl), "WorldInfoSrv (0x19/0x04 handoff)");
+        // No 0x19/0x04 WorldInfoSrv: retail never sends 0x19 (0 of 727K
+        // catalog packets / 44 harness traces), and client build 862
+        // rejects it as "@WWORLDMGR : Corrupted Message Type:15, Size:21"
+        // (Type 0x0F has no dispatcher case) — harness look_fixed1,
+        // 2026-10-04.
 
         // ── Phase 3: InfoResponse + TimeSync (retail pkt #11) ────────
         // InfoResponse zone variant (0x03→0x23): 20 00 [worldflags
@@ -208,23 +197,12 @@ public class WorldEntryEvent extends DummyEvent {
 
         // The player's own long/short info + position.
         safeSend(pl, () -> new LongPlayerInfo(pl, pc, mapId), "LongPlayerInfo (self)");
-        // The 0x03/0x1b self-position is what OVERRIDES the client's own
-        // seam self-positioning. RETAIL_PLAZA_TO_PEPPER_CROSS_DISTRICT
-        // shows retail sends NO self-position after a city walk-cross
-        // (zone_portal_params.md §7); Ceres pushing the stale source-zone
-        // coords here is the task #174 "spawn reset to map centre". For a
-        // city cross, suppress the self-position and let the client
-        // self-position from local .dat geometry (the StartPos above
-        // still keeps the client off the splash). Fresh logins and
-        // wasteland/outdoor are unaffected.
-        if (pl.isPendingCityCrossSelfPosSuppress()) {
-            Out.writeln(Out.Info,
-                "WorldEntryEvent: city walk-cross — suppressing self"
-                + " PlayerPositionUpdate (client self-positions,"
-                + " retail-faithful) for " + pc.getName());
-        } else {
-            safeSend(pl, () -> new PlayerPositionUpdate(pl, pc, mapId), "PlayerPositionUpdate (self)");
-        }
+        // No 0x03/0x1b PlayerPositionUpdate for self: retail's login burst
+        // sends 0x03/0x1b only for other entities (ids 130-148/173/174 in
+        // pepper_p1, never the client's self id 1), and client build 862
+        // rejects a self one as "LSTPLAYER : Update Message corrupted
+        // Size:12 32" (harness look_fixed1, 2026-10-04). The client
+        // self-positions from the StartPos above.
 
         // ── Phase 4: UpdateModel (retail sends via 0x02 wrapper, we use 0x03) ──
         safeSend(pl, () -> new UpdateModel(pl), "UpdateModel");
@@ -319,21 +297,6 @@ public class WorldEntryEvent extends DummyEvent {
         // the incoming handshake with the right player, which is the only
         // disambiguation we have for multi-boxed clients on the same IP.
         pl.markHandoffPending();
-
-        // The city-cross self-position suppression flag is single-shot:
-        // it must only affect the one world-state burst triggered by the
-        // SZoning1Confirm that set it. Clear it now that this burst has
-        // run, so a later non-cross re-entry (genrep / relog / fresh
-        // login that does NOT route through Zoning1) still gets its
-        // authoritative self-position. Outdoor crosses already clear it
-        // implicitly (Zoning1 calls setPendingCityCrossSelfPosSuppress
-        // (false) for worldId >= 2001); this closes the city-cross leak.
-        if (pl.isPendingCityCrossSelfPosSuppress()) {
-            pl.clearPendingCityCrossSelfPosSuppress();
-            Out.writeln(Out.Info,
-                "WorldEntryEvent: city walk-cross self-pos suppression"
-                + " consumed and cleared for " + pc.getName());
-        }
 
         // ── Retail-faithful death persistence (task #202 / #210) ──
         // If the character was persisted dead (cur HP ≤ 0), re-emit
