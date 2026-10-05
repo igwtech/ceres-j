@@ -42,3 +42,6 @@ docs/.~lock.*
 
 # Auto-generated per-capture timelines (large, regenerable from pcaps)
 docs/protocol/_data/timelines/
+
+# arbor research-session lock (the session notes themselves are tracked)
+.arbor/**/.state.lock
