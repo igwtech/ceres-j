@@ -37,6 +37,7 @@ id is given (`tools/frida_re/runs/<id>/`).
 | `4bcdf93` | CharList records are 0x49 = 73 bytes (old 41 + 32 new) | retail_b862_1 CharList header `8385 0600 0400 4900` | **verified** (verify_cl73_2): char-select lists the 4 characters with their details; the pass enters the world. With 41-byte records, build 862 showed 4 empty slots and every create overwrote slot 1. Creating into a free slot is not re-tested (msn3wolf's 4 slots are full) |
 | `53af634` | no self `0x03/0x1b` position and no `0x03/0x19/0x04` WorldInfoSrv in the world-entry burst | retail never sends `0x19`; its login `0x03/0x1b` are other entities only (pepper_p1 ids 130–148/173/174) | **verified** (verify_nocorrupt_2): "@WWORLDMGR : Corrupted Message Type:15, Size:21" and "LSTPLAYER : Update Message corrupted Size:12 32" gone from the client error log |
 | `5c3d91a` | CharInfo S1/S13 byte 1 = character kind (charkinds.def id = `MISC_PROFESSION`) | retail Krafteo (Spy Engineer) sends 36 in 5/5 runs, a Tank Driver 20; client parser stores it at charsys+0x54 | **verified** (verify_kind_1): client CHARSYS +0x54 = 10 (Krafteo's profession); "Character Type not found 0" gone |
+| `d11ad98` | login world entry waits for the client's raw `0x2a` init request (3 s fallback) | retail_b862_1: `0x2a` at +59 ms, first reliable at +260 ms; Ceres runs never saw `0x2a` and the client kept map id 0 | **verified** (verify_pull_1): `0x2a` at +57 ms, client uses map id 1 in `0x20`/`0x1f` |
 
 ## Open gaps
 
@@ -77,23 +78,27 @@ id is given (`tools/frida_re/runs/<id>/`).
 
 ### P2 — login / session
 
-5. **Init burst is pulled in retail.** HANNIBAL (from t=0): server sends no
-   `0x13` until the client answers `0x04` with transport `0x03` and sends raw
-   `0x0b` + raw `0x2a` RequestInitBurst + raw `0x0c`; the first reliable it
-   transmits is CharInfo as seq 25 — seqs 1–24 were allocated earlier and are
-   only delivered through the client's NAK → `0x02`. Ceres streams the world
-   straight after the handshake; the client then never sends `0x2a`.
-6. **Wrong id echoed by the client — NOT fixed by `6c94cec`.** The
-   client's transport `0x03` (`[03][id LE4][iface][port LE2]`) carries the
-   account id to retail (`bd7e0100`, retail_b862_1) but a random value to
-   Ceres (`3f6ee1f4` in verify_kind_1, after the AuthAck echo). The id must
-   come from another login packet. Find which TCP field retail fills
-   (stage-3 resume, UDPServerData) before changing anything.
-7. **Client self id is 0 with Ceres, 1 with retail.** The client's C→S
-   `0x20` movement carries its own map id: 1 on retail, 0 on Ceres. It
-   doesn't learn its self id from Ceres. Candidates: the `0x25/0x01` self
-   LongPlayerInfo (wrong layout, see P3) or the id from gap 6. Pin it in
-   the client before changing anything.
+5. **Init burst — mostly fixed by `d11ad98`.** Retail sends no `0x13`
+   until the client has answered `0x04` and sent raw `0x2a` init request +
+   `0x0c`. Ceres now waits for that `0x2a` too (3 s fallback). Still
+   different: retail allocates reliable seqs before the burst (its first
+   delivered reliable is seq 12–25, the rest come through NAK → `0x02`),
+   and Ceres answers the client's three `0x01` with up to six same-key
+   `0x04` (retail: one, retried only if unanswered).
+6. **Random id in the client's transport `0x03` — open, low impact.**
+   `[03][id LE4][iface][port LE2]` carries the account id to retail
+   (`bd7e0100`) but a random value to Ceres. Ruled out in the real client
+   (2026-10-10): the `0x83/0x05` field after the port (`00008300` → zeros,
+   exp_flags0b), the account id's size (account id 98046, exp_acct98046),
+   and TCP batching (UDPServerData sent 200 ms after SessionReady,
+   exp_delay8305). The value sits in client memory just before a
+   high-entropy block (exp_echo1), so it looks client-generated. It stays
+   random even in runs where the client's `0x2a` carries account id 2.
+   Ceres doesn't use it.
+7. **Client self id 0 vs 1 — fixed by `d11ad98`.** The client assigns
+   itself map id 1 only after sending its `0x2a` init request, which it
+   never did while Ceres pushed the world unasked (verify_pull_1:
+   `20 0100` and `1f 0100` like retail).
 8. **S→C `0x08` "window primer" after `Zoning2`.** Retail never sends S→C
    `0x08`. (The invented `0x19/0x04` WorldInfoSrv that used to sit here is
    gone, see `53af634`.)
@@ -147,6 +152,8 @@ PROTON_BIN=~/.local/share/Steam/compatibilitytools.d/GE-Proton10-34/proton \
   /home/javier/Documents/Projects/Neocron/bin/python3 run_pass.py ceres <id>
 ```
 
+- `login_pass.py ceres <id> [--scan-uid UID]` is the short check: login,
+  wait in-world, one screenshot, optional CHARSYS scan.
 - Use the project-root venv (it has `frida` 17.9.11). Pin GE-Proton10-34:
   `launch_nc2.sh` otherwise picks the newest by mtime.
 - The pass installs the gadget into the game dir and removes it at teardown
