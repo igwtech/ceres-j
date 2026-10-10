@@ -38,6 +38,8 @@ id is given (`tools/frida_re/runs/<id>/`).
 | `53af634` | no self `0x03/0x1b` position and no `0x03/0x19/0x04` WorldInfoSrv in the world-entry burst | retail never sends `0x19`; its login `0x03/0x1b` are other entities only (pepper_p1 ids 130–148/173/174) | **verified** (verify_nocorrupt_2): "@WWORLDMGR : Corrupted Message Type:15, Size:21" and "LSTPLAYER : Update Message corrupted Size:12 32" gone from the client error log |
 | `5c3d91a` | CharInfo S1/S13 byte 1 = character kind (charkinds.def id = `MISC_PROFESSION`) | retail Krafteo (Spy Engineer) sends 36 in 5/5 runs, a Tank Driver 20; client parser stores it at charsys+0x54 | **verified** (verify_kind_1): client CHARSYS +0x54 = 10 (Krafteo's profession); "Character Type not found 0" gone |
 | `d11ad98` | login world entry waits for the client's raw `0x2a` init request (3 s fallback) | retail_b862_1: `0x2a` at +59 ms, first reliable at +260 ms; Ceres runs never saw `0x2a` and the client kept map id 0 | **verified** (verify_pull_1): `0x2a` at +57 ms, client uses map id 1 in `0x20`/`0x1f` |
+| `3fb7e31` | one UDPAlive `0x04` per session key, retried only while unanswered (all send sites gated) | retail: one `0x04`, retried 3.0–3.6 s later only if unanswered; Ceres sent up to 6 and the late one restarted the client's reliable seq | **verified** (verify_alive1_1): one `0x04`, no seq restart, 0 NAK / 0 retransmit |
+| `6012074` | `0x0b` ping and `0x0d` TimeSync share one server clock (epoch = JVM start on an in-game midnight) | retail_b862_1: both carry one ms clock; Ceres sent 0/1/309 vs ~2.8M and the client logged "PHFrame went backwards" | **verified** (verify_clock_2): one timeline; HUD 08:59 as predicted (HUD = server_time mod 8,640,000 ms) |
 
 ## Open gaps
 
@@ -82,9 +84,8 @@ id is given (`tools/frida_re/runs/<id>/`).
    until the client has answered `0x04` and sent raw `0x2a` init request +
    `0x0c`. Ceres now waits for that `0x2a` too (3 s fallback). Still
    different: retail allocates reliable seqs before the burst (its first
-   delivered reliable is seq 12–25, the rest come through NAK → `0x02`),
-   and Ceres answers the client's three `0x01` with up to six same-key
-   `0x04` (retail: one, retried only if unanswered).
+   delivered reliable is seq 12–25, the rest come through NAK → `0x02`).
+   The six same-key `0x04` Ceres sent at handshake are fixed by `3fb7e31`.
 6. **Random id in the client's transport `0x03` — open, low impact.**
    `[03][id LE4][iface][port LE2]` carries the account id to retail
    (`bd7e0100`) but a random value to Ceres. Ruled out in the real client
