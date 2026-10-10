@@ -48,6 +48,22 @@ Samples (first 32 bytes inner data):
 
 <!-- /catalog-evidence -->
 
+## Login init request (2026-10-10)
+
+The id at `[1..4]` is the **account id**, not a character uid: retail
+`0x00017ebd` equals the account field of TCP `0x83/0x05` UDPServerData
+(that character is `0x0001865a`), and against Ceres the client sends
+account id 2. The tables below keep the original "character_uid" name.
+
+At login the client sends `0x2a` + `0x0c` right after answering the
+UDPAlive `0x04`, and retail sends nothing on `0x13` until then
+(retail_b862_1: `0x2a` at +59 ms, first reliable at +260 ms). The client
+sends it only while its world hasn't arrived, and only then assigns
+itself map id 1. When Ceres pushed the world straight after the
+handshake the client never sent `0x2a` and kept map id 0 in its own
+`0x20` / `0x03/0x1f`. Ceres now waits for it (`HandshakeUDP`,
+`InitRequestFallback`, harness verify_pull_1).
+
 ## Structure
 
 Byte-pinned task #169 from **98 C→S bare-outer 0x2a sub-packets**

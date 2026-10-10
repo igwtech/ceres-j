@@ -5,6 +5,7 @@ import server.gameserver.packets.GamePacketDecoderUDP;
 import server.gameserver.packets.server_udp.CharInfo;
 import server.gameserver.packets.server_udp.InfoResponse;
 import server.gameserver.packets.server_udp.PositionUpdate;
+import server.gameserver.internalEvents.WorldEntryEvent;
 import server.tools.Out;
 
 /**
@@ -12,12 +13,27 @@ import server.tools.Out;
  * the client asking the server to re-deliver its own state (a
  * resync trigger).
  *
+ * <p><b>Login init request.</b> The client sends {@code 0x2a} (plus a
+ * {@code 0x0c}) right after answering the UDPAlive, and retail starts
+ * the world stream only then (retail_b862_1: {@code 0x2a} at +59 ms, first
+ * reliable at +260 ms). The client sends it only while its world hasn't
+ * arrived yet, and only then assigns itself map id 1; with the world
+ * pushed unasked it never sent {@code 0x2a} and kept map id 0 in its
+ * {@code 0x20}/{@code 0x1f}. The first one after the handshake therefore
+ * starts the {@link WorldEntryEvent} (see {@code HandshakeUDP},
+ * {@code InitRequestFallback}).
+ *
+ * <p><b>The id at [1..4] is the account id</b>, not a character uid:
+ * retail {@code 0x00017ebd} is the account field of {@code 0x83/0x05}
+ * UDPServerData (the character is {@code 0x0001865a}), and against Ceres
+ * the client sends account id 2.
+ *
  * <h2>Wire layout (byte-pinned from 98 retail C&rarr;S observations,
  * 17/17 retail captures &mdash; task #169)</h2>
  *
  * <pre>
  * [0]       0x2a                  sub-opcode (all 98 samples)
- * [1..4]    character_uid  LE32   session-stable per character
+ * [1..4]    account_id     LE32   (called character_uid below)
  * [5..15]   request_token  11 B   opaque request identifier
  *                                  (only present in the 16-byte form)
  * </pre>
@@ -57,6 +73,9 @@ import server.tools.Out;
 public class RequestPositionUpdate extends GamePacketDecoderUDP  {
 
 	/** -1 when the body was too short to carry a UID. */
+	/** retail_b862_1: 0x2a at +59 ms after the 0x04, first reliable at +260 ms. */
+	static final long INIT_REPLY_DELAY_MS = 200;
+
 	private final long characterUid;
 	/** {@code null} when the 5-byte header-only form was sent. */
 	private final byte[] requestToken;
@@ -113,6 +132,14 @@ public class RequestPositionUpdate extends GamePacketDecoderUDP  {
 		Out.writeln(Out.Info, sb.toString());
 
 		if (pl == null) return;
+
+		// Login: this is the init request the world entry waits for
+		// (HandshakeUDP). Retail sends the first reliable ~0.2 s after it.
+		if (pl.consumeAwaitingInitRequest()) {
+			Out.writeln(Out.Info, "RequestPos: init request, starting world entry");
+			pl.addEvent(new WorldEntryEvent(INIT_REPLY_DELAY_MS));
+			return;
+		}
 
 		pl.send(new PositionUpdate(pl));
 		//TODO this is just a workaround

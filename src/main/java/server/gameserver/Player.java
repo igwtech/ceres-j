@@ -70,6 +70,9 @@ public class Player extends Thread {
 	// the second Answer2 skip re-scheduling WorldEntryEvent while still
 	// allowing a zone-handoff reconnect (seconds later) to re-run it.
 	private long lastWorldEntryAt = 0L;
+	// Login world entry is pulled: the client asks with a raw 0x2a init
+	// request after answering the UDPAlive (see RequestPositionUpdate).
+	private boolean awaitingInitRequest = false;
 	// Zone-handoff suppression: when the client reconnects from a new
 	// port after BSP load, we suppress handshake (0x01) and sync (0x03)
 	// packets until the first gamedata (0x13) arrives. Retail never has
@@ -504,6 +507,18 @@ public class Player extends Thread {
 	public void clearHandoffPending() {
 		handoffPending = false;
 		handoffPendingAt = 0L;
+	}
+
+	public synchronized void setAwaitingInitRequest(boolean awaiting) {
+		this.awaitingInitRequest = awaiting;
+	}
+
+	/** Clears the flag and reports whether it was set, so exactly one of
+	 *  the init request and its fallback timer starts the world entry. */
+	public synchronized boolean consumeAwaitingInitRequest() {
+		boolean was = awaitingInitRequest;
+		awaitingInitRequest = false;
+		return was;
 	}
 
 	public long getLastWorldEntryAt() {

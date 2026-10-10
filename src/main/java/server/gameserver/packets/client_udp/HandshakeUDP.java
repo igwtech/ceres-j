@@ -104,8 +104,14 @@ public class HandshakeUDP extends GamePacketDecoderUDP {
                 pl.addEvent(new server.gameserver.internalEvents.ZoneStateHeartbeat());
                 pl.addEvent(new server.gameserver.internalEvents.PoolStatusHeartbeat());
             } else {
-                Out.writeln(Out.Info, "HandshakeUDPAnswer2: first login, scheduling world entry");
-                pl.addEvent(new WorldEntryEvent());
+                // Retail pulls the world entry: wait for the client's raw
+                // 0x2a init request (RequestPositionUpdate). The client only
+                // sends it while its world hasn't arrived, and only then
+                // assigns itself map id 1 (its 0x20/0x1f carried 0 when
+                // Ceres pushed the world unasked).
+                Out.writeln(Out.Info, "HandshakeUDPAnswer2: first login, waiting for the 0x2a init request");
+                pl.setAwaitingInitRequest(true);
+                pl.addEvent(new server.gameserver.internalEvents.InitRequestFallback());
             }
         }
     }
