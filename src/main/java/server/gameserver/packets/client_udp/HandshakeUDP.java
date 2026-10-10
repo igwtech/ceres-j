@@ -45,7 +45,10 @@ public class HandshakeUDP extends GamePacketDecoderUDP {
         }
 
         public void execute(Player pl) {
-            pl.send(new UDPAlive(pl));
+            // One 0x04 per session (each 0x01 schedules one of these).
+            if (pl.getUdpConnection().claimAliveSend(Timer.getRealtime())) {
+                pl.send(new UDPAlive(pl));
+            }
             if (!pl.getUdpConnection().getHandshakingState()) {
                 pl.getUdpConnection().setHandshakingState(true);
                 pl.addEvent(new HandshakeUDPAnswer2());
@@ -87,9 +90,12 @@ public class HandshakeUDP extends GamePacketDecoderUDP {
             pl.getUdpConnection().setHandshakingState(false);
             pl.setloggedin();
 
-            // Ack the handshake so the client stops retransmitting.
+            // Ack the handshake so the client stops retransmitting —
+            // unless this session's 0x04 already went out.
             try {
-                pl.send(new UDPAlive(pl));
+                if (pl.getUdpConnection().claimAliveSend(now)) {
+                    pl.send(new UDPAlive(pl));
+                }
             } catch (Exception e) {
                 Out.writeln(Out.Error, "UDPAlive (handshake ack) failed: " + e.getMessage());
             }

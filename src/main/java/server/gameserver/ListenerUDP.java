@@ -166,7 +166,9 @@ public final class ListenerUDP extends Thread {
 					connectionsList.add(con);
 					// Send UDPAlive to acknowledge the connection
 					try {
-						con.send(new UDPAlive(pl));
+						if (con.claimAliveSend(server.tools.Timer.getRealtime())) {
+							con.send(new UDPAlive(pl));
+						}
 						Out.writeln(Out.Info, "UDP: sent UDPAlive to " + dp.getAddress().getHostAddress() + ":" + dp.getPort());
 					} catch (Exception e) {
 						Out.writeln(Out.Error, "UDP: failed to send UDPAlive: " + e.getMessage());

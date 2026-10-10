@@ -111,7 +111,12 @@ public class WorldEntryEvent extends DummyEvent {
                 + pc.getName() + " mapId=" + mapId);
 
         // ── Keepalive ─────────────────────────────────────────────────
-        safeSend(pl, () -> new UDPAlive(pl), "UDPAlive (pre-stream)");
+        // Only if this session's 0x04 hasn't gone out / been answered: a
+        // same-key 0x04 after the client's answer restarts its reliable seq.
+        if (pl.getUdpConnection() != null
+                && pl.getUdpConnection().claimAliveSend(Timer.getRealtime())) {
+            safeSend(pl, () -> new UDPAlive(pl), "UDPAlive (pre-stream)");
+        }
 
         // ── NO reliable window-init primer on the LOGIN path ──────────
         // REVERTED 2026-05-31 (reverse-engi2). A prior fix emitted a

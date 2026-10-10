@@ -95,7 +95,9 @@ public class UDPAliveHeartbeat extends DummyEvent {
         }
 
         try {
-            pl.send(new UDPAlive(pl));
+            if (con.claimAliveSend(Timer.getRealtime())) {
+                pl.send(new UDPAlive(pl));
+            }
         } catch (Exception e) {
             Out.writeln(Out.Error,
                     "UDPAliveHeartbeat: send failed: "

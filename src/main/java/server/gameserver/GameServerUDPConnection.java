@@ -101,6 +101,27 @@ public class GameServerUDPConnection {
 		aliveAcked = true;
 	}
 
+	/** Shortest spacing between two 0x04 of one session (retail retries an
+	 *  unanswered UDPAlive after 3.0-3.6 s; UDPAliveHeartbeat uses 3 s). */
+	public static final long ALIVE_RETRY_MIN_MS = 2500;
+
+	private long aliveSentAt = 0L;
+
+	/**
+	 * Gate for every UDPAlive ({@code 0x04}) of the current session key.
+	 * Retail sends it once and repeats it only as a ~3 s retry while the
+	 * client hasn't answered; the client treats each same-key 0x04 as a new
+	 * session and restarts its reliable seq (verify_pull_1: Ceres's
+	 * world-entry 0x04 arrived after the answer and the client re-sent seq 1).
+	 * Returns true (and records the send) when a 0x04 may go out now.
+	 */
+	public synchronized boolean claimAliveSend(long now) {
+		if (aliveAcked) return false;
+		if (aliveSentAt != 0L && now - aliveSentAt < ALIVE_RETRY_MIN_MS) return false;
+		aliveSentAt = now;
+		return true;
+	}
+
 	public short getUdp13Sessionkey() {
 		return udp13Sessionkey;
 	}
@@ -222,6 +243,7 @@ public class GameServerUDPConnection {
 		reliableRing.clear();
 		handshakingState = false;
 		aliveAcked = false;
+		aliveSentAt = 0L;
 		return udp13Sessionkey;
 	}
 
