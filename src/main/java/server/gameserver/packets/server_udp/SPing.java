@@ -2,7 +2,6 @@ package server.gameserver.packets.server_udp;
 
 import server.gameserver.Player;
 import server.networktools.PacketBuilderUDP13;
-import server.tools.Timer;
 
 /**
  * Server's reply to a {@code 0x0b CPing} from the client.
@@ -13,6 +12,8 @@ import server.tools.Timer;
  *   [0x13][counter LE2][counter+sessionkey LE2][sub_len=9 LE2]
  *   [0x0b][server_time LE4][client_time echo LE4]
  * </pre>
+ * server_time is {@link TimeSync#serverTimeMs()}: retail's 0x0b and 0x0d
+ * carry the same ms clock.
  * The outer counter is the current reliable counter, not consumed —
  * exactly what {@link PacketBuilderUDP13} writes.
  *
@@ -34,7 +35,8 @@ public class SPing extends PacketBuilderUDP13 {
 	public SPing(int clienttime, Player pl) {
 		super(pl);
 		write(0x0b);
-		writeInt(Timer.getIngametime() + 10);
+		// Same clock as the 0x0d TimeSync (retail shares one ms clock).
+		writeInt(TimeSync.serverTimeMs());
 		writeInt(clienttime);
 	}
 }

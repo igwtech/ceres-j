@@ -206,4 +206,19 @@ public class TimeSyncByteIdentityTest {
         TimeSync.setClockForTesting(100L, () -> 100L + 42L);
         assertEquals(42, TimeSync.serverTimeMs());
     }
+
+    @Test
+    public void inGameTimeOfDayFollowsTheWallClock() {
+        // The HUD clock is server_time mod IN_GAME_DAY_MS; the epoch sits
+        // on an in-game midnight so that equals wall clock mod the day.
+        TimeSync.resetClockForTesting();
+        long before = System.currentTimeMillis();
+        long st = TimeSync.serverTimeMs() & 0xFFFFFFFFL;
+        long after = System.currentTimeMillis();
+        long day = TimeSync.IN_GAME_DAY_MS;
+        long lo = Math.floorMod(before, day), hi = Math.floorMod(after, day);
+        long got = st % day;
+        org.junit.Assert.assertTrue("got " + got + " want " + lo + ".." + hi,
+                lo <= hi ? (got >= lo && got <= hi) : (got >= lo || got <= hi));
+    }
 }

@@ -692,7 +692,7 @@ public class PcapReplayTest {
         }
         // 0x0b SPing reply: ALL body bytes (1..8) are session-
         // derived for harness purposes:
-        //   - bytes 1..4 = server_time LE32 (Timer.getIngametime() —
+        //   - bytes 1..4 = server_time LE32 (TimeSync.serverTimeMs() —
         //     wall-clock derived, can never match retail).
         //   - bytes 5..8 = "client_time echo" in Ceres-J's emit, but
         //     retail's matching field doesn't always equal the
@@ -729,7 +729,7 @@ public class PcapReplayTest {
         }
         // 0x03/0x0d TimeSync — body bytes 1..4 (= wire offset
         // 4..7) are the server_time LE32, derived from
-        // Timer.getIngametime() at emit-time. Test fixture's Timer
+        // TimeSync.serverTimeMs() at emit-time. Test fixture's clock
         // state ≠ retail's. Body bytes 9..12 (= wire offset 12..15)
         // are the trailing world/zone tag — bytes 9..10 are
         // CONSTANT (0xd5 0x0a) but bytes 11..12 vary per session

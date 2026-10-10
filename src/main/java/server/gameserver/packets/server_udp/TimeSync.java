@@ -58,11 +58,24 @@ public class TimeSync extends PacketBuilderUDP1303 {
 			(byte) 0xd5, 0x0a, 0x20, 0x00
 	};
 
-	/** JVM start time in ms — captured once at class-load. The
-	 *  retail server_time field is "uptime in ms"; using class-load
-	 *  rather than process-start is close enough (within startup
-	 *  drift, < 1s typically). Package-private for test injection. */
-	static volatile long bootMs = System.currentTimeMillis();
+	/** One in-game day in server_time ms. The client's HUD clock is
+	 *  (server_time mod this) scaled to 24 h: 2,489,023 showed ~06:56 and
+	 *  80 s of uptime showed 00:13 (harness verify_pull_1 / verify_clock_1).
+	 *  Same constant as {@link server.tools.Timer#getIngametime()}. */
+	public static final long IN_GAME_DAY_MS = 6L * 24 * 60 * 1000;
+
+	/** Epoch of server_time. Server start (JVM start, not class load: the
+	 *  class loads on the first send, so the first TimeSync used to carry 0
+	 *  or 1, then ~300 at world entry) rounded down to an in-game midnight,
+	 *  so the in-game time of day follows the wall clock across restarts as
+	 *  it did when the 0x0b ping carried {@code Timer.getIngametime()}.
+	 *  Package-private for test injection. */
+	static volatile long bootMs = epochMs();
+
+	private static long epochMs() {
+		long start = java.lang.management.ManagementFactory.getRuntimeMXBean().getStartTime();
+		return start - Math.floorMod(start, IN_GAME_DAY_MS);
+	}
 
 	/** Clock seam — defaults to {@link System#currentTimeMillis()}.
 	 *  Tests inject a fake clock via {@link #setClockForTesting}. */
@@ -78,7 +91,11 @@ public class TimeSync extends PacketBuilderUDP1303 {
 	}
 
 	/** Current server_time value (monotonic ms since boot, truncated
-	 *  to LE32). Exposed for testability + the periodic-push event.
+	 *  to LE32). The one server clock: the 0x0b ping reply ({@link SPing})
+	 *  carries it too. Retail's 0x0d and 0x0b share one ms clock
+	 *  (retail_b862_1: 817,472,137 then 817,473,317 a second later);
+	 *  Ceres sent 0/1 and 309 in 0x0d but ~2.79M in 0x0b, and the client
+	 *  logged "WORLDMGR : PHFrame went backwards by 58 ms".
 	 *
 	 *  <p>Wraps at {@code 2^32 ms ≈ 49.7 days}. The retail server
 	 *  presumably restarts before then; if Ceres-J ever stays up
@@ -101,7 +118,7 @@ public class TimeSync extends PacketBuilderUDP1303 {
 
 	/** Restore production clock. */
 	static void resetClockForTesting() {
-		bootMs = System.currentTimeMillis();
+		bootMs = epochMs();
 		clock = System::currentTimeMillis;
 	}
 }

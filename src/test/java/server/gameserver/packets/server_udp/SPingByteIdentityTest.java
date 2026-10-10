@@ -24,8 +24,8 @@ import server.gameserver.Player;
  * </pre>
  *
  * <p>Sub-packet layout: {@code [0x0b][server_time LE32][client_time LE32]}.
- * The server_time field is consistent with
- * {@code Timer.getIngametime()}'s 6-day-cycle modulo encoding.
+ * The server_time field is the server uptime clock shared with the
+ * 0x0d TimeSync ({@code TimeSync.serverTimeMs()}).
  */
 public class SPingByteIdentityTest {
 
@@ -81,7 +81,7 @@ public class SPingByteIdentityTest {
 
     @Test
     public void serverTimeFieldIsPositiveAndChanges() {
-        // Server time is Timer.getIngametime() + 10 — varies
+        // Server time is the server uptime clock — varies
         // each call. Two consecutive constructions should
         // produce server_time values that are non-decreasing.
         Player pl = PacketTestFixture
@@ -99,18 +99,19 @@ public class SPingByteIdentityTest {
     }
 
     @Test
-    public void serverTimeFitsInIngametimeRange() {
-        // Timer.getIngametime() returns realtime % (6*24*60*1000)
-        // = max ~518,400,000. SPing adds 10 to it. The resulting
-        // LE32 value must fit in this range.
-        Player pl = PacketTestFixture
-                .newPlayerWithFixedSessionKey((short) 0);
-        byte[] dgm = datagramBytes(new SPing(0, pl));
-
-        long time = readLE32(dgm, SUB + 1) & 0xFFFFFFFFL;
-        assertTrue("server_time within 6-day cycle range "
-                + "(got " + time + ")",
-                time > 0 && time < 6L * 24 * 60 * 1000 + 100);
+    public void serverTimeIsTheTimeSyncClock() {
+        // Retail 0x0b and 0x0d share one ms clock (retail_b862_1:
+        // 817,472,137 in 0x0d, 817,473,317 in the 0x0b a second later).
+        TimeSync.setClockForTesting(1_000L, () -> 818_472_137L);
+        try {
+            Player pl = PacketTestFixture
+                    .newPlayerWithFixedSessionKey((short) 0);
+            byte[] dgm = datagramBytes(new SPing(0, pl));
+            assertEquals(818_471_137, readLE32(dgm, SUB + 1));
+            assertEquals(TimeSync.serverTimeMs(), readLE32(dgm, SUB + 1));
+        } finally {
+            TimeSync.resetClockForTesting();
+        }
     }
 
     @Test
